@@ -213,6 +213,31 @@ app.whenReady().then(async()=>{
    $('fillPattern_checker').dispatchEvent(new PointerEvent('pointerover',{bubbles:true}));await new Promise(r=>setTimeout(r,350));const tooltip=!$('studioTooltip').hidden&&$('studioTooltip').textContent==='Checkerboard fill';$('fillPattern_checker').dispatchEvent(new PointerEvent('pointerout',{bubbles:true}));
    return {disabled,checker,undo,stripes,shape,rows,quiet,tooltip,pasteClean:!$('pasteOptions').querySelector('p'),displayClean:!$('displaySettings').textContent.includes('Preview only'),right:$('filledShapeToggle').parentElement.id==='transformTools'};
   })()`);assert.equal(fills.rows,4);for(const [key,value] of Object.entries(fills))if(key!=='rows')assert.ok(value,key);
+  const palettes=await window.webContents.executeJavaScript(`(()=>{
+   showView('palettes');
+   const row=i=>$('palList').children[i];
+   const doomed=paletteLibrary[0],keeper=paletteLibrary[1];
+   const slotsBefore=ensureBankAssets().filter(b=>b.paletteSlots.includes(doomed.id)).length;
+   const partsBefore=[...sprites,...animations].flatMap(g=>g.frames.flatMap(f=>f.parts)).filter(p=>p.paletteId===doomed.id).length;
+   row(0).click();
+   $('palDelete').click();
+   const asksForReplacement=$('palDeleteDialog').open&&!$('palReplacementRow').hidden&&[...$('palReplacement').options].every(o=>o.value!==doomed.id);
+   $('palReplacement').value=keeper.id;$('palDeleteConfirm').click();
+   const gone=!paletteLibrary.includes(doomed);
+   const noDangling=ensureBankAssets().every(b=>b.paletteSlots.every(id=>paletteLibrary.some(p=>p.id===id)))
+    &&[...sprites,...animations].every(g=>g.frames.every(f=>f.parts.every(p=>!p.bankId||paletteLibrary.some(q=>q.id===p.paletteId))));
+   const movedOnto=ensureBankAssets().filter(b=>b.paletteSlots.includes(keeper.id)).length>=slotsBefore;
+   // One undo must restore the palette and every reference to it together.
+   $('bankUndo').click();
+   const restored=paletteLibrary.some(p=>p.id===doomed.id)
+    &&ensureBankAssets().filter(b=>b.paletteSlots.includes(doomed.id)).length===slotsBefore
+    &&[...sprites,...animations].flatMap(g=>g.frames.flatMap(f=>f.parts)).filter(p=>p.paletteId===doomed.id).length===partsBefore;
+   $('palDelete').click();const cancels=$('palDeleteDialog').open;$('palDeleteCancel').click();
+   const cancelKeeps=!$('palDeleteDialog').open&&paletteLibrary.some(p=>p.id===doomed.id);
+   showView('tiles');
+   return {asksForReplacement,gone,noDangling,movedOnto,restored,cancels,cancelKeeps,hadReferences:slotsBefore>0};
+  })()`);
+  for(const [key,value] of Object.entries(palettes))assert.ok(value,key);
   for(const [id,file] of [['pasteOptions','/tmp/studio-paste-options.png'],['displaySettings','/tmp/studio-display-settings.png']]){
    await window.webContents.executeJavaScript('$('+JSON.stringify(id)+').open=true; new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
    await require('node:fs/promises').writeFile(file,(await window.webContents.capturePage()).toPNG());

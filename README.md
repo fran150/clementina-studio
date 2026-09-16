@@ -156,9 +156,16 @@ asset list, and a stage. The list uses the same rows as the bank library —
 click to select, double-click or F2 to rename inline, with unused palettes
 dimmed. The stage shows the selected palette's eight colors as large swatches
 with their RGB565 values; click one to edit it. The header names the palette and
-reports where it is used — which bank and slots, and how many sprite parts —
-and deletion is refused while anything still uses it, so no binding is ever left
-dangling. Ctrl/Cmd+Z undoes palette edits, which share the bank editor's history.
+reports where it is used — which bank and slots, and how many sprite parts.
+
+Deleting a palette that is still in use asks which palette its references should
+move to, then repoints every bank slot and sprite part onto that replacement, so
+a binding is never left dangling. A bank can end up holding the replacement in
+more than one slot, which the hardware allows but which wastes one of its 16;
+the status line names any bank where that happened. The whole reassignment and
+the deletion are one undo step. Ctrl/Cmd+Z works here and shares the bank
+editor's history — which folds sprite groups into its snapshot only for edits
+that actually repoint them, so ordinary drawing can never revert sprite work.
 
 Color 0 is editable here. It is exported like any other entry, and background
 tiles draw it as a real color, while sprites and the overlay treat it as

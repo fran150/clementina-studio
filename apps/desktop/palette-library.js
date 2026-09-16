@@ -4,7 +4,7 @@
  const host=document.createElement('section');host.id='paletteWorkspace';host.hidden=true;
  host.innerHTML=`<nav id="palRail" aria-label="Palette tools"></nav>
  <aside id="palLibrary"><h2>Palettes</h2><div id="palList" role="listbox" aria-label="Palettes"></div>
-  <p>Double-click a palette to rename it. A palette in use cannot be deleted; rebind the slots and sprite parts that need it first.</p></aside>
+  <p>Double-click a palette to rename it. Deleting one that is in use asks which palette its bank slots and sprite parts should move to.</p></aside>
  <main><div id="palTop"><strong id="palName"></strong><span id="palUse"></span></div>
   <div id="palStage"><div id="palColors"></div></div>
   <div id="palStatus"></div></main>
@@ -78,12 +78,57 @@
   ['palDelete','Delete palette','<path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v8M14 10v8"/>',()=>destroy()]
  ]){const button=iconButton(id,label,path);button.onclick=fn;$('palRail').append(button);}
 
- function destroy(){
-  const target=palette(),{banks,parts}=usage(target.id);
-  if(banks.length||parts){setStatus(`${target.name} is still in use: ${describe(target.id)}.`);return;}
-  if(!confirm('Delete palette "'+target.name+'"?'))return;
-  graphicsEdit(()=>{paletteLibrary.splice(index,1);index=Math.max(0,index-1);});render();
+ const dialog=document.createElement('dialog');dialog.id='palDeleteDialog';
+ dialog.innerHTML=`<h2>Delete palette</h2><p id="palDeleteSummary"></p>
+ <label id="palReplacementRow">Move its references to <select id="palReplacement"></select></label>
+ <div class="palDialogActions"><button id="palDeleteCancel" type="button">Cancel</button><button id="palDeleteConfirm" type="button">Delete</button></div>`;
+ document.body.append(dialog);
+ const dialogStyle=document.createElement('style');dialogStyle.textContent=`
+ #palDeleteDialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:22px;max-width:430px}
+ #palDeleteDialog::backdrop{background:#0009}
+ #palDeleteDialog h2{font-size:13px;margin:0 0 10px}
+ #palDeleteSummary{font-size:11px;line-height:1.7;color:var(--text-dim)}
+ #palReplacementRow{display:block;margin:14px 0;font-size:11px}
+ #palReplacementRow select{width:100%;margin-top:6px;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:6px}
+ .palDialogActions{display:flex;justify-content:flex-end;gap:8px}`;
+ document.head.append(dialogStyle);
+ /** Repoints every bank slot and sprite part from one palette to another. */
+ function repoint(fromId,toId){
+  let slots=0,parts=0;
+  for(const bank of ensureBankAssets())bank.paletteSlots.forEach((id,slot)=>{if(id===fromId){bank.paletteSlots[slot]=toId;slots++;}});
+  for(const group of groups())for(const frame of group.frames)for(const part of frame.parts)if(part.paletteId===fromId){part.paletteId=toId;parts++;}
+  return {slots,parts};
  }
+ const doubledUp=id=>ensureBankAssets().filter(b=>b.paletteSlots.filter(s=>s===id).length>1);
+ function destroy(){
+  const target=palette();if(!target)return;
+  if(paletteLibrary.length===1){setStatus('A project keeps at least one palette.');return;}
+  const {banks,parts}=usage(target.id),inUse=banks.length||parts;
+  $('palDeleteSummary').textContent=inUse
+   ?`"${target.name}" is used by ${describe(target.id)}. Choose the palette those should use instead; the colors they show will change to it.`
+   :`"${target.name}" is not used by any bank slot or sprite part.`;
+  $('palReplacementRow').hidden=!inUse;
+  const others=paletteLibrary.filter(p=>p!==target);
+  $('palReplacement').replaceChildren(...others.map(p=>new Option(p.name,p.id)));
+  $('palReplacement').value=(others[index-1]??others[0]).id;
+  $('palDeleteConfirm').onclick=()=>{
+   const replacement=inUse?$('palReplacement').value:null;
+   dialog.close();
+   graphicsEdit(()=>{
+    const moved=replacement?repoint(target.id,replacement):{slots:0,parts:0};
+    paletteLibrary.splice(paletteLibrary.indexOf(target),1);
+    index=Math.min(index,paletteLibrary.length-1);
+    if(replacement){
+     const shared=doubledUp(replacement);
+     setStatus(`Deleted ${target.name}. Moved ${moved.slots} bank slot${moved.slots===1?'':'s'} and ${moved.parts} sprite part${moved.parts===1?'':'s'} onto ${libraryPalette(replacement).name}.`
+      +(shared.length?` ${shared.map(b=>b.name).join(', ')} now hold${shared.length===1?'s':''} it in more than one slot — free one to reclaim a hardware palette.`:''));
+    }else setStatus('Deleted '+target.name+'.');
+   },true);
+   render();
+  };
+  dialog.showModal();
+ }
+ $('palDeleteCancel').onclick=()=>dialog.close();
  function rename(row){
   if(row.querySelector('input'))return;
   const target=palette(),input=document.createElement('input');

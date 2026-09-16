@@ -19,12 +19,18 @@
  let erasing=false,hovering=false,objectIndex=-1,targetTile=0,zoom=8,colorEdit={slot:0,ink:1};
  let index=0,selection={x:0,y:0,width:1,height:1},palette=0,ink=1,tool='pencil',undo=[],redo=[],reference=null,anchor=null,stroke=null,last=null;
  const asset=()=>ensureBankAssets()[index];
- // Colors live in the shared library, so history has to carry it alongside the banks.
- const snapshot=()=>JSON.stringify({bankAssets:ensureBankAssets(),paletteLibrary});
- function restore(state){const s=JSON.parse(state);bankAssets=s.bankAssets;paletteLibrary=s.paletteLibrary;reference=bankAssets;index=Math.min(index,bankAssets.length-1);}
- function remember(){undo.push(snapshot());if(undo.length>50)undo.shift();redo=[];}
+ // Colors live in the shared library, so history has to carry it alongside the
+ // banks. Sprite groups keep their own history and are only folded in for the
+ // rare edit that spans both, so ordinary drawing cannot revert sprite work.
+ const snapshot=withGroups=>JSON.stringify({bankAssets:ensureBankAssets(),paletteLibrary,...(withGroups?{sprites,animations}:{})});
+ function restore(state){
+  bankAssets=state.bankAssets;paletteLibrary=state.paletteLibrary;
+  if(state.sprites){sprites=state.sprites;animations=state.animations;}
+  reference=bankAssets;index=Math.min(index,bankAssets.length-1);
+ }
+ function remember(withGroups){undo.push(snapshot(withGroups));if(undo.length>50)undo.shift();redo=[];}
  function changed(){markDirty();render();}
- function mutate(fn){remember();fn();changed();}
+ function mutate(fn,withGroups){remember(withGroups);fn();changed();}
  function sample(a,t,x,y){let n=0;for(let p=0;p<3;p++)n|=((a.chr[p*2048+t*8+y]>>x)&1)<<p;return a.mode===1?(n>>a.plane)&1:n;}
  function write(a,t,x,y,value){for(const p of a.mode===1?[a.plane]:[0,1,2]){const pos=p*2048+t*8+y,bit=a.mode===1?(value?1:0):(value>>p)&1;a.chr[pos]=(a.chr[pos]&~(1<<x))|(bit<<x);}}
  function selectedTiles(){const out=[];for(let y=selection.y;y<selection.y+selection.height;y++)for(let x=selection.x;x<selection.x+selection.width;x++)out.push(y*16+x);return out;}
@@ -78,6 +84,7 @@
  const historyBar=document.createElement('div');historyBar.className='bankActions';historyBar.append($('bankUndo'),$('bankRedo'));host.querySelector('.bankLibrary').append(historyBar);
  window.renderBankEditor=render;
  // The palette library panel edits the same shared state, so it shares this history.
+ // Its second argument folds sprite groups into the snapshot when an edit repoints them.
  window.graphicsEdit=mutate;
  const oldRedraw=redrawAll;redrawAll=function(){oldRedraw();render();};
  const oldShow=showView;showView=function(v){oldShow(v);render();};
@@ -149,8 +156,9 @@
   input.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();finish(true);}if(e.key==='Escape'){e.preventDefault();finish(false);}};input.onblur=()=>finish(true);input.focus();input.select();
  }
  $('bankFileMode').onchange=()=>mutate(()=>{asset().mode=Number($('bankFileMode').value);ink=1;});$('bankFilePlane').onchange=()=>mutate(()=>asset().plane=Number($('bankFilePlane').value));
- $('bankUndo').onclick=()=>{if(!undo.length)return;redo.push(snapshot());restore(undo.pop());changed();};
- $('bankRedo').onclick=()=>{if(!redo.length)return;undo.push(snapshot());restore(redo.pop());changed();};
+ function step(from,to){if(!from.length)return;const state=JSON.parse(from.pop());to.push(snapshot('sprites' in state));restore(state);changed();if(window.renderPaletteLibrary)window.renderPaletteLibrary();}
+ $('bankUndo').onclick=()=>step(undo,redo);
+ $('bankRedo').onclick=()=>step(redo,undo);
  $('saveComposition').onclick=()=>{let n=1;while(asset().compositions.some(c=>c.name==='Object_'+n))n++;const name='Object_'+n;mutate(()=>{asset().compositions.push({name,...selection});objectIndex=asset().compositions.length-1;});startRename($('compositionList'),objectIndex,name,renameObject);};
  $('deleteComposition').onclick=()=>{if(objectIndex<0||!confirm('Delete this object? Its pixels will be kept.'))return;mutate(()=>{asset().compositions.splice(objectIndex,1);objectIndex=-1;});};
 
