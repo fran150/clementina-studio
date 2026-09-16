@@ -95,7 +95,10 @@
  /** Repoints every bank slot and sprite part from one palette to another. */
  function repoint(fromId,toId){
   let slots=0,parts=0;
-  for(const bank of ensureBankAssets())bank.paletteSlots.forEach((id,slot)=>{if(id===fromId){bank.paletteSlots[slot]=toId;slots++;}});
+  for(const bank of ensureBankAssets()){
+   bank.paletteSlots.forEach((id,slot)=>{if(id===fromId){bank.paletteSlots[slot]=toId;slots++;}});
+   compactBankSlots(bank);
+  }
   for(const group of groups())for(const frame of group.frames)for(const part of frame.parts)if(part.paletteId===fromId){part.paletteId=toId;parts++;}
   return {slots,parts};
  }

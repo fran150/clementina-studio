@@ -9,7 +9,7 @@ export function slotColors(bank:BankAsset,library:ProjectPalette[],slot:number):
  const palette=library.find(p=>p.id===bank.paletteSlots?.[slot]);
  return palette?palette.colors:Array(PALETTE_COLORS).fill(0);
 }
-/** Flattens a bank's binding to the 128 values palette RAM expects. */
+/** Flattens a bank's binding to the 128 values palette RAM expects, padding slots it does not bind. */
 export function resolveBankPalettes(bank:BankAsset,library:ProjectPalette[]):number[]{
  const out:number[]=[];
  for(let slot=0;slot<PALETTE_SLOTS;slot++)out.push(...slotColors(bank,library,slot));
@@ -34,14 +34,34 @@ export function uniquePaletteName(library:ProjectPalette[]):string{
  * slots of one bank never collapse onto a single palette even when their
  * colors match, because the editor treats each slot as independently editable.
  */
-export function bindFlatPalettes(bank:BankAsset,library:ProjectPalette[],flat:number[]):void{
+export function bindFlatPalettes(bank:BankAsset,library:ProjectPalette[],flat:number[],count=PALETTE_SLOTS):void{
  const taken=new Set<string>();
- bank.paletteSlots=Array.from({length:PALETTE_SLOTS},(_,slot)=>{
+ bank.paletteSlots=Array.from({length:count},(_,slot)=>{
   const colors=flat.slice(slot*PALETTE_COLORS,(slot+1)*PALETTE_COLORS);
   const match=library.find(p=>!taken.has(p.id)&&p.colors.every((v,i)=>v===colors[i]));
   const palette=match??createPalette(library,colors);
   taken.add(palette.id);return palette.id;
  });
+}
+/**
+ * Drops slots that repeat a palette already bound earlier and points the tiles
+ * that used them at the survivor, so a bank never spends two of its sixteen
+ * hardware slots on identical colors.
+ */
+export function compactBankSlots(bank:BankAsset):void{
+ const keep:string[]=[],moved:number[]=[];
+ for(const id of bank.paletteSlots??[]){
+  const at=keep.indexOf(id);
+  if(at>=0)moved.push(at);else{moved.push(keep.length);keep.push(id);}
+ }
+ bank.paletteSlots=keep;
+ bank.cellPalettes=bank.cellPalettes.map(slot=>moved[slot]??0);
+}
+/** Unbinds one slot; tiles above it shift down to keep pointing at their palette. */
+export function removeBankSlot(bank:BankAsset,slot:number):void{
+ if(bank.cellPalettes.includes(slot))throw Error('That palette slot is still painted on tiles in this bank.');
+ bank.paletteSlots=(bank.paletteSlots??[]).filter((_,i)=>i!==slot);
+ bank.cellPalettes=bank.cellPalettes.map(v=>v>slot?v-1:v);
 }
 /**
  * Moves legacy per-bank palette colors into the shared library. Banks that

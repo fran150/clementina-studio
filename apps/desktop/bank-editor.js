@@ -67,13 +67,20 @@
  function pixelColor(a,t,x,y){const value=sample(a,t,x,y);return value===0?(a.previewBackground??'#252830'):css565(bankColor(a,a.cellPalettes[t],value));}
  function refreshPalettes(){
   const a=asset();if(!a)return;
+  ensureSlotRows(a.paletteSlots.length);
+  if(palette>=a.paletteSlots.length)palette=0;
+  const spare=unboundPalette(a);
+  $('addPaletteSlot').disabled=a.paletteSlots.length>=16||!spare;
+  $('addPaletteSlot').title=a.paletteSlots.length>=16?'This bank already binds all 16 hardware palette slots'
+   :spare?'Bind '+spare.name+' to this bank':'This bank already binds every palette in the project. Add one in Palettes first.';
   for(const b of $('bankSwatches').querySelectorAll('.paletteUsage')){const p=+b.dataset.palette,n=a.cellPalettes.filter(v=>v===p).length;b.textContent=n||'—';b.title=n?`${n} tiles use palette ${p}, including blank tiles. Hover to locate them.`:`Palette ${p}: Unused`;}
   $('bankSwatches').querySelectorAll('button[data-ink]').forEach(button=>{const p=Number(button.dataset.palette),i=Number(button.dataset.ink);button.style.background=i===0?'linear-gradient(135deg,white 43%,#e32636 44%,#e32636 56%,white 57%)':css565(bankColor(a,p,i));button.classList.toggle('chosenColor',p===palette&&i===ink);button.disabled=a.mode===1&&i>1;});
   const shared=new Set();for(const b of ensureBankAssets())if(b!==a)for(const id of b.paletteSlots)shared.add(id);
   $('bankSwatches').querySelectorAll('.paletteBinding').forEach(select=>{
    const slot=Number(select.dataset.palette),bound=a.paletteSlots[slot];
    select.replaceChildren(...paletteLibrary.map(q=>new Option(q.name+(shared.has(q.id)?' ·':''),q.id,false,q.id===bound)),
-    new Option('Fork a private copy…','__fork'),new Option('Rename…','__rename'));
+    new Option('Fork a private copy…','__fork'),new Option('Rename…','__rename'),
+    ...(a.paletteSlots.length>1&&!a.cellPalettes.includes(slot)?[new Option('Remove this slot','__remove')]:[]));
    select.title=shared.has(bound)?`${slotPalette(a,slot).name} is shared with other banks; editing a color changes it everywhere. Fork a copy to diverge.`:`${slotPalette(a,slot).name} is used only by this bank.`;
   });
   $('bankSwatches').querySelectorAll('.paletteGroup').forEach(row=>row.classList.toggle('activePalette',hovering&&Number(row.dataset.palette)===a.cellPalettes[targetTile]));
@@ -107,19 +114,36 @@
   const old=get(sx,sy),seen=new Uint8Array(w*h),stack=[[sx,sy]];
   while(stack.length){const [x,y]=stack.pop();if(x<0||y<0||x>=w||y>=h||seen[y*w+x]||get(x,y)!==old)continue;seen[y*w+x]=1;if(value===0||patternAt(x,y))paintAt(x,y,value);stack.push([x-1,y],[x+1,y],[x,y-1],[x,y+1]);}
  }
- for(let p=0;p<16;p++){
+ // A bank binds only the palettes it uses, so the dock grows and shrinks with it.
+ function slotRow(p){
   const group=document.createElement('div');group.className='paletteGroup';group.dataset.palette=p;const label=document.createElement('span');label.textContent=String(p).padStart(2,'0');group.append(label);
   for(let i=0;i<8;i++){const button=document.createElement('button');button.dataset.palette=p;button.dataset.ink=i;button.title=i===0?'No color / transparent':`Palette ${p}, color ${i}`;button.setAttribute('aria-label',button.title);
    button.onclick=()=>{clipboardArea='color';palette=p;ink=i;refreshPalettes();};
    button.ondblclick=()=>{if(i===0)return;colorEdit={slot:p,ink:i};$('bankColor').value=css565ToInput(bankColor(asset(),p,i));$('bankColor').click();};group.append(button);
   }const binding=document.createElement('select');binding.className='paletteBinding';binding.dataset.palette=p;binding.setAttribute('aria-label','Palette in slot '+p);binding.onchange=()=>bindSlot(p,binding.value);group.append(binding);
-  const usage=document.createElement('button');usage.className='paletteUsage';usage.dataset.palette=p;usage.setAttribute('aria-label','Usage of palette '+p);usage.onmouseenter=()=>{usagePalette=p;if(activePanel!=='objects')openPanel('objects');render();};usage.onmouseleave=e=>{if(e&&group.contains(e.relatedTarget))return;usagePalette=null;render();};usage.onfocus=usage.onmouseenter;usage.onblur=usage.onmouseleave;group.onmouseenter=usage.onmouseenter;group.onmouseleave=usage.onmouseleave;group.onfocusin=usage.onmouseenter;group.onfocusout=e=>{if(!group.contains(e.relatedTarget))usage.onmouseleave();};group.append(usage);$('bankSwatches').append(group);
+  const usage=document.createElement('button');usage.className='paletteUsage';usage.dataset.palette=p;usage.setAttribute('aria-label','Usage of palette '+p);usage.onmouseenter=()=>{usagePalette=p;if(activePanel!=='objects')openPanel('objects');render();};usage.onmouseleave=e=>{if(e&&group.contains(e.relatedTarget))return;usagePalette=null;render();};usage.onfocus=usage.onmouseenter;usage.onblur=usage.onmouseleave;group.onmouseenter=usage.onmouseenter;group.onmouseleave=usage.onmouseleave;group.onfocusin=usage.onmouseenter;group.onfocusout=e=>{if(!group.contains(e.relatedTarget))usage.onmouseleave();};group.append(usage);
+  return group;
+ }
+ const addSlot=document.createElement('button');addSlot.id='addPaletteSlot';addSlot.textContent='+ Palette slot';
+ addSlot.title='Bind another project palette to this bank';
+ const unboundPalette=a=>paletteLibrary.find(q=>!a.paletteSlots.includes(q.id));
+ addSlot.onclick=()=>{const a=asset(),free=a&&unboundPalette(a);if(!free||a.paletteSlots.length>=16)return;mutate(()=>a.paletteSlots.push(free.id));};
+ function ensureSlotRows(count){
+  const host=$('bankSwatches'),rows=[...host.querySelectorAll('.paletteGroup')];
+  while(rows.length>count)rows.pop().remove();
+  while(rows.length<count){const row=slotRow(rows.length);host.append(row);rows.push(row);}
+  host.append(addSlot);
  }
  // A slot holds one library palette. Picking another shares it; forking copies
  // the colors so this bank can diverge without repainting every other bank.
  function bindSlot(slot,choice){
   const a=asset();if(!a)return;
   if(choice==='__fork'){mutate(()=>{a.paletteSlots[slot]=createPalette([...slotColors(a,slot)]).id;});return;}
+  if(choice==='__remove'){
+   if(a.cellPalettes.includes(slot)){setStatus('Tiles still use this slot. Repaint them first.');render();return;}
+   mutate(()=>{a.paletteSlots.splice(slot,1);a.cellPalettes=a.cellPalettes.map(v=>v>slot?v-1:v);if(palette>slot)palette--;});
+   return;
+  }
   if(choice==='__rename'){
    const current=slotPalette(a,slot),name=prompt('Palette name',current.name)?.trim();
    if(!name||name===current.name){render();return;}
@@ -252,7 +276,10 @@
  function capturePixels(r){const data=[],palettes=[];for(let y=0;y<r.height;y++)for(let x=0;x<r.width;x++){const sx=r.x+x,sy=r.y+y,t=tileAt(sx,sy);data.push(sample(asset(),t,sx%8,sy%8));palettes.push([...slotColors(asset(),asset().cellPalettes[t])]);}return {width:r.width,height:r.height,data,palettes};}
  function applyPixels(a,clip,at,opaque,source){
   const assigned=new Set();for(let y=0;y<clip.height;y++)for(let x=0;x<clip.width;x++){const i=y*clip.width+x,v=clip.data[i],dx=at[0]+x,dy=at[1]+y;if((!opaque&&!v)||dx<0||dy<0||dx>=selection.width*8||dy>=selection.height*8)continue;const t=tileAt(dx,dy);
-   if(source&&!assigned.has(t)){const colors=clip.palettes[i];let p=-1;for(let n=0;n<16;n++)if(colors.every((v,k)=>slotColors(a,n)[k]===v)){p=n;break;}if(p<0){p=Array.from({length:16},(_,n)=>n).find(n=>!a.cellPalettes.includes(n));if(p===undefined)throw new Error('No unused palette slot remains. Preserve destination palettes or free a palette slot first.');a.paletteSlots[p]=internPalette(colors).id;}a.cellPalettes[t]=p;assigned.add(t);}
+   if(source&&!assigned.has(t)){const colors=clip.palettes[i];let p=-1;for(let n=0;n<16;n++)if(colors.every((v,k)=>slotColors(a,n)[k]===v)){p=n;break;}if(p<0){p=a.paletteSlots.findIndex((_,n)=>!a.cellPalettes.includes(n));
+    if(p<0&&a.paletteSlots.length<16){p=a.paletteSlots.length;a.paletteSlots.push(internPalette(colors).id);}
+    else if(p<0)throw new Error('This bank already binds all 16 palette slots and every one is painted. Preserve destination palettes or free a slot first.');
+    else a.paletteSlots[p]=internPalette(colors).id;}a.cellPalettes[t]=p;assigned.add(t);}
    write(a,t,dx%8,dy%8,v);
   }
  }
@@ -343,7 +370,7 @@
  const bgLabel=$('previewBackground').parentElement;for(const n of [...bgLabel.childNodes])if(n.nodeType===Node.TEXT_NODE)n.textContent='Background';
  for(const id of ['bankFileMode','bankFilePlane','previewBackground']){const input=$(id),label=input.parentElement;const caption=document.createElement('span');caption.textContent=id==='bankFileMode'?'Color mode':id==='bankFilePlane'?'Plane':'Background';label.replaceChildren(caption,input);}
  const polishPanels=document.createElement('style');polishPanels.textContent=`
- #bankSwatches{grid-template-columns:repeat(4,minmax(268px,1fr));gap:4px 6px;width:100%}.paletteGroup{min-width:0;padding:2px;gap:1px}.paletteGroup button[data-ink]{width:0!important;min-width:10px;height:18px!important;flex:1}.paletteGroup span{width:17px;flex-shrink:0;font-size:10px}.paletteGroup button.paletteUsage{width:25px!important;flex-shrink:0}.paletteBinding{width:106px;flex-shrink:0;margin-left:5px;font-size:10px;padding:1px;background:var(--bg);color:var(--text);border:1px solid var(--line)}#paletteDock{max-height:none;overflow:auto}#paletteDock .inlinePalettes{min-width:1120px}
+ #bankSwatches{grid-template-columns:repeat(4,minmax(268px,1fr));gap:4px 6px;width:100%}.paletteGroup{min-width:0;padding:2px;gap:1px}.paletteGroup button[data-ink]{width:0!important;min-width:10px;height:18px!important;flex:1}.paletteGroup span{width:17px;flex-shrink:0;font-size:10px}.paletteGroup button.paletteUsage{width:25px!important;flex-shrink:0}.paletteBinding{width:106px;flex-shrink:0;margin-left:5px;font-size:10px;padding:1px;background:var(--bg);color:var(--text);border:1px solid var(--line)}#addPaletteSlot{white-space:nowrap;align-self:center;justify-self:start;padding:5px 11px;font-size:10px;margin:0}#paletteDock{max-height:none;overflow:auto}#paletteDock .inlinePalettes{min-width:1120px}
  #viewTools .viewPopover{width:290px;padding:14px;border-radius:7px;box-shadow:0 10px 30px #0009}#viewTools .viewPopover label{display:flex;align-items:center;gap:12px;margin:0;padding:9px 0;font-size:12px;line-height:1.4}#viewTools .viewPopover input[type=checkbox]{margin:0;flex:0 0 auto;width:16px;height:16px}#displaySettings .viewPopover label{justify-content:space-between}#displaySettings .viewPopover label span{white-space:nowrap}#displaySettings select{min-width:165px;padding:7px}#displaySettings .bankActions{display:block;margin:0}#displaySettings input[type=color]{width:54px;height:32px;padding:3px}#transformTools{overflow-y:auto}#transformTools hr{border:0;border-top:1px solid var(--line);margin:6px auto}
  #studioTooltip{position:fixed;z-index:10000;pointer-events:none;background:#080a0e;color:#f5f5f5;border:1px solid #626772;border-radius:5px;padding:6px 9px;font:12px system-ui;max-width:280px;box-shadow:0 3px 10px #0008}
  `;document.head.append(polishPanels);
@@ -355,7 +382,7 @@
  const importArtwork=document.createElement('button');importArtwork.id='importBankImage';importArtwork.textContent='Import image…';importArtwork.title='Import PNG, BMP or GIF artwork into this bank';$('bankMap').before(importArtwork);
  importArtwork.onclick=()=>studioAction(async()=>{const target=asset();if(!target)return;const protectedPalettes=new Set();for(const library of [sprites,animations])for(const item of library)for(const frame of item.frames)for(const part of frame.parts)if(part.bankId===target.id){const slot=target.paletteSlots.indexOf(part.paletteId);if(slot>=0)protectedPalettes.add(slot);}
   // Import reads and writes flattened palette RAM; the binding is resolved in and rebound out.
-  await window.openBankImageImport({bank:{...target,palettes:resolveBankPalettes(target)},selection:{...selection},protectedPalettes,commit:(next,rect,createdObject)=>{if(asset()!==target)throw Error('The destination bank changed. Reopen image import.');mutate(()=>{const {palettes,...rest}=next;Object.assign(target,rest);bindFlatPalettes(target,palettes);selection=rect;pixelSelection=null;pasteAnchor=null;objectIndex=createdObject?target.compositions.length-1:-1;});setStatus('Imported image into '+target.name+'. Undo restores pixels, palettes and Objects.');}});
+  await window.openBankImageImport({bank:{...target,palettes:resolveBankPalettes(target)},selection:{...selection},protectedPalettes,commit:(next,rect,createdObject)=>{if(asset()!==target)throw Error('The destination bank changed. Reopen image import.');mutate(()=>{const {palettes,...rest}=next,bound=Math.max(target.paletteSlots.length,Math.max(...next.cellPalettes)+1);Object.assign(target,rest);bindFlatPalettes(target,palettes,bound);selection=rect;pixelSelection=null;pasteAnchor=null;objectIndex=createdObject?target.compositions.length-1:-1;});setStatus('Imported image into '+target.name+'. Undo restores pixels, palettes and Objects.');}});
  });
  render();
 })();

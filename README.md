@@ -120,7 +120,11 @@ New projects start empty. Import PRG strips Clementina's 2-byte unbanked or
 extractor for arbitrary executable PRGs. CPU load addresses do not bind the
 asset to a CHR slot. Bank deletion asks for confirmation and can be undone.
 
-All 16 palette slots appear together. Hovering a drawing cell highlights its
+A bank binds only the palettes it actually uses, up to the sixteen the hardware
+holds at once, and the dock shows one row per bound slot rather than a fixed
+sixteen. **+ Palette slot** binds another project palette; a slot no tile paints
+can be released from its dropdown, and the tiles above it follow their palettes
+down. Hovering a drawing cell highlights its
 palette; clicking a swatch assigns its palette to the last hovered cell and
 selects the ink. Double-click opens the native color editor. The previous
 paint/palette mode switch is gone.
@@ -128,7 +132,7 @@ paint/palette mode switch is gone.
 Palettes belong to the project, not to a bank. MIA has one palette RAM of 16
 slots shared by background tiles, sprites and the overlay, so the Studio stores
 a project-wide palette library and each bank records only which library palette
-occupies each of its 16 slots. A tile still stores a 4-bit slot index, which is
+occupies each slot it binds. A tile still stores a 4-bit slot index, which is
 why a bank can address at most 16 palettes at once; the library itself is
 unbounded, because a game can reload palette RAM whenever it swaps scenes.
 
@@ -136,8 +140,8 @@ Editing a color therefore changes it in every bank bound to that palette, and a
 new or imported bank starts from the palettes already on screen instead of
 resetting to defaults. Each slot's dropdown names its palette, marks the ones
 shared with other banks, renames them, and forks a private copy when one bank
-needs to diverge. Two slots of the same bank never collapse onto one palette
-even when their colors match. Projects saved before this change migrate on
+needs to diverge. Two slots of the same bank never hold one palette. Projects
+saved before this change migrate on
 open: identical palettes across banks collapse into one shared entry, and
 exported `.PAL` bytes are unchanged.
 
@@ -160,10 +164,10 @@ reports where it is used — which bank and slots, and how many sprite parts.
 
 Deleting a palette that is still in use asks which palette its references should
 move to, then repoints every bank slot and sprite part onto that replacement, so
-a binding is never left dangling. A bank can end up holding the replacement in
-more than one slot, which the hardware allows but which wastes one of its 16;
-the status line names any bank where that happened. The whole reassignment and
-the deletion are one undo step. Ctrl/Cmd+Z works here and shares the bank
+a binding is never left dangling. Where that leaves a bank holding the
+replacement in two slots, the duplicate is dropped and its tiles follow the
+survivor, so a bank never spends two of its sixteen hardware slots on identical
+colors. The whole reassignment and the deletion are one undo step. Ctrl/Cmd+Z works here and shares the bank
 editor's history — which folds sprite groups into its snapshot only for edits
 that actually repoint them, so ordinary drawing can never revert sprite work.
 
@@ -313,8 +317,8 @@ Tile drawing controls include a filled-shape toggle and solid, checkerboard,
 and horizontal-stripe fill patterns in the right toolbar. Patterns apply to
 bucket fills and filled rectangles/ellipses; skipped pattern pixels retain their
 existing values. Pattern controls enable for the relevant tools. Palette slots
-occupy four rows (four groups per row) so each row can name its palette, with
-horizontal scrolling on narrow windows.
+are laid out four per row so each row can name its palette, with horizontal
+scrolling on narrow windows; the dock is as tall as the bank's bound slots need.
 Buttons and settings icons show quick hover/focus tooltips. Paste and display
 settings use compact popups; the clipboard-and-gear icon opens paste options.
 

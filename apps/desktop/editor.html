@@ -320,6 +320,16 @@ function createPalette(colors, name) {
 function internPalette(colors, name) {
   return paletteLibrary.find(p => p.colors.every((v, i) => v === colors[i])) ?? createPalette(colors, name);
 }
+/** Drops slots repeating a palette bound earlier, pointing their tiles at the survivor. */
+function compactBankSlots(bank) {
+  const keep = [], moved = [];
+  for (const id of bank.paletteSlots ?? []) {
+    const at = keep.indexOf(id);
+    if (at >= 0) moved.push(at); else { moved.push(keep.length); keep.push(id); }
+  }
+  bank.paletteSlots = keep;
+  bank.cellPalettes = bank.cellPalettes.map(slot => moved[slot] ?? 0);
+}
 // Two slots of one bank never collapse onto a single palette even when their
 // colors match: the editor treats every slot as independently editable.
 function bindFlatPalettes(bank, flat) {
@@ -331,9 +341,13 @@ function bindFlatPalettes(bank, flat) {
     taken.add(palette.id); return palette.id;
   });
 }
-/** Slots for a brand-new bank: the current bank's palettes when one exists, else the defaults. */
+/**
+ * Slots for a brand-new bank: the current bank's palettes when one exists, the
+ * whole library when it is small enough, else the sixteen defaults.
+ */
 function inheritedPaletteSlots(from) {
   if (from?.paletteSlots) return [...from.paletteSlots];
+  if (paletteLibrary.length) return paletteLibrary.slice(0, PAL_BANKS).map(p => p.id);
   const bank = {}; bindFlatPalettes(bank, Array.from(pal)); return bank.paletteSlots;
 }
 const BACKDROP_BLUE_565 = 0x1A1F;

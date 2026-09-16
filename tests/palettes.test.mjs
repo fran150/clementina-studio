@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {encodeProject,decodeProject,bankAssetPackage,validateProject} from '../dist/packages/assets/index.js';
-import {migrateProjectPalettes,resolveBankPalettes,slotColors,internPalette,bindFlatPalettes} from '../dist/packages/assets/palettes.js';
+import {migrateProjectPalettes,resolveBankPalettes,slotColors,internPalette,bindFlatPalettes,compactBankSlots,removeBankSlot} from '../dist/packages/assets/palettes.js';
 const findPalette=(library,id)=>library.find(p=>p.id===id);
 
 const flat=fn=>Array.from({length:128},(_,i)=>fn(Math.floor(i/8),i%8));
@@ -81,6 +81,47 @@ test('group parts stop meaning "slot in my own bank" and name the palette instea
  assert.deepEqual(findPalette(p.paletteLibrary,a.paletteId).colors,base.slice(24,32));
  assert.deepEqual(findPalette(p.paletteLibrary,b.paletteId).colors,other.slice(24,32));
  validateProject(p);
+});
+
+test('a bank binds only the palettes it uses, and compacting repoints its tiles',()=>{
+ const p=legacyProject([legacyBank('Alpha',flat((slot,i)=>slot*8+i))]);
+ migrateProjectPalettes(p);
+ const bank=p.bankAssets[0],[a,b,c]=bank.paletteSlots;
+ bank.cellPalettes[0]=0;bank.cellPalettes[1]=1;bank.cellPalettes[2]=2;
+ // Two slots land on one palette, as a reassigning delete leaves them.
+ bank.paletteSlots[1]=c;
+ compactBankSlots(bank);
+ assert.deepEqual(bank.paletteSlots.slice(0,2),[a,c]);
+ assert.equal(new Set(bank.paletteSlots).size,bank.paletteSlots.length);
+ assert.equal(bank.cellPalettes[1],1,'a tile on the duplicate slot follows the survivor');
+ assert.equal(bank.cellPalettes[2],1,'the original slot for that palette is the survivor');
+ validateProject(p);
+});
+
+test('removing a slot shifts the tiles above it and refuses while painted',()=>{
+ const p=legacyProject([legacyBank('Alpha',flat((slot,i)=>slot*8+i))]);
+ migrateProjectPalettes(p);
+ const bank=p.bankAssets[0],third=bank.paletteSlots[2];
+ bank.cellPalettes[0]=3;
+ assert.throws(()=>removeBankSlot(bank,3),/painted/);
+ removeBankSlot(bank,1);
+ assert.equal(bank.paletteSlots.length,15);
+ assert.equal(bank.paletteSlots[1],third,'slots above the removed one shift down');
+ assert.equal(bank.cellPalettes[0],2,'tiles follow their palette');
+ validateProject(p);
+});
+
+test('a bank may bind fewer than sixteen slots but never a slot its tiles lack',()=>{
+ const p=legacyProject([legacyBank('Alpha',flat((slot,i)=>slot*8+i))]);
+ migrateProjectPalettes(p);
+ const bank=p.bankAssets[0];
+ bank.paletteSlots=bank.paletteSlots.slice(0,2);
+ validateProject(p);
+ bank.cellPalettes[5]=2;
+ assert.throws(()=>validateProject(p),/does not bind/);
+ bank.cellPalettes[5]=1;
+ bank.paletteSlots=[];
+ assert.throws(()=>validateProject(p),/1 to 16/);
 });
 
 test('palette library rejects duplicate identities, duplicate names and wrong color counts',()=>{

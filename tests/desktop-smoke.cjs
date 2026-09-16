@@ -234,8 +234,26 @@ app.whenReady().then(async()=>{
     &&[...sprites,...animations].flatMap(g=>g.frames.flatMap(f=>f.parts)).filter(p=>p.paletteId===doomed.id).length===partsBefore;
    $('palDelete').click();const cancels=$('palDeleteDialog').open;$('palDeleteCancel').click();
    const cancelKeeps=!$('palDeleteDialog').open&&paletteLibrary.some(p=>p.id===doomed.id);
+   // The tile editor shows one row per bound slot, never a fixed sixteen.
+   while(paletteLibrary.length>3){
+    row(paletteLibrary.length-1).click();$('palDelete').click();
+    if($('palDeleteDialog').open){$('palReplacement').value=paletteLibrary[0].id;$('palDeleteConfirm').click();}
+   }
    showView('tiles');
-   return {asksForReplacement,gone,noDangling,movedOnto,restored,cancels,cancelKeeps,hadReferences:slotsBefore>0};
+   const shown=()=>ensureBankAssets().find(b=>b.name===$('canvasAssetLabel').textContent.split(' / ')[0]);
+   const slotRows=()=>$('bankSwatches').querySelectorAll('.paletteGroup').length;
+   const shrank=slotRows()===shown().paletteSlots.length&&shown().paletteSlots.length<=3;
+   const compacted=ensureBankAssets().every(b=>new Set(b.paletteSlots).size===b.paletteSlots.length);
+   const tilesInRange=ensureBankAssets().every(b=>b.cellPalettes.every(v=>v<b.paletteSlots.length));
+   const addBlocked=$('addPaletteSlot').disabled;
+   showView('palettes');$('palNew').click();showView('tiles');
+   const before=slotRows(),canAdd=!$('addPaletteSlot').disabled;
+   $('addPaletteSlot').click();
+   const grew=slotRows()===before+1&&shown().paletteSlots.length===before+1;
+   $('bankUndo').click();
+   const addUndone=slotRows()===before&&shown().paletteSlots.length===before;
+   return {asksForReplacement,gone,noDangling,movedOnto,restored,cancels,cancelKeeps,hadReferences:slotsBefore>0,
+    shrank,compacted,tilesInRange,addBlocked,canAdd,grew,addUndone};
   })()`);
   for(const [key,value] of Object.entries(palettes))assert.ok(value,key);
   for(const [id,file] of [['pasteOptions','/tmp/studio-paste-options.png'],['displaySettings','/tmp/studio-display-settings.png']]){
