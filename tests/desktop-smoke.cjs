@@ -242,18 +242,20 @@ app.whenReady().then(async()=>{
    showView('tiles');
    const shown=()=>ensureBankAssets().find(b=>b.name===$('canvasAssetLabel').textContent.split(' / ')[0]);
    const slotRows=()=>$('bankSwatches').querySelectorAll('.paletteGroup').length;
+   // Deleting palettes leaves the bank's authored slots alone; compacting is explicit.
+   const keptSlots=slotRows()===shown().paletteSlots.length&&shown().paletteSlots.length>3;
+   const offersCompact=!$('compactPaletteSlots').hidden;
+   $('compactPaletteSlots').click();
    const shrank=slotRows()===shown().paletteSlots.length&&shown().paletteSlots.length<=3;
-   const compacted=ensureBankAssets().every(b=>new Set(b.paletteSlots).size===b.paletteSlots.length);
    const tilesInRange=ensureBankAssets().every(b=>b.cellPalettes.every(v=>v<b.paletteSlots.length));
    const addBlocked=$('addPaletteSlot').disabled;
-   // Taking a palette another slot of this bank already holds swaps them, never duplicates.
+   // A tile names a slot, so one palette may deliberately sit in two of them.
    const bank=shown(),wanted=bank.paletteSlots[0];
    const sel=$('bankSwatches').querySelector('.paletteBinding[data-palette="1"]');
-   const swapMarked=[...sel.options].some(o=>o.value===wanted&&/↔/.test(o.textContent));
-   const wasSecond=bank.paletteSlots[1];
    sel.value=wanted;sel.dispatchEvent(new Event('change'));
-   const swapped=bank.paletteSlots[0]===wasSecond&&bank.paletteSlots[1]===wanted;
-   const stillDistinct=new Set(bank.paletteSlots).size===bank.paletteSlots.length;
+   const repeatAllowed=shown().paletteSlots[0]===wanted&&shown().paletteSlots[1]===wanted;
+   const marksOtherSlot=[...$('bankSwatches').querySelector('.paletteBinding[data-palette="0"]').options]
+    .some(o=>o.value===wanted&&/also 01/.test(o.textContent));
    $('bankUndo').click();
    showView('palettes');$('palNew').click();
    const fresh=paletteLibrary.at(-1).colors,rainbow=new Set(fresh.slice(1)).size===7&&fresh.every(c=>Number.isInteger(c)&&c>=0&&c<=65535);
@@ -264,7 +266,7 @@ app.whenReady().then(async()=>{
    $('bankUndo').click();
    const addUndone=slotRows()===before&&shown().paletteSlots.length===before;
    return {asksForReplacement,gone,noDangling,movedOnto,restored,cancels,cancelKeeps,hadReferences:slotsBefore>0,
-    shrank,compacted,tilesInRange,addBlocked,canAdd,grew,addUndone,rainbow,swapMarked,swapped,stillDistinct};
+    keptSlots,offersCompact,shrank,tilesInRange,addBlocked,canAdd,grew,addUndone,rainbow,repeatAllowed,marksOtherSlot};
   })()`);
   for(const [key,value] of Object.entries(palettes))assert.ok(value,key);
   for(const [id,file] of [['pasteOptions','/tmp/studio-paste-options.png'],['displaySettings','/tmp/studio-display-settings.png']]){

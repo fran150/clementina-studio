@@ -124,15 +124,16 @@ test('a bank may bind fewer than sixteen slots but never a slot its tiles lack',
  assert.throws(()=>validateProject(p),/1 to 16/);
 });
 
-test('a bank cannot hold one palette in two slots',()=>{
+test('a bank may repeat a palette across slots, and compacting is opt-in',()=>{
  const p=legacyProject([legacyBank('Alpha',flat((slot,i)=>slot*8+i))]);
  migrateProjectPalettes(p);
  const bank=p.bankAssets[0];
  assert.equal(new Set(bank.paletteSlots).size,bank.paletteSlots.length,'migration binds distinct palettes');
+ // A tile names a slot, so two slots may hold one palette on purpose.
  bank.paletteSlots[1]=bank.paletteSlots[0];
- assert.throws(()=>validateProject(p),/two slots/);
- // Compacting is the supported way back: the duplicate goes and its tiles follow.
+ validateProject(p);
  compactBankSlots(bank);
+ assert.equal(new Set(bank.paletteSlots).size,bank.paletteSlots.length);
  validateProject(p);
 });
 

@@ -123,7 +123,6 @@ export function validateBankAssets(assets:BankAsset[]|undefined,library?:Project
   if(!integers(a.chr,6144,255)||!integers(a.cellPalettes,256,15)||![1,3].includes(a.mode)||!range(a.plane,0,2)||!Array.isArray(a.compositions))throw Error('Invalid bank data');
   if(!Array.isArray(a.paletteSlots)||!a.paletteSlots.length||a.paletteSlots.length>PALETTE_SLOTS||a.paletteSlots.some(id=>!paletteIds.has(id)))throw Error('A bank must bind 1 to 16 palette slots to palettes in the project library');
   if(a.cellPalettes.some(slot=>slot>=a.paletteSlots!.length))throw Error('A tile references a palette slot this bank does not bind');
-  if(new Set(a.paletteSlots).size!==a.paletteSlots.length)throw Error('A bank cannot hold one palette in two slots: it would load identical colors into two of the sixteen hardware slots');
   const cn=new Set<string>();
   for(const c of a.compositions){if(!c||typeof c.name!=='string'||!c.name.trim()||cn.has(c.name)||!range(c.x,0,15)||!range(c.y,0,15)||!range(c.width,1,16-c.x)||!range(c.height,1,16-c.y))throw Error('Invalid composition');cn.add(c.name);}
  }

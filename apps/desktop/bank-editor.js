@@ -69,6 +69,9 @@
   const a=asset();if(!a)return;
   ensureSlotRows(a.paletteSlots.length);
   if(palette>=a.paletteSlots.length)palette=0;
+  const repeats=a.paletteSlots.length-new Set(a.paletteSlots).size;
+  $('compactPaletteSlots').hidden=!repeats;
+  $('compactPaletteSlots').title=`${repeats} slot${repeats===1?'':'s'} repeat a palette already in this bank. Compacting frees them and moves their tiles onto the slot that stays.`;
   const spare=unboundPalette(a);
   $('addPaletteSlot').disabled=a.paletteSlots.length>=16||!spare;
   $('addPaletteSlot').title=a.paletteSlots.length>=16?'This bank already binds all 16 hardware palette slots'
@@ -78,8 +81,8 @@
   const shared=new Set();for(const b of ensureBankAssets())if(b!==a)for(const id of b.paletteSlots)shared.add(id);
   $('bankSwatches').querySelectorAll('.paletteBinding').forEach(select=>{
    const slot=Number(select.dataset.palette),bound=a.paletteSlots[slot];
-   select.replaceChildren(...paletteLibrary.map(q=>{const here=a.paletteSlots.indexOf(q.id);
-    return new Option(q.name+(here>=0&&here!==slot?` ↔ ${String(here).padStart(2,'0')}`:shared.has(q.id)?' ·':''),q.id,false,q.id===bound);}),
+   select.replaceChildren(...paletteLibrary.map(q=>{const elsewhere=a.paletteSlots.map((id,i)=>id===q.id&&i!==slot?String(i).padStart(2,'0'):null).filter(Boolean);
+    return new Option(q.name+(elsewhere.length?` (also ${elsewhere.join(', ')})`:shared.has(q.id)?' ·':''),q.id,false,q.id===bound);}),
     new Option('Fork a private copy…','__fork'),new Option('Rename…','__rename'),
     ...(a.paletteSlots.length>1&&!a.cellPalettes.includes(slot)?[new Option('Remove this slot','__remove')]:[]));
    select.title=shared.has(bound)?`${slotPalette(a,slot).name} is shared with other banks; editing a color changes it everywhere. Fork a copy to diverge.`:`${slotPalette(a,slot).name} is used only by this bank.`;
@@ -129,11 +132,14 @@
  addSlot.title='Bind another project palette to this bank';
  const unboundPalette=a=>paletteLibrary.find(q=>!a.paletteSlots.includes(q.id));
  addSlot.onclick=()=>{const a=asset(),free=a&&unboundPalette(a);if(!free||a.paletteSlots.length>=16)return;mutate(()=>a.paletteSlots.push(free.id));};
+ const compact=document.createElement('button');compact.id='compactPaletteSlots';compact.textContent='Compact slots';
+ compact.onclick=()=>{const a=asset();if(!a)return;mutate(()=>{compactBankSlots(a);if(palette>=a.paletteSlots.length)palette=0;});
+  setStatus('Removed repeated palettes from this bank\'s slots; their tiles follow the slot that stayed.');};
  function ensureSlotRows(count){
   const host=$('bankSwatches'),rows=[...host.querySelectorAll('.paletteGroup')];
   while(rows.length>count)rows.pop().remove();
   while(rows.length<count){const row=slotRow(rows.length);host.append(row);rows.push(row);}
-  host.append(addSlot);
+  host.append(addSlot,compact);
  }
  // A slot holds one library palette. Picking another shares it; forking copies
  // the colors so this bank can diverge without repainting every other bank.
@@ -151,14 +157,9 @@
    if(paletteLibrary.some(q=>q!==current&&q.name.toLowerCase()===name.toLowerCase())){setStatus('That palette name is already used.');render();return;}
    mutate(()=>current.name=name);return;
   }
-  // Two slots of one bank must never hold the same palette: they would load
-  // identical colors into two of the sixteen hardware slots, and tiles painted
-  // with each would be indistinguishable in the dock. Taking an already-bound
-  // palette therefore swaps the two slots rather than duplicating it.
-  const at=a.paletteSlots.indexOf(choice);
-  if(at===slot){render();return;}
-  mutate(()=>{if(at>=0)a.paletteSlots[at]=a.paletteSlots[slot];a.paletteSlots[slot]=choice;});
-  if(at>=0)setStatus(`Swapped palette slots ${String(slot).padStart(2,'0')} and ${String(at).padStart(2,'0')}. Tiles keep their slot, so their colors swap too.`);
+  // Repeating a palette across slots is allowed: a tile names a slot, so holding
+  // one palette in two slots is a legitimate way to stage a later divergence.
+  mutate(()=>a.paletteSlots[slot]=choice);
  }
  $('bankColor').onchange=()=>mutate(()=>setBankColor(asset(),colorEdit.slot,colorEdit.ink,inputTo565($('bankColor').value)));
  $('previewBackground').onchange=()=>mutate(()=>asset().previewBackground=$('previewBackground').value);
@@ -378,7 +379,7 @@
  const bgLabel=$('previewBackground').parentElement;for(const n of [...bgLabel.childNodes])if(n.nodeType===Node.TEXT_NODE)n.textContent='Background';
  for(const id of ['bankFileMode','bankFilePlane','previewBackground']){const input=$(id),label=input.parentElement;const caption=document.createElement('span');caption.textContent=id==='bankFileMode'?'Color mode':id==='bankFilePlane'?'Plane':'Background';label.replaceChildren(caption,input);}
  const polishPanels=document.createElement('style');polishPanels.textContent=`
- #bankSwatches{grid-template-columns:repeat(4,minmax(268px,1fr));gap:4px 6px;width:100%}.paletteGroup{min-width:0;padding:2px;gap:1px}.paletteGroup button[data-ink]{width:0!important;min-width:10px;height:18px!important;flex:1}.paletteGroup span{width:17px;flex-shrink:0;font-size:10px}.paletteGroup button.paletteUsage{width:25px!important;flex-shrink:0}.paletteBinding{width:106px;flex-shrink:0;margin-left:5px;font-size:10px;padding:1px;background:var(--bg);color:var(--text);border:1px solid var(--line)}#addPaletteSlot{white-space:nowrap;align-self:center;justify-self:start;padding:5px 11px;font-size:10px;margin:0}#paletteDock{max-height:none;overflow:auto}#paletteDock .inlinePalettes{min-width:1120px}
+ #bankSwatches{grid-template-columns:repeat(4,minmax(268px,1fr));gap:4px 6px;width:100%}.paletteGroup{min-width:0;padding:2px;gap:1px}.paletteGroup button[data-ink]{width:0!important;min-width:10px;height:18px!important;flex:1}.paletteGroup span{width:17px;flex-shrink:0;font-size:10px}.paletteGroup button.paletteUsage{width:25px!important;flex-shrink:0}.paletteBinding{width:106px;flex-shrink:0;margin-left:5px;font-size:10px;padding:1px;background:var(--bg);color:var(--text);border:1px solid var(--line)}#addPaletteSlot,#compactPaletteSlots{white-space:nowrap;align-self:center;justify-self:start;padding:5px 11px;font-size:10px;margin:0}#paletteDock{max-height:none;overflow:auto}#paletteDock .inlinePalettes{min-width:1120px}
  #viewTools .viewPopover{width:290px;padding:14px;border-radius:7px;box-shadow:0 10px 30px #0009}#viewTools .viewPopover label{display:flex;align-items:center;gap:12px;margin:0;padding:9px 0;font-size:12px;line-height:1.4}#viewTools .viewPopover input[type=checkbox]{margin:0;flex:0 0 auto;width:16px;height:16px}#displaySettings .viewPopover label{justify-content:space-between}#displaySettings .viewPopover label span{white-space:nowrap}#displaySettings select{min-width:165px;padding:7px}#displaySettings .bankActions{display:block;margin:0}#displaySettings input[type=color]{width:54px;height:32px;padding:3px}#transformTools{overflow-y:auto}#transformTools hr{border:0;border-top:1px solid var(--line);margin:6px auto}
  #studioTooltip{position:fixed;z-index:10000;pointer-events:none;background:#080a0e;color:#f5f5f5;border:1px solid #626772;border-radius:5px;padding:6px 9px;font:12px system-ui;max-width:280px;box-shadow:0 3px 10px #0008}
  `;document.head.append(polishPanels);

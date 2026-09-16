@@ -95,10 +95,9 @@
  /** Repoints every bank slot and sprite part from one palette to another. */
  function repoint(fromId,toId){
   let slots=0,parts=0;
-  for(const bank of ensureBankAssets()){
-   bank.paletteSlots.forEach((id,slot)=>{if(id===fromId){bank.paletteSlots[slot]=toId;slots++;}});
-   compactBankSlots(bank);
-  }
+  // Slots are an authored layout, so repointing never removes one: a bank that
+  // ends up holding the replacement twice is reported, not silently compacted.
+  for(const bank of ensureBankAssets())bank.paletteSlots.forEach((id,slot)=>{if(id===fromId){bank.paletteSlots[slot]=toId;slots++;}});
   for(const group of groups())for(const frame of group.frames)for(const part of frame.parts)if(part.paletteId===fromId){part.paletteId=toId;parts++;}
   return {slots,parts};
  }
@@ -124,7 +123,7 @@
     if(replacement){
      const shared=doubledUp(replacement);
      setStatus(`Deleted ${target.name}. Moved ${moved.slots} bank slot${moved.slots===1?'':'s'} and ${moved.parts} sprite part${moved.parts===1?'':'s'} onto ${libraryPalette(replacement).name}.`
-      +(shared.length?` ${shared.map(b=>b.name).join(', ')} now hold${shared.length===1?'s':''} it in more than one slot — free one to reclaim a hardware palette.`:''));
+      +(shared.length?` ${shared.map(b=>b.name).join(', ')} now hold${shared.length===1?'s':''} it in more than one slot — remove a slot there to reclaim a hardware palette.`:''));
     }else setStatus('Deleted '+target.name+'.');
    },true);
    render();

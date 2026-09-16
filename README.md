@@ -142,12 +142,15 @@ resetting to defaults. Each slot's dropdown names its palette, marks the ones
 shared with other banks, renames them, and forks a private copy when one bank
 needs to diverge.
 
-Two slots of one bank never hold the same palette, and validation enforces it:
-both would load identical colors into two of the sixteen hardware slots, and
-tiles painted with each would be indistinguishable in the dock while still
-counting separately. Choosing a palette another slot of the bank already holds
-therefore swaps the two slots — marked `↔ NN` in the dropdown — rather than
-duplicating it. Tiles keep their slot number, so their colors swap with it.
+A bank may hold one palette in several slots. A tile names a slot, not a
+palette, so repeating one is a legitimate way to stage slots that will diverge
+later; the dropdown marks a palette already bound elsewhere in the bank as
+`(also NN)`. The usage count beside each row counts tiles painted with that
+*slot*, so two slots holding one palette can report different counts.
+
+Deleting a palette repoints slots onto the replacement without removing any,
+since the slot layout is authored. Where that leaves repeats, **Compact slots**
+frees them and moves their tiles onto the slot that stays.
 
 Projects saved before palettes became project-level migrate on open: identical
 palettes across banks collapse into one shared entry, and exported `.PAL` bytes
