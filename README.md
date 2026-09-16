@@ -160,7 +160,9 @@ asset list, and a stage. The list uses the same rows as the bank library —
 click to select, double-click or F2 to rename inline, with unused palettes
 dimmed. The stage shows the selected palette's eight colors as large swatches
 with their RGB565 values; click one to edit it. The header names the palette and
-reports where it is used — which bank and slots, and how many sprite parts.
+reports where it is used — which bank and slots, and how many sprite parts. A
+new palette starts as a rainbow so its inks are distinguishable while drawing;
+color 0 keeps the backdrop, being the transparency key rather than an ink.
 
 Deleting a palette that is still in use asks which palette its references should
 move to, then repoints every bank slot and sprite part onto that replacement, so

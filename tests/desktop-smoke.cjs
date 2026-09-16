@@ -246,14 +246,16 @@ app.whenReady().then(async()=>{
    const compacted=ensureBankAssets().every(b=>new Set(b.paletteSlots).size===b.paletteSlots.length);
    const tilesInRange=ensureBankAssets().every(b=>b.cellPalettes.every(v=>v<b.paletteSlots.length));
    const addBlocked=$('addPaletteSlot').disabled;
-   showView('palettes');$('palNew').click();showView('tiles');
+   showView('palettes');$('palNew').click();
+   const fresh=paletteLibrary.at(-1).colors,rainbow=new Set(fresh.slice(1)).size===7&&fresh.every(c=>Number.isInteger(c)&&c>=0&&c<=65535);
+   showView('tiles');
    const before=slotRows(),canAdd=!$('addPaletteSlot').disabled;
    $('addPaletteSlot').click();
    const grew=slotRows()===before+1&&shown().paletteSlots.length===before+1;
    $('bankUndo').click();
    const addUndone=slotRows()===before&&shown().paletteSlots.length===before;
    return {asksForReplacement,gone,noDangling,movedOnto,restored,cancels,cancelKeeps,hadReferences:slotsBefore>0,
-    shrank,compacted,tilesInRange,addBlocked,canAdd,grew,addUndone};
+    shrank,compacted,tilesInRange,addBlocked,canAdd,grew,addUndone,rainbow};
   })()`);
   for(const [key,value] of Object.entries(palettes))assert.ok(value,key);
   for(const [id,file] of [['pasteOptions','/tmp/studio-paste-options.png'],['displaySettings','/tmp/studio-display-settings.png']]){

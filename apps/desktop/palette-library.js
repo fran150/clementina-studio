@@ -73,7 +73,7 @@
  library.prepend(close);
  $('palRail').append(toggle);
  for(const [id,label,path,fn] of [
-  ['palNew','New palette','<path d="M12 4v16M4 12h16"/>',()=>{graphicsEdit(()=>{createPalette(Array(8).fill(0));index=paletteLibrary.length-1;});setStatus('Added a palette. Bind it from a bank slot to use it.');render();}],
+  ['palNew','New palette','<path d="M12 4v16M4 12h16"/>',()=>{graphicsEdit(()=>{createPalette(RAINBOW_565);index=paletteLibrary.length-1;});setStatus('Added a palette. Bind it from a bank slot to use it.');render();}],
   ['palDuplicate','Duplicate palette','<rect x="8" y="8" width="13" height="13" rx="1"/><path d="M16 8V4H3v13h5"/>',()=>{graphicsEdit(()=>{createPalette(palette().colors,uniquePaletteName());index=paletteLibrary.length-1;});setStatus('Duplicated the palette.');render();}],
   ['palDelete','Delete palette','<path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v8M14 10v8"/>',()=>destroy()]
  ]){const button=iconButton(id,label,path);button.onclick=fn;$('palRail').append(button);}

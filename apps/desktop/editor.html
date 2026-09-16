@@ -370,6 +370,18 @@ const TEXT_INKS_565 = [
   0xFFFF, // F bright white/highlight
 ];
 const PALETTE_DETAIL_565 = [0xFFFF, 0xF800, 0xFC60, 0xFEC0, 0x07E0, 0x075F];
+// A fresh palette starts as a rainbow so its inks are distinguishable while
+// drawing; color 0 keeps the backdrop, being the key rather than an ink.
+const RAINBOW_565 = [
+  BACKDROP_BLUE_565,
+  to565(255, 0, 0),     // red
+  to565(255, 127, 0),   // orange
+  to565(255, 255, 0),   // yellow
+  to565(0, 255, 0),     // green
+  to565(0, 255, 255),   // cyan
+  to565(0, 0, 255),     // blue
+  to565(139, 0, 255),   // violet
+];
 function loadDefaultPalettes() {
   for (let b = 0; b < PAL_BANKS; b++) {
     const base = b * PAL_COLORS;
