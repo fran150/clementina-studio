@@ -140,10 +140,18 @@ Editing a color therefore changes it in every bank bound to that palette, and a
 new or imported bank starts from the palettes already on screen instead of
 resetting to defaults. Each slot's dropdown names its palette, marks the ones
 shared with other banks, renames them, and forks a private copy when one bank
-needs to diverge. Two slots of the same bank never hold one palette. Projects
-saved before this change migrate on
-open: identical palettes across banks collapse into one shared entry, and
-exported `.PAL` bytes are unchanged.
+needs to diverge.
+
+Two slots of one bank never hold the same palette, and validation enforces it:
+both would load identical colors into two of the sixteen hardware slots, and
+tiles painted with each would be indistinguishable in the dock while still
+counting separately. Choosing a palette another slot of the bank already holds
+therefore swaps the two slots — marked `↔ NN` in the dropdown — rather than
+duplicating it. Tiles keep their slot number, so their colors swap with it.
+
+Projects saved before palettes became project-level migrate on open: identical
+palettes across banks collapse into one shared entry, and exported `.PAL` bytes
+are unchanged.
 
 A sprite part names its palette outright rather than borrowing a slot number
 from its source bank. Slot numbers are per bank, so two parts drawn from

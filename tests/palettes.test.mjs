@@ -124,6 +124,18 @@ test('a bank may bind fewer than sixteen slots but never a slot its tiles lack',
  assert.throws(()=>validateProject(p),/1 to 16/);
 });
 
+test('a bank cannot hold one palette in two slots',()=>{
+ const p=legacyProject([legacyBank('Alpha',flat((slot,i)=>slot*8+i))]);
+ migrateProjectPalettes(p);
+ const bank=p.bankAssets[0];
+ assert.equal(new Set(bank.paletteSlots).size,bank.paletteSlots.length,'migration binds distinct palettes');
+ bank.paletteSlots[1]=bank.paletteSlots[0];
+ assert.throws(()=>validateProject(p),/two slots/);
+ // Compacting is the supported way back: the duplicate goes and its tiles follow.
+ compactBankSlots(bank);
+ validateProject(p);
+});
+
 test('palette library rejects duplicate identities, duplicate names and wrong color counts',()=>{
  const p=legacyProject([]);migrateProjectPalettes(p);
  const valid={id:'a',name:'Grass',colors:Array(8).fill(0)};

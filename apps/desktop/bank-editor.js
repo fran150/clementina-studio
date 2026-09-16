@@ -73,12 +73,13 @@
   $('addPaletteSlot').disabled=a.paletteSlots.length>=16||!spare;
   $('addPaletteSlot').title=a.paletteSlots.length>=16?'This bank already binds all 16 hardware palette slots'
    :spare?'Bind '+spare.name+' to this bank':'This bank already binds every palette in the project. Add one in Palettes first.';
-  for(const b of $('bankSwatches').querySelectorAll('.paletteUsage')){const p=+b.dataset.palette,n=a.cellPalettes.filter(v=>v===p).length;b.textContent=n||'—';b.title=n?`${n} tiles use palette ${p}, including blank tiles. Hover to locate them.`:`Palette ${p}: Unused`;}
+  for(const b of $('bankSwatches').querySelectorAll('.paletteUsage')){const p=+b.dataset.palette,n=a.cellPalettes.filter(v=>v===p).length;b.textContent=n||'—';b.title=n?`${n} tiles use slot ${String(p).padStart(2,'0')}, including blank tiles. Hover to locate them.`:`Slot ${String(p).padStart(2,'0')}: no tiles painted with it`;}
   $('bankSwatches').querySelectorAll('button[data-ink]').forEach(button=>{const p=Number(button.dataset.palette),i=Number(button.dataset.ink);button.style.background=i===0?'linear-gradient(135deg,white 43%,#e32636 44%,#e32636 56%,white 57%)':css565(bankColor(a,p,i));button.classList.toggle('chosenColor',p===palette&&i===ink);button.disabled=a.mode===1&&i>1;});
   const shared=new Set();for(const b of ensureBankAssets())if(b!==a)for(const id of b.paletteSlots)shared.add(id);
   $('bankSwatches').querySelectorAll('.paletteBinding').forEach(select=>{
    const slot=Number(select.dataset.palette),bound=a.paletteSlots[slot];
-   select.replaceChildren(...paletteLibrary.map(q=>new Option(q.name+(shared.has(q.id)?' ·':''),q.id,false,q.id===bound)),
+   select.replaceChildren(...paletteLibrary.map(q=>{const here=a.paletteSlots.indexOf(q.id);
+    return new Option(q.name+(here>=0&&here!==slot?` ↔ ${String(here).padStart(2,'0')}`:shared.has(q.id)?' ·':''),q.id,false,q.id===bound);}),
     new Option('Fork a private copy…','__fork'),new Option('Rename…','__rename'),
     ...(a.paletteSlots.length>1&&!a.cellPalettes.includes(slot)?[new Option('Remove this slot','__remove')]:[]));
    select.title=shared.has(bound)?`${slotPalette(a,slot).name} is shared with other banks; editing a color changes it everywhere. Fork a copy to diverge.`:`${slotPalette(a,slot).name} is used only by this bank.`;
@@ -150,7 +151,14 @@
    if(paletteLibrary.some(q=>q!==current&&q.name.toLowerCase()===name.toLowerCase())){setStatus('That palette name is already used.');render();return;}
    mutate(()=>current.name=name);return;
   }
-  mutate(()=>a.paletteSlots[slot]=choice);
+  // Two slots of one bank must never hold the same palette: they would load
+  // identical colors into two of the sixteen hardware slots, and tiles painted
+  // with each would be indistinguishable in the dock. Taking an already-bound
+  // palette therefore swaps the two slots rather than duplicating it.
+  const at=a.paletteSlots.indexOf(choice);
+  if(at===slot){render();return;}
+  mutate(()=>{if(at>=0)a.paletteSlots[at]=a.paletteSlots[slot];a.paletteSlots[slot]=choice;});
+  if(at>=0)setStatus(`Swapped palette slots ${String(slot).padStart(2,'0')} and ${String(at).padStart(2,'0')}. Tiles keep their slot, so their colors swap too.`);
  }
  $('bankColor').onchange=()=>mutate(()=>setBankColor(asset(),colorEdit.slot,colorEdit.ink,inputTo565($('bankColor').value)));
  $('previewBackground').onchange=()=>mutate(()=>asset().previewBackground=$('previewBackground').value);

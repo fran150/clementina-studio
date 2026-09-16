@@ -246,6 +246,15 @@ app.whenReady().then(async()=>{
    const compacted=ensureBankAssets().every(b=>new Set(b.paletteSlots).size===b.paletteSlots.length);
    const tilesInRange=ensureBankAssets().every(b=>b.cellPalettes.every(v=>v<b.paletteSlots.length));
    const addBlocked=$('addPaletteSlot').disabled;
+   // Taking a palette another slot of this bank already holds swaps them, never duplicates.
+   const bank=shown(),wanted=bank.paletteSlots[0];
+   const sel=$('bankSwatches').querySelector('.paletteBinding[data-palette="1"]');
+   const swapMarked=[...sel.options].some(o=>o.value===wanted&&/↔/.test(o.textContent));
+   const wasSecond=bank.paletteSlots[1];
+   sel.value=wanted;sel.dispatchEvent(new Event('change'));
+   const swapped=bank.paletteSlots[0]===wasSecond&&bank.paletteSlots[1]===wanted;
+   const stillDistinct=new Set(bank.paletteSlots).size===bank.paletteSlots.length;
+   $('bankUndo').click();
    showView('palettes');$('palNew').click();
    const fresh=paletteLibrary.at(-1).colors,rainbow=new Set(fresh.slice(1)).size===7&&fresh.every(c=>Number.isInteger(c)&&c>=0&&c<=65535);
    showView('tiles');
@@ -255,7 +264,7 @@ app.whenReady().then(async()=>{
    $('bankUndo').click();
    const addUndone=slotRows()===before&&shown().paletteSlots.length===before;
    return {asksForReplacement,gone,noDangling,movedOnto,restored,cancels,cancelKeeps,hadReferences:slotsBefore>0,
-    shrank,compacted,tilesInRange,addBlocked,canAdd,grew,addUndone,rainbow};
+    shrank,compacted,tilesInRange,addBlocked,canAdd,grew,addUndone,rainbow,swapMarked,swapped,stillDistinct};
   })()`);
   for(const [key,value] of Object.entries(palettes))assert.ok(value,key);
   for(const [id,file] of [['pasteOptions','/tmp/studio-paste-options.png'],['displaySettings','/tmp/studio-display-settings.png']]){
