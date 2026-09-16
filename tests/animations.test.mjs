@@ -29,11 +29,12 @@ test('static sprites persist separately and export separate assembly symbols',()
 });
 
 test('named bank library can exceed eight and exports palette metadata separately',()=>{
- const banks=Array.from({length:12},(_,i)=>({name:'Asset_'+i,mode:3,plane:0,chr:Array(6144).fill(0),palettes:Array(128).fill(0xf81f),cellPalettes:Array(256).fill(i%16),compositions:[{name:'House',x:2,y:3,width:6,height:6}]}));
- const files=bankAssetPackage(banks);assert.equal(files['Asset_11.CHR'].length,6144);assert.equal(files['Asset_11.ATTR'][0],11);assert.deepEqual(Array.from(files['Asset_11.PAL'].slice(0,2)),[31,248]);
+ const library=[{id:'magenta',name:'Magenta',colors:Array(8).fill(0xf81f)}];
+ const banks=Array.from({length:12},(_,i)=>({name:'Asset_'+i,mode:3,plane:0,chr:Array(6144).fill(0),paletteSlots:Array(16).fill('magenta'),cellPalettes:Array(256).fill(i%16),compositions:[{name:'House',x:2,y:3,width:6,height:6}]}));
+ const files=bankAssetPackage(banks,library);assert.equal(files['Asset_11.CHR'].length,6144);assert.equal(files['Asset_11.ATTR'][0],11);assert.deepEqual(Array.from(files['Asset_11.PAL'].slice(0,2)),[31,248]);
  const metadata=JSON.parse(new TextDecoder().decode(files['Asset_11.json']));assert.equal(metadata.compositions[0].width,6);
- const p=project();p.bankAssets=banks;assert.equal(decodeProject(encodeProject(p)).bankAssets.length,12);
- banks[0].compositions[0].width=16;assert.throws(()=>bankAssetPackage(banks));
+ const p=project();p.bankAssets=banks;p.paletteLibrary=library;assert.equal(decodeProject(encodeProject(p)).bankAssets.length,12);
+ banks[0].compositions[0].width=16;assert.throws(()=>bankAssetPackage(banks,library));
 });
 
 test('PRG import strips unbanked and banked headers without changing pixels',()=>{
@@ -43,7 +44,8 @@ test('PRG import strips unbanked and banked headers without changing pixels',()=
 });
 
 test('logical sprite banks and free-positioned origins round trip without hardware slot binding',()=>{
- const p=project();p.bankAssets=[{id:'graphics-id',name:'Graphics',mode:3,plane:0,chr:Array(6144).fill(0),palettes:Array(128).fill(0),cellPalettes:Array(256).fill(0),compositions:[]}];
+ const p=project();p.paletteLibrary=[{id:'black',name:'Black',colors:Array(8).fill(0)}];
+ p.bankAssets=[{id:'graphics-id',name:'Graphics',mode:3,plane:0,chr:Array(6144).fill(0),paletteSlots:Array(16).fill('black'),cellPalettes:Array(256).fill(0),compositions:[]}];
  p.sprites=[{name:'Hero',bank:0,plane:0,canvasWidth:4,canvasHeight:6,originX:16,originY:48,frames:[{ticks:6,parts:[{bankId:'graphics-id',tile:2,x:-200,y:301,palette:1,flipX:true,flipY:false}]}]}];
  assert.deepEqual(decodeProject(encodeProject(p)).sprites,p.sprites);
  assert.throws(()=>animationPackage(p.sprites),/memory-placement/);

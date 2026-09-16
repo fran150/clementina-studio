@@ -120,10 +120,26 @@ New projects start empty. Import PRG strips Clementina's 2-byte unbanked or
 extractor for arbitrary executable PRGs. CPU load addresses do not bind the
 asset to a CHR slot. Bank deletion asks for confirmation and can be undone.
 
-All 16 palettes appear together. Hovering a drawing cell highlights its palette;
-clicking a swatch assigns its palette to the last hovered cell and selects the
-ink. Double-click opens the native color editor; edits affect every use of that
-palette color within the bank. The previous paint/palette mode switch is gone.
+All 16 palette slots appear together. Hovering a drawing cell highlights its
+palette; clicking a swatch assigns its palette to the last hovered cell and
+selects the ink. Double-click opens the native color editor. The previous
+paint/palette mode switch is gone.
+
+Palettes belong to the project, not to a bank. MIA has one palette RAM of 16
+slots shared by background tiles, sprites and the overlay, so the Studio stores
+a project-wide palette library and each bank records only which library palette
+occupies each of its 16 slots. A tile still stores a 4-bit slot index, which is
+why a bank can address at most 16 palettes at once; the library itself is
+unbounded, because a game can reload palette RAM whenever it swaps scenes.
+
+Editing a color therefore changes it in every bank bound to that palette, and a
+new or imported bank starts from the palettes already on screen instead of
+resetting to defaults. Each slot's dropdown names its palette, marks the ones
+shared with other banks, renames them, and forks a private copy when one bank
+needs to diverge. Two slots of the same bank never collapse onto one palette
+even when their colors match. Projects saved before this change migrate on
+open: identical palettes across banks collapse into one shared entry, and
+exported `.PAL` bytes are unchanged.
 
 Objects save named rectangles within a bank. New saves the current selection;
 selecting an object restores it. Confirmed deletion removes only metadata.
@@ -264,8 +280,9 @@ incorrect bank numbers or truncated coordinates.
 Tile drawing controls include a filled-shape toggle and solid, checkerboard,
 and horizontal-stripe fill patterns in the right toolbar. Patterns apply to
 bucket fills and filled rectangles/ellipses; skipped pattern pixels retain their
-existing values. Pattern controls enable for the relevant tools. Palettes occupy
-three rows (six groups per row), with horizontal scrolling on narrow windows.
+existing values. Pattern controls enable for the relevant tools. Palette slots
+occupy four rows (four groups per row) so each row can name its palette, with
+horizontal scrolling on narrow windows.
 Buttons and settings icons show quick hover/focus tooltips. Paste and display
 settings use compact popups; the clipboard-and-gear icon opens paste options.
 

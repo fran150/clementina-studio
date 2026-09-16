@@ -74,7 +74,6 @@ app.whenReady().then(async()=>{
    const intact=before===JSON.stringify(studioProject().bankAssets.at(-1).chr);
    $('zoomIn').click();const zoomed=canvas.width;$('zoomOut').click();const normal=canvas.width;
    $('previewBackground').value='#112233';$('previewBackground').dispatchEvent(new Event('change'));
-   const palBefore=JSON.stringify(studioProject().bankAssets.at(-1).palettes);
    const background=studioProject().bankAssets.at(-1).previewBackground;
    // Fill an empty new bank through the drawing tool, then undo it.
    $('addBankFile').click();$('fillTool').click();
@@ -95,9 +94,12 @@ app.whenReady().then(async()=>{
    const swatch=$('bankSwatches').querySelector('[data-palette="0"][data-ink="1"]');
    const oldClick=$('bankColor').click;$('bankColor').click=()=>{};
    swatch.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));$('bankColor').value='#ff0000';$('bankColor').dispatchEvent(new Event('change'));$('bankColor').click=oldClick;
-   return {name:a.name,byte:a.chr[0],color:studioProject().bankAssets.at(-1).palettes[1]};
+   // A new bank inherits the palettes on screen instead of resetting to defaults.
+   $('addBankFile').click();const fresh=studioProject().bankAssets.at(-1);
+   return {name:a.name,byte:a.chr[0],color:bankColor(studioProject().bankAssets.find(b=>b.name==='Imported'),0,1),inherited:bankColor(fresh,0,1),shared:fresh.paletteSlots[0]===a.paletteSlots[0]};
   })()`);
   assert.equal(imported.name,'Imported');assert.equal(imported.byte,42);assert.equal(imported.color,0xf800);
+  assert.equal(imported.inherited,0xf800);assert.ok(imported.shared);
   const polish=await window.webContents.executeJavaScript(`(async()=>{
    $('addBankFile').click();const bank=studioProject().bankAssets.at(-1);
    const row=$('bankFiles').lastElementChild;row.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));let input=row.querySelector('input');input.value='Shapes';input.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
@@ -125,8 +127,8 @@ app.whenReady().then(async()=>{
   const clipboard=await window.webContents.executeJavaScript(`(()=>{
    const sw=(p,i)=>$('bankSwatches').querySelector('[data-palette="'+p+'"][data-ink="'+i+'"]');
    const a=()=>studioProject().bankAssets.at(-1);
-   sw(0,1).click();const color=a().palettes[1],attrs=JSON.stringify(a().cellPalettes);$('copyColor').click();sw(4,2).click();const old=a().palettes[34];$('pasteColor').click();
-   const colorCopied=a().palettes[34]===color&&JSON.stringify(a().cellPalettes)===attrs;$('bankUndo').click();const colorUndo=a().palettes[34]===old;
+   sw(0,1).click();const color=bankColor(a(),0,1),attrs=JSON.stringify(a().cellPalettes);$('copyColor').click();sw(4,2).click();const old=bankColor(a(),4,2);$('pasteColor').click();
+   const colorCopied=bankColor(a(),4,2)===color&&JSON.stringify(a().cellPalettes)===attrs;$('bankUndo').click();const colorUndo=bankColor(a(),4,2)===old;
    const transparent=sw(0,0).style.background.includes('gradient'),noRow=!$('bankSwatches').querySelector('.selectedPalette');
    $('addBankFile').click();sw(0,1).click();$('pencilTool').click();
    const canvas=$('bankSelection');function ptr(type,x,y){const r=canvas.getBoundingClientRect(),z=Number($('zoomLabel').textContent.replace('×',''));canvas.dispatchEvent(new PointerEvent(type,{clientX:r.left+x*z+1,clientY:r.top+y*z+1,pointerId:1,bubbles:true,button:0}));}
@@ -154,7 +156,7 @@ app.whenReady().then(async()=>{
    $('ellipseTool').click();ptr('pointerdown',8,8);ptr('pointermove',12,12);ptr('pointerup',12,12);const ellipseFilled=pix(10,10)!==0;$('bankUndo').click();
    ptr('pointermove',3,4);const status=$('drawingStatus').textContent.includes('Pixel 3, 4')&&$('drawingStatus').textContent.includes('Selection');
    $('actualSize').click();const actual=$('zoomLabel').textContent==='1×';$('fitDrawing').click();const fits=canvas.width<=canvas.parentElement.clientWidth&&canvas.height<=canvas.parentElement.clientHeight;
-   select(0,0,1,1);$('copyPixels').click();const source=a().palettes.slice(0,8);ensureBankAssets().at(-1).palettes[1]=12345;document.dispatchEvent(new KeyboardEvent('keydown',{key:'V',ctrlKey:true,shiftKey:true,bubbles:true}));const shortcutSource=$('pasteSource').checked;ptr('pointermove',8,0);const noMutation=a().cellPalettes[1]===0;ptr('pointerdown',8,0);ptr('pointerup',8,0);const paletteImported=a().cellPalettes[1]!==0&&source.every((v,i)=>v===a().palettes[a().cellPalettes[1]*8+i]);$('bankUndo').click();document.dispatchEvent(new KeyboardEvent('keydown',{key:'v',metaKey:true,bubbles:true}));const shortcutRegular=!$('pasteSource').checked;document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+   select(0,0,1,1);$('copyPixels').click();const source=[...slotColors(a(),0)];setBankColor(ensureBankAssets().at(-1),0,1,12345);document.dispatchEvent(new KeyboardEvent('keydown',{key:'V',ctrlKey:true,shiftKey:true,bubbles:true}));const shortcutSource=$('pasteSource').checked;ptr('pointermove',8,0);const noMutation=a().cellPalettes[1]===0;ptr('pointerdown',8,0);ptr('pointerup',8,0);const paletteImported=a().cellPalettes[1]!==0&&source.every((v,i)=>v===slotColors(a(),a().cellPalettes[1])[i]);$('bankUndo').click();document.dispatchEvent(new KeyboardEvent('keydown',{key:'v',metaKey:true,bubbles:true}));const shortcutRegular=!$('pasteSource').checked;document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
    for(let i=0;i<3;i++)$('zoomIn').click();const sc=canvas.parentElement;sc.setPointerCapture=()=>{};sc.scrollTop=100;const oldScroll=sc.scrollTop,beforePan=JSON.stringify(a().chr);document.dispatchEvent(new KeyboardEvent('keydown',{key:' ',code:'Space',bubbles:true}));ptr('pointerdown',1,1);ptr('pointermove',1,0);ptr('pointerup',1,0);document.dispatchEvent(new KeyboardEvent('keyup',{key:' ',code:'Space',bubbles:true}));const panned=sc.scrollTop>oldScroll&&beforePan===JSON.stringify(a().chr);$('fitDrawing').click();
    return {flipped,rotated,preview,moved,nudged,opaque,filled,ellipseFilled,status,actual,fits,noMutation,paletteImported,panned,shortcutSource,shortcutRegular};
   })()`);for(const [key,value] of Object.entries(phase))assert.ok(value,key);
@@ -209,7 +211,7 @@ app.whenReady().then(async()=>{
    canvas.dispatchEvent(new PointerEvent('pointerleave'));const quiet=!/outside|none/i.test($('drawingStatus').textContent);
    $('fillPattern_checker').dispatchEvent(new PointerEvent('pointerover',{bubbles:true}));await new Promise(r=>setTimeout(r,350));const tooltip=!$('studioTooltip').hidden&&$('studioTooltip').textContent==='Checkerboard fill';$('fillPattern_checker').dispatchEvent(new PointerEvent('pointerout',{bubbles:true}));
    return {disabled,checker,undo,stripes,shape,rows,quiet,tooltip,pasteClean:!$('pasteOptions').querySelector('p'),displayClean:!$('displaySettings').textContent.includes('Preview only'),right:$('filledShapeToggle').parentElement.id==='transformTools'};
-  })()`);assert.equal(fills.rows,3);for(const [key,value] of Object.entries(fills))if(key!=='rows')assert.ok(value,key);
+  })()`);assert.equal(fills.rows,4);for(const [key,value] of Object.entries(fills))if(key!=='rows')assert.ok(value,key);
   for(const [id,file] of [['pasteOptions','/tmp/studio-paste-options.png'],['displaySettings','/tmp/studio-display-settings.png']]){
    await window.webContents.executeJavaScript('$('+JSON.stringify(id)+').open=true; new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
    await require('node:fs/promises').writeFile(file,(await window.webContents.capturePage()).toPNG());

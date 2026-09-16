@@ -1,11 +1,13 @@
 import type {BankAsset} from './index.js';
+/** Import works on flattened palette RAM; callers resolve the slot binding first and rebind after. */
+export type ResolvedBank = BankAsset & {palettes:number[]};
 export interface Raster {width:number;height:number;data:Uint8ClampedArray|number[]}
 export interface ImageImportOptions {
  crop:{x:number;y:number;width:number;height:number};width:number;height:number;
  tileX:number;tileY:number;paletteMode:'match'|'create';alphaCutoff?:number;protectedPalettes?:number[];
 }
 export interface ImageImportResult {
- bank:BankAsset;tilesWide:number;tilesHigh:number;overwrittenTiles:number[];
+ bank:ResolvedBank;tilesWide:number;tilesHigh:number;overwrittenTiles:number[];
  createdPalettes:number[];remappedPixels:number;limitedTiles:number;transparentPixels:number;
 }
 export function rgb565(r:number,g:number,b:number):number{return (Math.round(r*31/255)<<11)|(Math.round(g*63/255)<<5)|Math.round(b*31/255);}
@@ -26,7 +28,7 @@ function quantize(hist:Map<number,number>,limit:number):number[]{
 }
 function integer(n:number,min:number,max:number){return Number.isInteger(n)&&n>=min&&n<=max;}
 /** Pure preview: never mutates the input bank or image. Imports replace complete destination tiles. */
-export function convertBankImage(original:BankAsset,image:Raster,o:ImageImportOptions):ImageImportResult {
+export function convertBankImage(original:ResolvedBank,image:Raster,o:ImageImportOptions):ImageImportResult {
  if(!integer(image.width,1,8192)||!integer(image.height,1,8192)||image.width*image.height>16777216||image.data.length!==image.width*image.height*4)throw Error('Invalid image dimensions or pixel data (maximum 16 megapixels).');
  const c=o.crop;
  if(!integer(c.x,0,image.width-1)||!integer(c.y,0,image.height-1)||!integer(c.width,1,image.width-c.x)||!integer(c.height,1,image.height-c.y))throw Error('Crop must be a nonempty rectangle inside the source image.');

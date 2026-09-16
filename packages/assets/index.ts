@@ -1,16 +1,19 @@
+import {PALETTE_COLORS, PALETTE_SLOTS, migrateProjectPalettes, resolveBankPalettes} from './palettes.js';
 export const BANK_BYTES = 6144;
 export interface SpritePart { bankId?:string; spriteId?:number; tile:number; x:number; y:number; palette:number; flipX:boolean; flipY:boolean }
 export interface SpriteFrame { ticks:number; parts:SpritePart[] }
 export interface SpriteAnimation { bankIds?:string[]; canvasPixelWidth?:number; canvasPixelHeight?:number; originAnchor?:string; canvasWidth?:number; canvasHeight?:number; originX?:number; originY?:number; name:string; bank:number; plane:number; frames:SpriteFrame[] }
-export interface BankAsset { id?:string; previewBackground?:string; name:string; mode:number; plane:number; chr:number[]; palettes:number[]; cellPalettes:number[]; compositions:{name:string;x:number;y:number;width:number;height:number}[] }
-export interface TileProject { bankAssets?:BankAsset[]; sprites?:SpriteAnimation[]; animations?:SpriteAnimation[]; chr: number[]; palettes: number[]; modes: number[]; planes: number[] }
+export interface ProjectPalette { id:string; name:string; colors:number[] }
+export interface BankAsset { id?:string; previewBackground?:string; name:string; mode:number; plane:number; chr:number[]; palettes?:number[]; paletteSlots?:string[]; cellPalettes:number[]; compositions:{name:string;x:number;y:number;width:number;height:number}[] }
+export interface TileProject { paletteLibrary?:ProjectPalette[]; bankAssets?:BankAsset[]; sprites?:SpriteAnimation[]; animations?:SpriteAnimation[]; chr: number[]; palettes: number[]; modes: number[]; planes: number[] }
 function integers(a: unknown, length: number, max: number): a is number[] {
  return Array.isArray(a) && a.length === length && a.every(v => Number.isInteger(v) && v >= 0 && v <= max);
 }
 export function validateProject(p: TileProject): void {
  if (!p || !integers(p.chr, 49152, 255) || !integers(p.palettes,128,65535) ||
  !integers(p.modes,8,3) || !p.modes.every(n=>n===1||n===3) || !integers(p.planes,8,2)) throw new Error('Invalid tile project');
- validateBankAssets(p.bankAssets);
+ validatePaletteLibrary(p.paletteLibrary);
+ validateBankAssets(p.bankAssets,p.paletteLibrary);
  validateAnimations(p.animations ?? []);
  validateAnimations(p.sprites ?? []);
  if(p.sprites?.some(s=>s.frames.length!==1))throw Error("Static sprites must have exactly one frame");
@@ -28,7 +31,7 @@ export function runtimePackage(p: TileProject): Record<string,Uint8Array> {
  const staticFiles=animationPackage(p.sprites??[]);
  files['SPRITES.BIN']=staticFiles['ANIMATIONS.BIN'];
  files['sprites.inc']=new TextEncoder().encode(new TextDecoder().decode(staticFiles['assets.inc']).replaceAll('ANIM_', 'SPRITE_').replaceAll('ANIMATION_COUNT','SPRITE_COUNT').replaceAll('ANIMATIONS.BIN','SPRITES.BIN'));
- if(p.bankAssets) return {...files,...bankAssetPackage(p.bankAssets)};
+ if(p.bankAssets) return {...files,...bankAssetPackage(p.bankAssets,p.paletteLibrary??[])};
  const lines = ['10 REM CLEMENTINA STUDIO RUNTIME ASSETS'];
  let line=20;
  for(let bank=0;bank<8;bank++) {
@@ -74,6 +77,7 @@ export function encodeProject(p:TileProject):string {
 export function decodeProject(text:string):TileProject {
  const p=JSON.parse(text);
  if(p?.format!=='clementina-studio'||p.version!==1)throw Error('Unsupported Studio project version');
+ migrateProjectPalettes(p);
  validateProject(p);return p;
 }
 export function animationPackage(animations:SpriteAnimation[]):Record<string,Uint8Array>{
@@ -91,25 +95,39 @@ export function animationPackage(animations:SpriteAnimation[]):Record<string,Uin
  return {'ANIMATIONS.BIN':Uint8Array.from(bytes),'assets.inc':new TextEncoder().encode(symbols.join('\n')+'\n')};
 }
 
-export function validateBankAssets(assets:BankAsset[]|undefined):void {
+export function validatePaletteLibrary(library:ProjectPalette[]|undefined):void {
+ if(library===undefined)return;
+ if(!Array.isArray(library))throw Error('Invalid palette library');
+ const ids=new Set<string>(),names=new Set<string>();
+ for(const p of library){
+  if(!p||typeof p.id!=='string'||!p.id.length||ids.has(p.id))throw Error('Palette identities must be unique');
+  ids.add(p.id);
+  if(typeof p.name!=='string'||!p.name.trim()||names.has(p.name.toLowerCase()))throw Error('Palette names must be unique and non-empty');
+  names.add(p.name.toLowerCase());
+  if(!integers(p.colors,PALETTE_COLORS,65535))throw Error('Palettes hold exactly eight RGB565 colors');
+ }
+}
+export function validateBankAssets(assets:BankAsset[]|undefined,library?:ProjectPalette[]):void {
  if(assets===undefined)return;
  if(!Array.isArray(assets))throw Error('Invalid bank library');
+ const paletteIds=new Set((library??[]).map(p=>p.id));
  const names=new Set<string>(),ids=new Set<string>();
  for(const a of assets){
   if(!a||typeof a.name!=='string'||!/^[A-Za-z][A-Za-z0-9_-]{0,47}$/.test(a.name)||names.has(a.name.toLowerCase()))throw Error('Bank names must be unique file names: letters, digits, underscores, hyphens');
   names.add(a.name.toLowerCase());
   if(a.id!==undefined){if(typeof a.id!=='string'||!a.id.length||ids.has(a.id))throw Error('Invalid bank asset identity');ids.add(a.id);}
   if(a.previewBackground!==undefined&&!/^#[0-9a-f]{6}$/i.test(a.previewBackground))throw Error('Invalid preview background');
-  if(!integers(a.chr,6144,255)||!integers(a.palettes,128,65535)||!integers(a.cellPalettes,256,15)||![1,3].includes(a.mode)||!range(a.plane,0,2)||!Array.isArray(a.compositions))throw Error('Invalid bank data');
+  if(!integers(a.chr,6144,255)||!integers(a.cellPalettes,256,15)||![1,3].includes(a.mode)||!range(a.plane,0,2)||!Array.isArray(a.compositions))throw Error('Invalid bank data');
+  if(!Array.isArray(a.paletteSlots)||a.paletteSlots.length!==PALETTE_SLOTS||a.paletteSlots.some(id=>!paletteIds.has(id)))throw Error('Each bank must bind its 16 palette slots to palettes in the project library');
   const cn=new Set<string>();
   for(const c of a.compositions){if(!c||typeof c.name!=='string'||!c.name.trim()||cn.has(c.name)||!range(c.x,0,15)||!range(c.y,0,15)||!range(c.width,1,16-c.x)||!range(c.height,1,16-c.y))throw Error('Invalid composition');cn.add(c.name);}
  }
 }
-export function bankAssetPackage(assets:BankAsset[]):Record<string,Uint8Array>{
- validateBankAssets(assets);const files:Record<string,Uint8Array>={};
+export function bankAssetPackage(assets:BankAsset[],library:ProjectPalette[]=[]):Record<string,Uint8Array>{
+ validateBankAssets(assets,library);const files:Record<string,Uint8Array>={};
  for(const a of assets){
   files[a.name+'.CHR']=Uint8Array.from(a.chr);
-  const palette=new Uint8Array(256),dv=new DataView(palette.buffer);a.palettes.forEach((v,i)=>dv.setUint16(i*2,v,true));files[a.name+'.PAL']=palette;
+  const palette=new Uint8Array(256),dv=new DataView(palette.buffer);resolveBankPalettes(a,library).forEach((v,i)=>dv.setUint16(i*2,v,true));files[a.name+'.PAL']=palette;
   files[a.name+'.ATTR']=Uint8Array.from(a.cellPalettes);
   files[a.name+'.json']=new TextEncoder().encode(JSON.stringify({name:a.name,mode:a.mode,plane:a.plane,layout:{columns:16,rows:16},cellPalettes:a.cellPalettes,compositions:a.compositions},null,2));
   files[a.name+'.loader.bas.txt']=new TextEncoder().encode(`10 REM EXAMPLE: LOAD ${a.name} INTO CHR SLOT 3\n20 CHRLOAD 3,0,6144,"${a.name}.CHR"\n30 CHRMODE 3,${a.mode===1?1:0}\n40 MIALOAD "${a.name}.PAL",256,256\n50 REM SELECT LAYER BANK AND PLANE IN YOUR GAME\n`);

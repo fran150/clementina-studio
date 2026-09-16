@@ -39,7 +39,7 @@
   drawBank();draw();
  }
  function pixel(bank,t,x,y){let v=0;if(bank.mode===1)return (bank.chr[bank.plane*2048+t*8+y]>>x)&1;for(let p=0;p<3;p++)v|=((bank.chr[p*2048+t*8+y]>>x)&1)<<p;return v;}
- function tile(ctx,bank,p,x,y,scale){if(!bank){ctx.strokeStyle='#f66';ctx.strokeRect(x,y,8*scale,8*scale);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+8*scale,y+8*scale);ctx.stroke();return;}for(let py=0;py<8;py++)for(let px=0;px<8;px++){const v=pixel(bank,p.tile,p.flipX?7-px:px,p.flipY?7-py:py);if(v){ctx.fillStyle=css565(bank.palettes[p.palette*8+v]);ctx.fillRect(x+px*scale,y+py*scale,scale,scale);}}}
+ function tile(ctx,bank,p,x,y,scale){if(!bank){ctx.strokeStyle='#f66';ctx.strokeRect(x,y,8*scale,8*scale);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+8*scale,y+8*scale);ctx.stroke();return;}for(let py=0;py<8;py++)for(let px=0;px<8;px++){const v=pixel(bank,p.tile,p.flipX?7-px:px,p.flipY?7-py:py);if(v){ctx.fillStyle=css565(bankColor(bank,p.palette,v));ctx.fillRect(x+px*scale,y+py*scale,scale,scale);}}}
  function drawBank(){const b=source(),c=$('scBankMap'),ctx=c.getContext('2d');ctx.fillStyle='#252830';ctx.fillRect(0,0,256,256);if(!b)return;for(let t=0;t<256;t++)tile(ctx,b,{tile:t,palette:b.cellPalettes[t]},t%16*16,Math.floor(t/16)*16,2);ctx.strokeStyle='#ffffff20';ctx.lineWidth=1;ctx.beginPath();for(let n=0;n<=16;n++){ctx.moveTo(n*16,0);ctx.lineTo(n*16,256);ctx.moveTo(0,n*16);ctx.lineTo(256,n*16);}ctx.stroke();ctx.strokeStyle='#36c9d6';ctx.lineWidth=2;ctx.strokeRect(sourceRect.x*16+1,sourceRect.y*16+1,sourceRect.width*16-2,sourceRect.height*16-2);}
 
  const canvas=$('scCanvas');
