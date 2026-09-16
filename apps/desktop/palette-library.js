@@ -1,94 +1,156 @@
 // The project's palette library. One palette can be bound by many banks and
 // named by many sprite parts, so every edit here is visible everywhere at once.
 (() => {
- const host=document.createElement('section');host.id='paletteLibraryPanel';host.className='panel';host.hidden=true;
- host.innerHTML=`<p id="paletteLibraryIntro">MIA holds 16 palettes of 8 colors at a time, shared by background tiles, sprites and the overlay. A project may define more than 16 and swap them at runtime; each bank binds 16 of them to its slots, and each sprite part names the one it needs.</p>
- <div class="paletteActions"><button id="newPalette">New palette</button><span id="paletteLibraryCount"></span></div>
- <div id="paletteRows" role="list"></div>
- <input id="paletteLibraryColor" type="color" style="position:absolute;opacity:0;width:1px;height:1px">`;
+ const host=document.createElement('section');host.id='paletteWorkspace';host.hidden=true;
+ host.innerHTML=`<nav id="palRail" aria-label="Palette tools"></nav>
+ <aside id="palLibrary"><h2>Palettes</h2><div id="palList" role="listbox" aria-label="Palettes"></div>
+  <p>Double-click a palette to rename it. A palette in use cannot be deleted; rebind the slots and sprite parts that need it first.</p></aside>
+ <main><div id="palTop"><strong id="palName"></strong><span id="palUse"></span></div>
+  <div id="palStage"><div id="palColors"></div></div>
+  <div id="palStatus"></div></main>
+ <input id="palColorInput" type="color" style="position:absolute;opacity:0;width:1px;height:1px">`;
  $('paletteHost').after(host);
  const style=document.createElement('style');style.textContent=`
- #paletteLibraryPanel{margin:16px;padding:24px;max-width:1000px}
- #paletteLibraryIntro{color:var(--text-dim);font-size:11px;line-height:1.7;max-width:660px}
- .paletteActions{display:flex;gap:10px;align-items:center;margin:14px 0;font-size:11px;color:var(--text-dim)}
- #paletteRows{display:flex;flex-direction:column;gap:6px}
- .paletteRow{display:flex;align-items:center;gap:10px;padding:7px 9px;background:var(--panel);border:1px solid var(--line);border-radius:6px}
- .paletteRow input.paletteName{width:150px;flex-shrink:0;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:5px;font:inherit;font-size:11px}
- .paletteRow .paletteChips{display:flex;gap:2px;flex-shrink:0}
- .paletteRow .paletteChips button{width:24px;height:24px;padding:0;border-radius:3px;border:1px solid #0006}
- .paletteRow .paletteUse{flex:1;min-width:0;font-size:10px;color:var(--text-dim);line-height:1.5}
- .paletteRow .rowActions{display:flex;gap:6px;flex-shrink:0}
- .paletteRow .rowActions button{font-size:10px;padding:5px 9px}
- .paletteRow.unusedPalette{opacity:.72}`;
+ body.paletteWorkspaceView{padding-left:0;overflow:hidden}
+ body.paletteWorkspaceView #workflowNav{position:static;width:auto;height:44px;display:flex;align-items:center;gap:6px;padding:5px 12px;border-bottom:1px solid var(--line)}
+ body.paletteWorkspaceView #workflowNav .brand{font-size:12px;margin-right:18px}
+ body.paletteWorkspaceView #workflowNav .brand span,body.paletteWorkspaceView #workflowNav .navGroup,body.paletteWorkspaceView #workflowNav .navNote,body.paletteWorkspaceView #workflowHeading{display:none}
+ body.paletteWorkspaceView #workflowNav button{width:auto;margin:0;padding:6px 12px}
+ body.paletteWorkspaceView header{height:46px;padding:5px 12px}
+ body.paletteWorkspaceView footer{left:0;height:28px;padding:6px 12px;font-size:11px}
+ #paletteWorkspace{position:relative;height:calc(100vh - 118px);display:grid;grid-template-columns:64px auto minmax(0,1fr)}
+ #palRail{grid-column:1;display:flex;flex-direction:column;gap:5px;padding:8px 5px;background:var(--panel);border-right:1px solid var(--line)}
+ #palRail button{height:46px;padding:6px;display:flex;align-items:center;justify-content:center}
+ #palRail svg{width:30px;height:30px}
+ #paletteWorkspace main{grid-column:3;display:flex;flex-direction:column;min-width:0;min-height:0}
+ #palTop{display:flex;align-items:center;gap:14px;padding:9px 18px;background:var(--panel);font-size:11px}
+ #palName{color:var(--ink);font-size:12px}
+ #palUse{color:var(--text-dim)}
+ #palStage{flex:1;min-height:0;overflow:auto;display:flex;align-items:safe center;justify-content:safe center;padding:28px;background:#101113;background-image:radial-gradient(#22252b 1px,transparent 1px);background-size:12px 12px}
+ #palColors{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+ .palColor{display:flex;flex-direction:column;align-items:center;gap:6px}
+ .palColor button{width:86px;height:86px;padding:0;border-radius:6px;border:1px solid #0006;box-shadow:0 6px 18px #0007;cursor:pointer}
+ .palColor button:focus{outline:2px solid var(--sel);outline-offset:2px}
+ .palColor .palIndex{font-size:11px;color:var(--text-dim)}
+ .palColor .palHex{font-size:10px;color:var(--text-dim)}
+ #palLibrary{position:relative;grid-column:2;width:285px;padding:12px;padding-top:38px;background:var(--panel);border-right:1px solid var(--line);overflow:auto}
+ #palLibrary h2{font-size:12px;color:var(--text-dim);margin:0 0 8px}
+ #palLibrary p{font-size:10px;line-height:1.6;color:var(--text-dim)}
+ #palList{border:1px solid var(--line);background:var(--bg);max-height:60vh;overflow:auto;min-height:60px}
+ #palList .assetRow{display:flex;align-items:center;gap:8px}
+ #palList .rowChips{display:flex;gap:1px;margin-left:auto;flex-shrink:0}
+ #palList .rowChips i{width:8px;height:14px;border-radius:1px}
+ #palList .assetRow.unusedPalette{opacity:.6}
+ #palClose{position:absolute;top:5px;right:5px;padding:3px;height:auto!important}
+ #palClose svg{width:18px;height:18px}
+ #palStatus{padding:6px 18px;font-size:10px;color:var(--text-dim)}`;
  document.head.append(style);
 
- let editing=null;
+ let index=0,editing=0;
+ const palette=()=>paletteLibrary[index];
  const groups=()=>[...sprites,...animations];
+ function iconButton(id,label,path){
+  const button=document.createElement('button');button.id=id;button.title=label;button.setAttribute('aria-label',label);
+  button.innerHTML=`<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
+  return button;
+ }
  function usage(id){
-  const banks=ensureBankAssets().filter(b=>b.paletteSlots?.includes(id));
-  const parts=groups().flatMap(g=>g.frames.flatMap(f=>f.parts.filter(p=>p.paletteId===id)));
-  return {banks,parts};
+  return {banks:ensureBankAssets().filter(b=>b.paletteSlots?.includes(id)),
+   parts:groups().flatMap(g=>g.frames.flatMap(f=>f.parts.filter(p=>p.paletteId===id))).length};
  }
  function describe(id){
   const {banks,parts}=usage(id);
-  if(!banks.length&&!parts.length)return 'Unused';
-  const slots=banks.map(b=>b.name+' · '+b.paletteSlots.map((s,i)=>s===id?i:-1).filter(i=>i>=0).map(i=>String(i).padStart(2,'0')).join(', '));
-  const sprite=parts.length?`${parts.length} sprite part${parts.length===1?'':'s'}`:'';
-  return [slots.join(' · '),sprite].filter(Boolean).join(' · ');
+  if(!banks.length&&!parts)return 'Unused — bind it to a bank slot to paint with it';
+  const slots=banks.map(b=>`${b.name} · ${b.paletteSlots.map((s,i)=>s===id?String(i).padStart(2,'0'):null).filter(Boolean).join(', ')}`);
+  return [slots.join('  ·  '),parts?`${parts} sprite part${parts===1?'':'s'}`:''].filter(Boolean).join('  ·  ');
+ }
+ const library=$('palLibrary');
+ const toggle=iconButton('palLibraryToggle','Palettes','<path d="M12 3a9 9 0 0 0 0 18h2a2 2 0 0 0 2-2 2 2 0 0 1 2-2h1a3 3 0 0 0 3-3 8 8 0 0 0-8-8z"/><circle cx="7.5" cy="12" r="1.2" fill="currentColor"/><circle cx="9.5" cy="7.5" r="1.2" fill="currentColor"/><circle cx="14.5" cy="7" r="1.2" fill="currentColor"/><circle cx="17.5" cy="11" r="1.2" fill="currentColor"/>');
+ toggle.setAttribute('aria-expanded','true');
+ toggle.onclick=()=>{library.hidden=!library.hidden;toggle.setAttribute('aria-expanded',String(!library.hidden));};
+ const close=iconButton('palClose','Close panel','<path d="m6 6 12 12M18 6 6 18"/>');
+ close.onclick=()=>{library.hidden=true;toggle.setAttribute('aria-expanded','false');};
+ library.prepend(close);
+ $('palRail').append(toggle);
+ for(const [id,label,path,fn] of [
+  ['palNew','New palette','<path d="M12 4v16M4 12h16"/>',()=>{graphicsEdit(()=>{createPalette(Array(8).fill(0));index=paletteLibrary.length-1;});setStatus('Added a palette. Bind it from a bank slot to use it.');render();}],
+  ['palDuplicate','Duplicate palette','<rect x="8" y="8" width="13" height="13" rx="1"/><path d="M16 8V4H3v13h5"/>',()=>{graphicsEdit(()=>{createPalette(palette().colors,uniquePaletteName());index=paletteLibrary.length-1;});setStatus('Duplicated the palette.');render();}],
+  ['palDelete','Delete palette','<path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v8M14 10v8"/>',()=>destroy()]
+ ]){const button=iconButton(id,label,path);button.onclick=fn;$('palRail').append(button);}
+
+ function destroy(){
+  const target=palette(),{banks,parts}=usage(target.id);
+  if(banks.length||parts){setStatus(`${target.name} is still in use: ${describe(target.id)}.`);return;}
+  if(!confirm('Delete palette "'+target.name+'"?'))return;
+  graphicsEdit(()=>{paletteLibrary.splice(index,1);index=Math.max(0,index-1);});render();
+ }
+ function rename(row){
+  if(row.querySelector('input'))return;
+  const target=palette(),input=document.createElement('input');
+  input.value=target.name;input.maxLength=48;input.setAttribute('aria-label','Rename '+target.name);
+  row.replaceChildren(input);let done=false;
+  const finish=save=>{
+   if(done)return;done=true;const name=input.value.trim();row.replaceChildren();
+   if(save&&name&&name!==target.name){
+    if(paletteLibrary.some(p=>p!==target&&p.name.toLowerCase()===name.toLowerCase()))setStatus('Use a unique palette name.');
+    else graphicsEdit(()=>target.name=name);
+   }
+   render();
+  };
+  input.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();finish(true);}if(e.key==='Escape'){e.preventDefault();finish(false);}};
+  input.onblur=()=>finish(true);input.focus();input.select();
+ }
+ function renderList(){
+  const list=$('palList');
+  while(list.children.length>paletteLibrary.length)list.lastElementChild.remove();
+  paletteLibrary.forEach((entry,i)=>{
+   let row=list.children[i];
+   if(!row){row=document.createElement('div');row.className='assetRow';row.tabIndex=0;row.setAttribute('role','option');list.append(row);}
+   const {banks,parts}=usage(entry.id);
+   row.classList.toggle('unusedPalette',!banks.length&&!parts);
+   row.setAttribute('aria-selected',String(i===index));
+   if(!row.querySelector('input')){
+    const name=document.createElement('span');name.textContent=entry.name;
+    const chips=document.createElement('span');chips.className='rowChips';
+    for(const color of entry.colors){const chip=document.createElement('i');chip.style.background=css565(color);chips.append(chip);}
+    row.replaceChildren(name,chips);
+   }
+   row.onclick=e=>{if(e.target.tagName!=='INPUT'){index=i;render();}};
+   row.ondblclick=e=>{if(e.target.tagName!=='INPUT'){index=i;rename(row);}};
+   row.onkeydown=e=>{if(e.target.tagName==='INPUT')return;if(e.key==='Enter'){index=i;render();}if(e.key==='F2'){e.preventDefault();index=i;rename(row);}};
+  });
  }
  function render(){
   if(host.hidden)return;
-  $('paletteLibraryCount').textContent=`${paletteLibrary.length} palette${paletteLibrary.length===1?'':'s'} · a bank can use 16 at once`;
-  const rows=$('paletteRows');
-  while(rows.children.length>paletteLibrary.length)rows.lastElementChild.remove();
-  paletteLibrary.forEach((palette,index)=>{
-   let row=rows.children[index];
-   if(!row){
-    row=document.createElement('div');row.className='paletteRow';row.setAttribute('role','listitem');
-    const name=document.createElement('input');name.className='paletteName';name.maxLength=48;name.setAttribute('aria-label','Palette name');
-    const chips=document.createElement('div');chips.className='paletteChips';
-    for(let i=0;i<8;i++){const chip=document.createElement('button');chip.dataset.ink=i;chips.append(chip);}
-    const use=document.createElement('span');use.className='paletteUse';
-    const actions=document.createElement('div');actions.className='rowActions';
-    for(const [key,label] of [['duplicate','Duplicate'],['delete','Delete']]){const b=document.createElement('button');b.dataset.action=key;b.textContent=label;actions.append(b);}
-    row.append(name,chips,use,actions);rows.append(row);
+  if(index>=paletteLibrary.length)index=Math.max(0,paletteLibrary.length-1);
+  const entry=palette();
+  $('palDelete').disabled=!entry||paletteLibrary.length===1;
+  $('palDuplicate').disabled=!entry;
+  $('palName').textContent=entry?entry.name:'No palettes';
+  $('palUse').textContent=entry?describe(entry.id):'';
+  $('palStatus').textContent=`${paletteLibrary.length} palette${paletteLibrary.length===1?'':'s'} in this project · MIA holds 16 at a time, shared by background tiles, sprites and the overlay · click a color to edit it`;
+  const colors=$('palColors');
+  for(let ink=0;ink<8;ink++){
+   let cell=colors.children[ink];
+   if(!cell){
+    cell=document.createElement('div');cell.className='palColor';
+    const swatch=document.createElement('button');swatch.dataset.ink=ink;
+    const label=document.createElement('span');label.className='palIndex';label.textContent=ink===0?'0 · key':String(ink);
+    const hex=document.createElement('span');hex.className='palHex';
+    cell.append(swatch,label,hex);colors.append(cell);
+    swatch.onclick=()=>{if(!palette())return;editing=ink;$('palColorInput').value=css565ToInput(palette().colors[ink]);$('palColorInput').click();};
    }
-   const {banks,parts}=usage(palette.id),used=banks.length||parts.length;
-   row.classList.toggle('unusedPalette',!used);
-   const name=row.querySelector('.paletteName');
-   if(document.activeElement!==name)name.value=palette.name;
-   name.onchange=()=>rename(palette,name);
-   row.querySelectorAll('[data-ink]').forEach(chip=>{
-    const ink=Number(chip.dataset.ink);
-    chip.style.background=css565(palette.colors[ink]);
-    chip.title=ink===0?`${palette.name} color 0 — drawn on background tiles, transparent for sprites and the overlay`:`${palette.name} color ${ink}`;
-    chip.setAttribute('aria-label',chip.title);
-    chip.onclick=()=>{editing={palette,ink};$('paletteLibraryColor').value=css565ToInput(palette.colors[ink]);$('paletteLibraryColor').click();};
-   });
-   row.querySelector('.paletteUse').textContent=describe(palette.id);
-   row.querySelector('[data-action="duplicate"]').onclick=()=>duplicate(palette);
-   const remove=row.querySelector('[data-action="delete"]');
-   remove.disabled=!!used||paletteLibrary.length===1;
-   remove.title=used?'In use: '+describe(palette.id)+'. Rebind those slots and parts first.':paletteLibrary.length===1?'A project keeps at least one palette.':'Delete this palette';
-   remove.onclick=()=>destroy(palette);
-  });
+   const swatch=cell.querySelector('button');
+   swatch.style.background=entry?css565(entry.colors[ink]):'transparent';
+   swatch.title=ink===0?'Color 0 — drawn on background tiles, transparent for sprites and the overlay':`Color ${ink}`;
+   swatch.setAttribute('aria-label',(entry?entry.name+' ':'')+swatch.title);
+   swatch.disabled=!entry;
+   cell.querySelector('.palHex').textContent=entry?'0x'+entry.colors[ink].toString(16).toUpperCase().padStart(4,'0'):'';
+  }
+  renderList();
  }
- function rename(palette,input){
-  const name=input.value.trim();
-  if(!name||paletteLibrary.some(p=>p!==palette&&p.name.toLowerCase()===name.toLowerCase())){setStatus('Use a unique, nonempty palette name.');input.value=palette.name;return;}
-  graphicsEdit(()=>palette.name=name);render();
- }
- function duplicate(palette){
-  graphicsEdit(()=>createPalette(palette.colors,uniquePaletteName()));
-  setStatus('Added a copy of '+palette.name+'. Bind it from a bank slot to use it.');render();
- }
- function destroy(palette){
-  if(!confirm('Delete palette "'+palette.name+'"?'))return;
-  graphicsEdit(()=>paletteLibrary.splice(paletteLibrary.indexOf(palette),1));render();
- }
- $('newPalette').onclick=()=>{graphicsEdit(()=>createPalette(Array(8).fill(0)));setStatus('Added a palette. Bind it from a bank slot to use it.');render();};
- $('paletteLibraryColor').onchange=()=>{if(!editing)return;const {palette,ink}=editing;graphicsEdit(()=>palette.colors[ink]=inputTo565($('paletteLibraryColor').value));render();};
- // Undo lives on the bank editor's rail, which this view does not show.
+ $('palColorInput').onchange=()=>{if(!palette())return;graphicsEdit(()=>palette().colors[editing]=inputTo565($('palColorInput').value));render();};
+ // Undo lives on the bank editor's rail, which this workspace does not show.
  window.addEventListener('keydown',event=>{
   if(currentView!=='palettes'||!(event.metaKey||event.ctrlKey)||/INPUT|SELECT|TEXTAREA/.test(event.target.tagName))return;
   const key=event.key.toLowerCase();if(key!=='z'&&key!=='y')return;
@@ -96,6 +158,10 @@
   (key==='y'||event.shiftKey?$('bankRedo'):$('bankUndo')).click();render();
  },true);
  const oldShow=showView;
- showView=function(view){oldShow(view);host.hidden=view!=='palettes';render();};
+ showView=function(view){
+  oldShow(view);host.hidden=view!=='palettes';
+  document.body.classList.toggle('paletteWorkspaceView',view==='palettes');
+  render();
+ };
  window.renderPaletteLibrary=render;
 })();

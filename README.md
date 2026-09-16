@@ -150,10 +150,14 @@ hardware slots belongs to the same memory-placement step that already allocates
 CHR banks, and that is where "this group needs a seventeenth palette" is
 reported. Legacy parts with no source bank keep a plain 0–15 slot.
 
-The Palettes workspace lists the library: rename a palette, click any of its
-eight colors to edit it, duplicate it, or delete it. Each row reports where the
-palette is used — which bank and slots, and how many sprite parts — and
-deletion is refused while anything still uses it, so no binding is ever left
+The Palettes workspace follows the same shape as the bank and sprite group
+editors: an icon rail (palette list, New, Duplicate, Delete), a collapsible
+asset list, and a stage. The list uses the same rows as the bank library —
+click to select, double-click or F2 to rename inline, with unused palettes
+dimmed. The stage shows the selected palette's eight colors as large swatches
+with their RGB565 values; click one to edit it. The header names the palette and
+reports where it is used — which bank and slots, and how many sprite parts —
+and deletion is refused while anything still uses it, so no binding is ever left
 dangling. Ctrl/Cmd+Z undoes palette edits, which share the bank editor's history.
 
 Color 0 is editable here. It is exported like any other entry, and background
