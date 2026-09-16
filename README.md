@@ -141,6 +141,27 @@ even when their colors match. Projects saved before this change migrate on
 open: identical palettes across banks collapse into one shared entry, and
 exported `.PAL` bytes are unchanged.
 
+A sprite part names its palette outright rather than borrowing a slot number
+from its source bank. Slot numbers are per bank, so two parts drawn from
+different banks could both claim "palette 3" while showing different colors —
+something the hardware cannot do, since every sprite indexes the one palette
+RAM. Parts therefore carry `paletteId`; mapping those palettes onto the 16
+hardware slots belongs to the same memory-placement step that already allocates
+CHR banks, and that is where "this group needs a seventeenth palette" is
+reported. Legacy parts with no source bank keep a plain 0–15 slot.
+
+The Palettes workspace lists the library: rename a palette, click any of its
+eight colors to edit it, duplicate it, or delete it. Each row reports where the
+palette is used — which bank and slots, and how many sprite parts — and
+deletion is refused while anything still uses it, so no binding is ever left
+dangling. Ctrl/Cmd+Z undoes palette edits, which share the bank editor's history.
+
+Color 0 is editable here. It is exported like any other entry, and background
+tiles draw it as a real color, while sprites and the overlay treat it as
+transparency — so it was previously shipped in every `.PAL` with no way to
+change it. The drawing canvases still preview it as the bank's preview
+background; showing it as its true color for background work is still open.
+
 Objects save named rectangles within a bank. New saves the current selection;
 selecting an object restores it. Confirmed deletion removes only metadata.
 Drawing zoom ranges from 1× to 32×. Pencil draws across tile edges; Fill replaces

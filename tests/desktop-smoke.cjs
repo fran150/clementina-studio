@@ -186,7 +186,8 @@ app.whenReady().then(async()=>{
    ptr('pointerdown',z,z);ptr('pointermove',4*z,3*z);ptr('pointerup',4*z,3*z);const dragged=a().frames[0].parts[0].x===initial+3;
    $('scUndo').click();$('scSnap').checked=true;ptr('pointerdown',z,z);ptr('pointermove',6*z,z);ptr('pointerup',6*z,z);const snapped=a().frames[0].parts[0].x===initial+8;$('scSnap').checked=false;
    const dt=new DataTransfer();dt.setData('application/x-clementina-tiles','selection');const cr=c.getBoundingClientRect();c.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,clientX:cr.left+cr.width/2,clientY:cr.top+cr.height/2,bubbles:true}));const dropped=a().frames[0].parts.length===4;
-   const paletteAssigned=!$('scPalettes')&&a().frames[0].parts.slice(2).every(p=>p.palette===b.cellPalettes[p.tile]);
+   // A part names the palette its source tile uses, not a slot number that means different colors per bank.
+   const paletteAssigned=!$('scPalettes')&&a().frames[0].parts.slice(2).every(p=>p.palette===undefined&&p.paletteId===b.paletteSlots[b.cellPalettes[p.tile]]);
    $('scParts').children[0].click();const firstPart=structuredClone(a().frames[0].parts[0]);$('scFront').click();const ordered=a().frames[0].parts.at(-1).tile===firstPart.tile&&a().frames[0].parts.at(-1).x===firstPart.x;
    const beforeResize=JSON.stringify(a().frames[0].parts);$('scWidth').value='1';$('scWidth').dispatchEvent(new Event('change'));const unclipped=JSON.stringify(a().frames[0].parts)===beforeResize;
    const saved=studioProject();restoreStudioProject(saved);const restored=JSON.stringify(saved.sprites)===JSON.stringify(studioProject().sprites);showView('sprites');$('scSprites').lastElementChild.click();$('scFit').click();

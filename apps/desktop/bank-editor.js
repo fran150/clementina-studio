@@ -77,6 +77,8 @@
  }
  const historyBar=document.createElement('div');historyBar.className='bankActions';historyBar.append($('bankUndo'),$('bankRedo'));host.querySelector('.bankLibrary').append(historyBar);
  window.renderBankEditor=render;
+ // The palette library panel edits the same shared state, so it shares this history.
+ window.graphicsEdit=mutate;
  const oldRedraw=redrawAll;redrawAll=function(){oldRedraw();render();};
  const oldShow=showView;showView=function(v){oldShow(v);render();};
  function mapCell(e){const r=$('bankMap').getBoundingClientRect();return {x:Math.max(0,Math.min(15,Math.floor((e.clientX-r.left)/r.width*16))),y:Math.max(0,Math.min(15,Math.floor((e.clientY-r.top)/r.height*16)))};}
@@ -343,7 +345,7 @@
  document.addEventListener('pointerover',e=>{const b=e.target.closest?.('button,summary');if(b&&b!==tipTarget)showTip(b);});document.addEventListener('pointerout',e=>{if(tipTarget&&!tipTarget.contains(e.relatedTarget))hideTip();});document.addEventListener('focusin',e=>{const b=e.target.closest?.('button,summary');if(b)showTip(b);});document.addEventListener('focusout',hideTip);document.addEventListener('pointerdown',hideTip);window.addEventListener('blur',hideTip);document.addEventListener('keydown',hideTip);document.addEventListener('scroll',hideTip,true);
 
  const importArtwork=document.createElement('button');importArtwork.id='importBankImage';importArtwork.textContent='Import image…';importArtwork.title='Import PNG, BMP or GIF artwork into this bank';$('bankMap').before(importArtwork);
- importArtwork.onclick=()=>studioAction(async()=>{const target=asset();if(!target)return;const protectedPalettes=new Set();for(const library of [sprites,animations])for(const item of library)for(const frame of item.frames)for(const part of frame.parts)if(part.bankId===target.id)protectedPalettes.add(part.palette);
+ importArtwork.onclick=()=>studioAction(async()=>{const target=asset();if(!target)return;const protectedPalettes=new Set();for(const library of [sprites,animations])for(const item of library)for(const frame of item.frames)for(const part of frame.parts)if(part.bankId===target.id){const slot=target.paletteSlots.indexOf(part.paletteId);if(slot>=0)protectedPalettes.add(slot);}
   // Import reads and writes flattened palette RAM; the binding is resolved in and rebound out.
   await window.openBankImageImport({bank:{...target,palettes:resolveBankPalettes(target)},selection:{...selection},protectedPalettes,commit:(next,rect,createdObject)=>{if(asset()!==target)throw Error('The destination bank changed. Reopen image import.');mutate(()=>{const {palettes,...rest}=next;Object.assign(target,rest);bindFlatPalettes(target,palettes);selection=rect;pixelSelection=null;pasteAnchor=null;objectIndex=createdObject?target.compositions.length-1:-1;});setStatus('Imported image into '+target.name+'. Undo restores pixels, palettes and Objects.');}});
  });

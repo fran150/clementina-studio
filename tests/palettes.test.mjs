@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {encodeProject,decodeProject,bankAssetPackage,validateProject} from '../dist/packages/assets/index.js';
 import {migrateProjectPalettes,resolveBankPalettes,slotColors,internPalette,bindFlatPalettes} from '../dist/packages/assets/palettes.js';
+const findPalette=(library,id)=>library.find(p=>p.id===id);
 
 const flat=fn=>Array.from({length:128},(_,i)=>fn(Math.floor(i/8),i%8));
 const legacyBank=(name,palettes)=>({name,mode:3,plane:0,chr:Array(6144).fill(0),palettes,cellPalettes:Array(256).fill(0),compositions:[]});
@@ -64,6 +65,22 @@ test('projects round trip in the new shape and reject broken bindings',()=>{
  assert.deepEqual(restored.bankAssets[0].paletteSlots,p.bankAssets[0].paletteSlots);
  p.bankAssets[0].paletteSlots[0]='missing';assert.throws(()=>encodeProject(p),/palette slots/);
  p.bankAssets[0].paletteSlots.pop();assert.throws(()=>encodeProject(p),/palette slots/);
+});
+
+test('group parts stop meaning "slot in my own bank" and name the palette instead',()=>{
+ const base=flat((slot,i)=>slot*8+i),other=[...base];other[3*8+2]=0xf81f;
+ const p=legacyProject([{...legacyBank('Alpha',[...base]),id:'alpha'},{...legacyBank('Beta',other),id:'beta'}]);
+ // Both parts said "palette 3" while showing different colors, which the hardware cannot do.
+ p.sprites=[{name:'Hero',bank:0,plane:0,frames:[{ticks:6,parts:[
+  {bankId:'alpha',tile:0,x:0,y:0,palette:3,flipX:false,flipY:false},
+  {bankId:'beta',tile:1,x:8,y:0,palette:3,flipX:false,flipY:false}]}]}];
+ migrateProjectPalettes(p);
+ const [a,b]=p.sprites[0].frames[0].parts;
+ assert.equal(a.palette,undefined);
+ assert.notEqual(a.paletteId,b.paletteId,'parts that showed different colors must name different palettes');
+ assert.deepEqual(findPalette(p.paletteLibrary,a.paletteId).colors,base.slice(24,32));
+ assert.deepEqual(findPalette(p.paletteLibrary,b.paletteId).colors,other.slice(24,32));
+ validateProject(p);
 });
 
 test('palette library rejects duplicate identities, duplicate names and wrong color counts',()=>{

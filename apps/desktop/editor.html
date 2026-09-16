@@ -105,7 +105,7 @@ header h1, header .sep, header .lbl, header #bankSel, header #mode1, header #mod
 </head>
 <body>
 <aside id="workflowNav"><div class="brand">CLEMENTINA STUDIO</div><div class="navGroup">GRAPHICS</div>
-<button data-view="tiles">01 · Banks</button><button data-view="sprites">02 · Sprite groups</button><button data-view="animations">03 · Animations</button>
+<button data-view="tiles">01 · Banks</button><button data-view="palettes">02 · Palettes</button><button data-view="sprites">03 · Sprite groups</button><button data-view="animations">04 · Animations</button>
 <div class="navGroup">DELIVER</div><button data-view="build">Build package</button><button data-view="advanced">Advanced</button>
 <div class="navNote">Create graphics, assemble sprites, animate, then export for your game.</div></aside>
 <div id="workspace"><div id="workflowHeading"><h1 id="viewTitle">Tile sheets</h1><p id="viewHelp"></p></div>
@@ -301,6 +301,10 @@ function libraryPalette(id) { return paletteLibrary.find(p => p.id === id); }
 function slotPalette(bank, slot) { return libraryPalette(bank?.paletteSlots?.[slot]); }
 function slotColors(bank, slot) { return slotPalette(bank, slot)?.colors ?? BLACK_PALETTE; }
 function bankColor(bank, slot, ink) { return slotColors(bank, slot)[ink]; }
+/** A group part names its palette outright; a bank-map preview passes a slot. */
+function partColor(bank, part, ink) {
+  return part.paletteId ? (libraryPalette(part.paletteId)?.colors ?? BLACK_PALETTE)[ink] : bankColor(bank, part.palette, ink);
+}
 function setBankColor(bank, slot, ink, value) { const p = slotPalette(bank, slot); if (p) p.colors[ink] = value; }
 function resolveBankPalettes(bank) { const out = []; for (let s = 0; s < PAL_BANKS; s++) out.push(...slotColors(bank, s)); return out; }
 function uniquePaletteName() {
@@ -812,7 +816,7 @@ function drawSpritePreview(){
   if(part.bankId&&!source)continue;
   const sourceBit=p=>((source.chr[p*2048+part.tile*8+sy]>>sx)&1);
   const ink=source?(source.mode===1?sourceBit(source.plane):sourceBit(0)|(sourceBit(1)<<1)|(sourceBit(2)<<2)):bankBpp[a.bank]===1?planeBit(a.bank,a.plane,part.tile,sx,sy):planeBit(a.bank,0,part.tile,sx,sy)|(planeBit(a.bank,1,part.tile,sx,sy)<<1)|(planeBit(a.bank,2,part.tile,sx,sy)<<2);
-  if(ink){ctx.fillStyle=css565(source?bankColor(source,part.palette,ink):pal[part.palette*8+ink]);ctx.fillRect(128+(part.x+x)*4,128+(part.y+y)*4,4,4);}
+  if(ink){ctx.fillStyle=css565(source?partColor(source,part,ink):pal[part.palette*8+ink]);ctx.fillRect(128+(part.x+x)*4,128+(part.y+y)*4,4,4);}
  }
  $('playbackStatus').textContent=a?`${a.name} · frame ${(playing?playFrame:frameIndex)+1}/${a.frames.length} · 4× preview`:'Create an animation to assemble your tiles.';
 }
@@ -858,7 +862,7 @@ $('useSpriteFrame').onclick=()=>{
 $('partTile').onchange=()=>{const n=Number($('partTile').value);if(Number.isInteger(n)&&n>=0&&n<=255)selTile=n;else $('partTile').value=selTile;};
 $('partPalette').onchange=()=>{const n=Number($('partPalette').value);if(Number.isInteger(n)&&n>=0&&n<=15)activePal=n;else $('partPalette').value=activePal;};
 const descriptions={
- palettes:['Palettes','Choose the colors your characters and terrain will use.'],
+ palettes:['Palettes','Shared by every bank and sprite. Editing a color changes it everywhere it is used.'],
  tiles:['Banks','Create named graphics files. Select a rectangle and draw across its tiles. Assign palettes per cell.'],
  sprites:['Sprite groups','Assemble reusable static objects from tiles. Arrange parts around the origin.'],
  animations:['Animations','Arrange sprite frames and set their timing. Preview the result before export.'],
@@ -894,6 +898,6 @@ $('tilesOverview').prepend(tileControls);
 showView('tiles');
 
 </script>
-</div><script src="image-import-ui.js"></script><script src="bank-editor.js"></script><script src="sprite-composer.js"></script>
+</div><script src="image-import-ui.js"></script><script src="bank-editor.js"></script><script src="palette-library.js"></script><script src="sprite-composer.js"></script>
 </body>
 </html>

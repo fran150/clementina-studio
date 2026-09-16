@@ -1,6 +1,7 @@
 import {PALETTE_COLORS, PALETTE_SLOTS, migrateProjectPalettes, resolveBankPalettes} from './palettes.js';
 export const BANK_BYTES = 6144;
-export interface SpritePart { bankId?:string; spriteId?:number; tile:number; x:number; y:number; palette:number; flipX:boolean; flipY:boolean }
+/** Bank-backed parts name a library palette; legacy parts still carry a hardware slot. */
+export interface SpritePart { bankId?:string; spriteId?:number; tile:number; x:number; y:number; palette?:number; paletteId?:string; flipX:boolean; flipY:boolean }
 export interface SpriteFrame { ticks:number; parts:SpritePart[] }
 export interface SpriteAnimation { bankIds?:string[]; canvasPixelWidth?:number; canvasPixelHeight?:number; originAnchor?:string; canvasWidth?:number; canvasHeight?:number; originX?:number; originY?:number; name:string; bank:number; plane:number; frames:SpriteFrame[] }
 export interface ProjectPalette { id:string; name:string; colors:number[] }
@@ -14,8 +15,8 @@ export function validateProject(p: TileProject): void {
  !integers(p.modes,8,3) || !p.modes.every(n=>n===1||n===3) || !integers(p.planes,8,2)) throw new Error('Invalid tile project');
  validatePaletteLibrary(p.paletteLibrary);
  validateBankAssets(p.bankAssets,p.paletteLibrary);
- validateAnimations(p.animations ?? []);
- validateAnimations(p.sprites ?? []);
+ validateAnimations(p.animations ?? [],p.paletteLibrary);
+ validateAnimations(p.sprites ?? [],p.paletteLibrary);
  if(p.sprites?.some(s=>s.frames.length!==1))throw Error("Static sprites must have exactly one frame");
 }
 export function encodeMtb(p: TileProject): Uint8Array {
@@ -52,8 +53,9 @@ export function runtimePackage(p: TileProject): Record<string,Uint8Array> {
 }
 
 function range(n:unknown,min:number,max:number):boolean {return Number.isInteger(n) && Number(n)>=min && Number(n)<=max;}
-export function validateAnimations(animations:SpriteAnimation[]):void {
+export function validateAnimations(animations:SpriteAnimation[],library?:ProjectPalette[]):void {
  if(!Array.isArray(animations)||animations.length>255)throw Error('At most 255 animations are supported');
+ const paletteIds=new Set((library??[]).map(p=>p.id));
  const names=new Set<string>();
  for(const a of animations){
   if(!a||typeof a.name!=='string'||!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(a.name)||names.has(a.name.toUpperCase()))throw Error('Animation names must be unique assembly identifiers (1–32 characters)');
@@ -67,7 +69,8 @@ export function validateAnimations(animations:SpriteAnimation[]):void {
   for(const f of a.frames){
    if(!f||!range(f.ticks,1,255)||!Array.isArray(f.parts)||f.parts.length>64)throw Error('Frames require 1–255 ticks and at most 64 parts');
    const ids=f.parts.map((p,i)=>p.spriteId??i);if(new Set(ids).size!==ids.length||ids.some(id=>!range(id,0,255)))throw Error('Sprite IDs must be unique within a group');
-   for(const part of f.parts)if(!part||!range(part.tile,0,255)||!range(part.x,part.bankId?-32768:-128,part.bankId?32767:127)||!range(part.y,part.bankId?-32768:-128,part.bankId?32767:127)||(part.bankId!==undefined&&(typeof part.bankId!=='string'||!part.bankId.length))||!range(part.palette,0,15)||typeof part.flipX!=='boolean'||typeof part.flipY!=='boolean')throw Error('Invalid sprite part');
+   for(const part of f.parts)if(!part||!range(part.tile,0,255)||!range(part.x,part.bankId?-32768:-128,part.bankId?32767:127)||!range(part.y,part.bankId?-32768:-128,part.bankId?32767:127)||(part.bankId!==undefined&&(typeof part.bankId!=='string'||!part.bankId.length))||typeof part.flipX!=='boolean'||typeof part.flipY!=='boolean')throw Error('Invalid sprite part');
+   for(const part of f.parts)if(part.bankId?!(typeof part.paletteId==='string'&&paletteIds.has(part.paletteId)):!range(part.palette,0,15))throw Error('Group parts must name a palette in the project library; legacy parts use a slot 0-15');
   }
  }
 }
@@ -81,15 +84,15 @@ export function decodeProject(text:string):TileProject {
  validateProject(p);return p;
 }
 export function animationPackage(animations:SpriteAnimation[]):Record<string,Uint8Array>{
- validateAnimations(animations);
  if(animations.some(a=>a.frames.some(f=>f.parts.some(p=>p.bankId))))throw Error('Logical sprite assets require the future memory-placement build step. Save the Studio project to preserve them.');
+ validateAnimations(animations);
  const bytes:number[]=[67,83,65,49,animations.length];
  const symbols=['; Clementina sprite animations v1. Offsets relative to ANIMATIONS.BIN.',`ANIMATION_COUNT = ${animations.length}`];
  for(let id=0;id<animations.length;id++){
   const a=animations[id],name=a.name.toUpperCase();
   symbols.push(`ANIM_${name}_ID = ${id}`,`ANIM_${name}_OFFSET = ${bytes.length}`);
   bytes.push(a.bank,a.plane,a.frames.length);
-  for(const f of a.frames){bytes.push(f.ticks,f.parts.length);for(const part of f.parts)bytes.push(part.tile,part.x&255,part.y&255,part.palette,(part.flipX?4:0)|(part.flipY?8:0));}
+  for(const f of a.frames){bytes.push(f.ticks,f.parts.length);for(const part of f.parts)bytes.push(part.tile,part.x&255,part.y&255,part.palette!,(part.flipX?4:0)|(part.flipY?8:0));}
  }
  if(bytes.length>65535)throw Error('Animation data exceeds 65535 bytes');
  return {'ANIMATIONS.BIN':Uint8Array.from(bytes),'assets.inc':new TextEncoder().encode(symbols.join('\n')+'\n')};

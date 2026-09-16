@@ -55,5 +55,14 @@ export function migrateProjectPalettes(project:TileProject):TileProject{
   delete bank.palettes;
  }
  if(project.bankAssets)project.paletteLibrary=library;
+ // A group part used to carry its source bank's slot number, which meant
+ // different colors per bank; it now names the palette itself.
+ for(const group of [...project.sprites??[],...project.animations??[]])
+  for(const frame of group.frames)for(const part of frame.parts){
+   if(!part.bankId||part.paletteId)continue;
+   const bank=project.bankAssets?.find(b=>b.id===part.bankId);
+   part.paletteId=bank?.paletteSlots?.[part.palette??0]??library[0]?.id;
+   delete part.palette;
+  }
  return project;
 }

@@ -46,9 +46,10 @@ test('PRG import strips unbanked and banked headers without changing pixels',()=
 test('logical sprite banks and free-positioned origins round trip without hardware slot binding',()=>{
  const p=project();p.paletteLibrary=[{id:'black',name:'Black',colors:Array(8).fill(0)}];
  p.bankAssets=[{id:'graphics-id',name:'Graphics',mode:3,plane:0,chr:Array(6144).fill(0),paletteSlots:Array(16).fill('black'),cellPalettes:Array(256).fill(0),compositions:[]}];
- p.sprites=[{name:'Hero',bank:0,plane:0,canvasWidth:4,canvasHeight:6,originX:16,originY:48,frames:[{ticks:6,parts:[{bankId:'graphics-id',tile:2,x:-200,y:301,palette:1,flipX:true,flipY:false}]}]}];
+ p.sprites=[{name:'Hero',bank:0,plane:0,canvasWidth:4,canvasHeight:6,originX:16,originY:48,frames:[{ticks:6,parts:[{bankId:'graphics-id',tile:2,x:-200,y:301,paletteId:'black',flipX:true,flipY:false}]}]}];
  assert.deepEqual(decodeProject(encodeProject(p)).sprites,p.sprites);
  assert.throws(()=>animationPackage(p.sprites),/memory-placement/);
+ assert.throws(()=>{const bad=structuredClone(p);bad.sprites[0].frames[0].parts[0].paletteId='gone';encodeProject(bad);},/library/);
  p.sprites[0].frames[0].parts[0].x=32768;assert.throws(()=>encodeProject(p));
 });
 
