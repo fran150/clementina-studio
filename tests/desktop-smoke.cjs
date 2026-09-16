@@ -2,6 +2,8 @@ const {app,BrowserWindow,ipcMain}=require('electron');
 const path=require('node:path');
 const assert=require('node:assert/strict');
 app.whenReady().then(async()=>{
+ let imageFixture=null;
+ ipcMain.handle('image:import',()=>imageFixture);
  ipcMain.handle('project:new',()=>{});
  ipcMain.handle('bank:import',()=>({name:'Imported',mode:3,chr:Array(6144).fill(42)}));
  const window=new BrowserWindow({show:false,width:1440,height:1000,webPreferences:{preload:path.resolve(__dirname,'../dist/apps/desktop/preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
@@ -182,12 +184,83 @@ app.whenReady().then(async()=>{
    ptr('pointerdown',z,z);ptr('pointermove',4*z,3*z);ptr('pointerup',4*z,3*z);const dragged=a().frames[0].parts[0].x===initial+3;
    $('scUndo').click();$('scSnap').checked=true;ptr('pointerdown',z,z);ptr('pointermove',6*z,z);ptr('pointerup',6*z,z);const snapped=a().frames[0].parts[0].x===initial+8;$('scSnap').checked=false;
    const dt=new DataTransfer();dt.setData('application/x-clementina-tiles','selection');const cr=c.getBoundingClientRect();c.dispatchEvent(new DragEvent('drop',{dataTransfer:dt,clientX:cr.left+cr.width/2,clientY:cr.top+cr.height/2,bubbles:true}));const dropped=a().frames[0].parts.length===4;
-   $('scPalettes').children[3].click();const paletteAssigned=a().frames[0].parts.slice(2).every(p=>p.palette===3);
-   $('scParts').children[0].click();const firstPart=structuredClone(a().frames[0].parts[0]);$('scFront').click();const ordered=JSON.stringify(a().frames[0].parts.at(-1))===JSON.stringify(firstPart);
+   const paletteAssigned=!$('scPalettes')&&a().frames[0].parts.slice(2).every(p=>p.palette===b.cellPalettes[p.tile]);
+   $('scParts').children[0].click();const firstPart=structuredClone(a().frames[0].parts[0]);$('scFront').click();const ordered=a().frames[0].parts.at(-1).tile===firstPart.tile&&a().frames[0].parts.at(-1).x===firstPart.x;
    const beforeResize=JSON.stringify(a().frames[0].parts);$('scWidth').value='1';$('scWidth').dispatchEvent(new Event('change'));const unclipped=JSON.stringify(a().frames[0].parts)===beforeResize;
-   const saved=studioProject();restoreStudioProject(saved);const restored=JSON.stringify(saved.sprites)===JSON.stringify(studioProject().sprites);showView('sprites');$('scSprites').value=String(sprites.length-1);$('scSprites').dispatchEvent(new Event('change'));$('scFit').click();
+   const saved=studioProject();restoreStudioProject(saved);const restored=JSON.stringify(saved.sprites)===JSON.stringify(studioProject().sprites);showView('sprites');$('scSprites').lastElementChild.click();$('scFit').click();
    return {placed,free,anchored,flipped,redone,nudged,reference,dragged,snapped,dropped,paletteAssigned,ordered,unclipped,restored,visible:!$('spriteComposer').hidden&&$('spritePanel').hidden};
   })()`);for(const [key,value] of Object.entries(composed))assert.ok(value,key);
+  const ui=await window.webContents.executeJavaScript(`(()=>{
+   showView('tiles');const before=JSON.stringify(studioProject());const actions=[...document.querySelectorAll('header button')].filter(b=>['newBtn','nativeOpen','nativeSave','nativeSaveAs'].includes(b.id));
+   const icons=actions.every(b=>b.querySelector('svg')&&b.title&&b.getAttribute('aria-label'));
+   const right=$('flipHorizontal').parentElement.id==='transformTools'&&$('rotateSelection').parentElement.id==='transformTools';
+   const group=$('bankSwatches').querySelector('.paletteGroup'),canvas=$('bankMap');const baseline=canvas.toDataURL();group.dispatchEvent(new MouseEvent('mouseenter'));const highlight=baseline!==canvas.toDataURL();group.dispatchEvent(new MouseEvent('mouseleave'));const clear=baseline===canvas.toDataURL();
+   const checked=$('cellGrid').checked;$('tileGridToggle').click();const grid=$('cellGrid').checked!==checked&&$('tileGridToggle').getAttribute('aria-pressed')===String(!checked);$('tileGridToggle').click();
+   $('closeDrawingPanel').click();const close=$('drawingFlyout').hidden&&$('closeDrawingPanel').textContent==='×';
+   return {order:actions.map(b=>b.id),icons,right,highlight,clear,grid,close,brand:document.querySelector('.brand').textContent.trim(),unchanged:before===JSON.stringify(studioProject()),grouped:$('pasteOptions').parentElement===$('displaySettings').parentElement&&$('tileGridToggle').parentElement.id==='viewTools'};
+  })()`);assert.deepEqual(ui.order,['newBtn','nativeOpen','nativeSave','nativeSaveAs']);assert.equal(ui.brand,'CLEMENTINA STUDIO');for(const [key,value] of Object.entries(ui))if(!['order','brand'].includes(key))assert.ok(value,key);
+  const fills=await window.webContents.executeJavaScript(`(async()=>{
+   $('addBankFile').click();const a=()=>studioProject().bankAssets.at(-1);const canvas=$('bankSelection');function ptr(type,x,y){const r=canvas.getBoundingClientRect(),z=Number($('zoomLabel').textContent.replace('×',''));canvas.dispatchEvent(new PointerEvent(type,{clientX:r.left+(x+.5)*z,clientY:r.top+(y+.5)*z,pointerId:1,bubbles:true,button:0}));}
+   $('bankSwatches').querySelector('[data-palette="0"][data-ink="1"]').click();$('pencilTool').click();const disabled=$('fillPattern_checker').disabled&&$('filledShapeToggle').disabled;
+   $('fillTool').click();$('fillPattern_checker').click();ptr('pointerdown',0,0);ptr('pointerup',0,0);const checker=a().chr[0]===85&&a().chr[1]===170;$('bankUndo').click();const undo=a().chr.every(v=>v===0);
+   $('fillPattern_stripes').click();ptr('pointerdown',0,0);ptr('pointerup',0,0);const stripes=a().chr[0]===255&&a().chr[1]===0;$('bankUndo').click();
+   $('rectangleTool').click();if(!$('filledShapes').checked)$('filledShapeToggle').click();$('fillPattern_checker').click();ptr('pointerdown',0,0);ptr('pointermove',3,3);ptr('pointerup',3,3);const shape=a().chr[0]===5&&a().chr[1]===10;$('bankUndo').click();$('fillPattern_solid').click();
+   const rows=new Set([...document.querySelectorAll('.paletteGroup')].map(e=>e.getBoundingClientRect().top)).size;
+   canvas.dispatchEvent(new PointerEvent('pointerleave'));const quiet=!/outside|none/i.test($('drawingStatus').textContent);
+   $('fillPattern_checker').dispatchEvent(new PointerEvent('pointerover',{bubbles:true}));await new Promise(r=>setTimeout(r,350));const tooltip=!$('studioTooltip').hidden&&$('studioTooltip').textContent==='Checkerboard fill';$('fillPattern_checker').dispatchEvent(new PointerEvent('pointerout',{bubbles:true}));
+   return {disabled,checker,undo,stripes,shape,rows,quiet,tooltip,pasteClean:!$('pasteOptions').querySelector('p'),displayClean:!$('displaySettings').textContent.includes('Preview only'),right:$('filledShapeToggle').parentElement.id==='transformTools'};
+  })()`);assert.equal(fills.rows,3);for(const [key,value] of Object.entries(fills))if(key!=='rows')assert.ok(value,key);
+  for(const [id,file] of [['pasteOptions','/tmp/studio-paste-options.png'],['displaySettings','/tmp/studio-display-settings.png']]){
+   await window.webContents.executeJavaScript('$('+JSON.stringify(id)+').open=true; new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+   await require('node:fs/promises').writeFile(file,(await window.webContents.capturePage()).toPNG());
+   await window.webContents.executeJavaScript('$('+JSON.stringify(id)+').open=false');
+  }
+  const groups=await window.webContents.executeJavaScript(`(()=>{
+   showView('sprites');$('scNew').click();const a=()=>sprites[animationIndex],canvas=$('scCanvas'),map=$('scBankMap');canvas.setPointerCapture=map.setPointerCapture=()=>{};
+   $('scTileLibraryToggle').click();const mr=map.getBoundingClientRect();const event=(el,type,x,y,button=0)=>el.dispatchEvent(new PointerEvent(type,{clientX:x,clientY:y,button,pointerId:1,bubbles:true}));
+   event(map,'pointerdown',mr.left+2,mr.top+2);event(map,'pointerup',mr.left+2,mr.top+2);
+   document.querySelector('[data-origin="bottom-center"]').click();const cr=canvas.getBoundingClientRect(),cx=cr.left+cr.width/2,cy=cr.top+cr.height/2;
+   event(map,'pointerdown',mr.left+2,mr.top+2,2);event(map,'pointerup',cx,cy,2);const rightDrag=a().frames[0].parts.length===1;
+   event(map,'pointerdown',mr.left+2,mr.top+2,2);event(map,'pointerup',mr.left+2,mr.top+2,2);event(canvas,'pointerdown',cx,cy);event(canvas,'pointerup',cx,cy);const rightPick=a().frames[0].parts.length===2;
+   $('scParts').children[0].click();$('scSpriteId').value='5';$('scSpriteId').dispatchEvent(new Event('change'));const ids=a().frames[0].parts.map(p=>p.spriteId),idOrder=ids[0]===1&&ids[1]===5;
+   const absolute=a().frames[0].parts.map(p=>[p.x+a().originX,p.y+a().originY]);$('scUnits').value='pixels';$('scUnits').dispatchEvent(new Event('change'));$('scWidth').value='48';$('scWidth').dispatchEvent(new Event('change'));$('scHeight').value='40';$('scHeight').dispatchEvent(new Event('change'));const anchored=a().originX===24&&a().originY===40&&a().frames[0].parts.every((p,i)=>p.x+a().originX===absolute[i][0]&&p.y+a().originY===absolute[i][1]);
+   $('scWidth').value='321';$('scWidth').dispatchEvent(new Event('change'));const capped=a().canvasPixelWidth===48&&$('scWidth').value==='48';
+   const z=Number($('scZoomLabel').textContent.replace('×','')),r=canvas.getBoundingClientRect(),x=r.left+r.width/2+24*z,y=r.top+r.height/2+20*z;event(canvas,'pointerdown',x,y);event(canvas,'pointermove',x+4*z,y+3*z);event(canvas,'pointerup',x+4*z,y+3*z);const resized=a().canvasPixelWidth===52&&a().canvasPixelHeight===43&&a().originX===26&&a().originY===43;
+   $('scTileLibraryToggleClose').click();$('scInspectorToggle').click();return {rightDrag,rightPick,idOrder,anchored,capped,resized,noPalette:!$('scPalettes'),label:document.querySelector('[data-view="sprites"]').textContent.includes('Sprite groups')};
+  })()`);for(const [key,value] of Object.entries(groups))assert.ok(value,key);
+  const refined=await window.webContents.executeJavaScript(`(()=>{
+   const a=()=>sprites[animationIndex];const row=$('scSprites').children[animationIndex];row.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));let input=row.querySelector('input');input.value='Hero_Group';input.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));const renamed=a().name==='Hero_Group'&&row.textContent==='Hero_Group';
+   row.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));input=row.querySelector('input');input.value='Canceled';input.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));const canceledName=a().name==='Hero_Group';
+   const singleList=$('scSprites').tagName==='DIV'&&!$('scName')&&!$('scSource');
+   $('scFit').click();const c=$('scCanvas'),r=c.getBoundingClientRect(),z=Number($('scZoomLabel').textContent.replace('×','')),w=a().canvasPixelWidth,h=a().canvasPixelHeight,cx=r.left+r.width/2,cy=r.top+r.height/2;
+   const event=(el,type,x,y,button=0)=>el.dispatchEvent(new PointerEvent(type,{clientX:x,clientY:y,button,pointerId:1,bubbles:true}));const absolute=a().frames[0].parts.map(p=>[p.x+a().originX,p.y+a().originY]),before=JSON.stringify(a());
+   event(c,'pointerdown',cx+(a().originX-w/2)*z,cy+(a().originY-h/2)*z);event(c,'pointermove',cx+(12-w/2)*z,cy+(10-h/2)*z);const originPreview=before===JSON.stringify(a());event(c,'pointerup',cx+(12-w/2)*z,cy+(10-h/2)*z);const originDragged=a().originX===12&&a().originY===10&&a().originAnchor==='custom'&&a().frames[0].parts.every((p,i)=>p.x+a().originX===absolute[i][0]&&p.y+a().originY===absolute[i][1]);$('scUndo').click();const originUndo=JSON.stringify(a())===before;
+   c.dispatchEvent(new WheelEvent('wheel',{clientX:cx,clientY:cy,deltaY:-20,bubbles:true,cancelable:true}));const next=Number($('scZoomLabel').textContent.replace('×','')),smooth=next>z&&next<z*1.1&&!Number.isInteger(next);
+   $('scUnits').value='tiles';$('scUnits').dispatchEvent(new Event('change'));$('scFit').click();const tz=Number($('scZoomLabel').textContent.replace('×','')),tr=c.getBoundingClientRect(),x=tr.left+tr.width/2+w/2*tz,y=tr.top+tr.height/2+h/2*tz;event(c,'pointerdown',x,y);event(c,'pointermove',x+5*tz,y+6*tz);event(c,'pointerup',x+5*tz,y+6*tz);const tileResize=a().canvasPixelWidth===56&&a().canvasPixelHeight===48;
+   $('scTileLibraryToggle').click();const map=$('scBankMap');map.setPointerCapture=()=>{};const mr=map.getBoundingClientRect();event(map,'pointerdown',mr.left+2,mr.top+2,2);event(map,'pointermove',mr.left+30,mr.top+30,2);const ghostOnMap=!$('scDragGhost').hidden;event(map,'pointermove',cx,cy,2);const ghostOnCanvas=!$('scDragGhost').hidden&&parseFloat($('scDragGhost').style.width)>0;event(map,'pointercancel',cx,cy,2);const ghostCanceled=$('scDragGhost').hidden;
+   const usedBefore=a().bankIds.length;while(!$('scAddBank').disabled)$('scAddBank').click();const bankLimit=a().bankIds.length===8&&$('scAddBank').disabled&&$('scBank').options.length===8;const usedId=a().frames[0].parts[0].bankId,usedRow=[...$('scBankSources').children].find(row=>row.querySelector('span').textContent===ensureBankAssets().find(b=>b.id===usedId).name);const protectsUsed=usedRow.querySelector('button').disabled;
+   const bankUndoBefore=a().bankIds.length;$('scUndo').click();const bankUndo=a().bankIds.length===bankUndoBefore-1;const saved=studioProject();restoreStudioProject(saved);const banksSaved=JSON.stringify(saved.sprites)===JSON.stringify(studioProject().sprites);
+   $('scSprites').lastElementChild.click();$('scLibraryToggle').click();
+   return {renamed,canceledName,singleList,originPreview,originDragged,originUndo,smooth,tileResize,ghostOnMap,ghostOnCanvas,ghostCanceled,bankLimit,protectsUsed,bankUndo,banksSaved};
+  })()`);for(const [key,value] of Object.entries(refined))assert.ok(value,key);
+  imageFixture={name:'ImportedArt.png',format:'png',dataUrl:await window.webContents.executeJavaScript(`(()=>{const c=document.createElement('canvas');c.width=9;c.height=8;const ctx=c.getContext('2d');ctx.fillStyle='#123456';ctx.fillRect(0,0,9,8);ctx.clearRect(0,0,1,1);return c.toDataURL();})()`)};
+  const imagePreview=await window.webContents.executeJavaScript(`(async()=>{
+   showView('tiles');$('addBankFile').click();ensureBankAssets().at(-1).chr[17*8]=255;window.imageImportBefore=JSON.stringify(studioProject());
+   async function open(){ $('importBankImage').click();for(let n=0;n<150&&!$('bankImageDialog').open;n++)await new Promise(r=>setTimeout(r,20));if(!$('bankImageDialog').open)throw Error('Import dialog did not open');await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))); }
+   await open();$('iiCancel').click();const cancel=window.imageImportBefore===JSON.stringify(studioProject());await open();$('iiPaletteMode').value='create';$('iiPaletteMode').dispatchEvent(new Event('input'));
+   const r=$('iiBank').getBoundingClientRect();$('iiBank').dispatchEvent(new PointerEvent('pointerdown',{clientX:r.left+r.width/16*1.5,clientY:r.top+r.height/16*1.5,bubbles:true}));
+   return {cancel,pure:window.imageImportBefore===JSON.stringify(studioProject()),enabled:!$('iiApply').disabled,overwrite:$('iiOverwrite').textContent.includes('1 nonempty'),summary:$('iiResultSize').textContent.includes('2 × 1 tiles')};
+  })()`);for(const [key,value] of Object.entries(imagePreview))assert.ok(value,key);
+  await window.webContents.executeJavaScript('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))');
+  await require('node:fs/promises').writeFile('/tmp/studio-image-import.png',(await window.webContents.capturePage()).toPNG());
+  const importedArtwork=await window.webContents.executeJavaScript(`(()=>{
+   $('iiApply').click();const bank=studioProject().bankAssets.at(-1),obj=bank.compositions.at(-1),p=bank.cellPalettes[17];const imported=!$('bankImageDialog').open&&obj.name==='ImportedArt'&&obj.x===1&&obj.y===1&&obj.width===2&&obj.height===1&&bank.chr[17*8]===254&&bank.chr[18*8]===1&&p>0;
+   $('bankUndo').click();const undo=window.imageImportBefore===JSON.stringify(studioProject());$('bankRedo').click();return {imported,undo,redo:studioProject().bankAssets.at(-1).compositions.at(-1).name==='ImportedArt'};
+  })()`);for(const [key,value] of Object.entries(importedArtwork))assert.ok(value,key);
+  const bmp=Buffer.alloc(62);bmp.write('BM');bmp.writeUInt32LE(62,2);bmp.writeUInt32LE(54,10);bmp.writeUInt32LE(40,14);bmp.writeInt32LE(2,18);bmp.writeInt32LE(1,22);bmp.writeUInt16LE(1,26);bmp.writeUInt16LE(24,28);bmp.writeUInt32LE(8,34);bmp.set([0,0,255,255,0,0],54);
+  for(const fixture of [{name:'Colors.bmp',format:'bmp',dataUrl:'data:image/bmp;base64,'+bmp.toString('base64')},{name:'Frame.gif',format:'gif',dataUrl:'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'}]){
+   imageFixture=fixture;const decoded=await window.webContents.executeJavaScript(`(async()=>{ $('importBankImage').click();for(let n=0;n<150&&!$('bankImageDialog').open;n++)await new Promise(r=>setTimeout(r,20));const result={open:$('bankImageDialog').open,size:$('iiSourceSize').textContent};$('iiCancel').click();return result;})()`);assert.ok(decoded.open,fixture.format);assert.match(decoded.size,fixture.format==='bmp'?/2 × 1 pixels/:/1 × 1 pixels.*first GIF frame/);
+  }
   await window.webContents.executeJavaScript("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
   await require('node:fs/promises').writeFile('/tmp/clementina-studio-phase2.png',(await window.webContents.capturePage()).toPNG());
   console.log('Desktop smoke passed: tile painting, composite frame creation, duplication, timing edit, part edit, undo and playback controls.');

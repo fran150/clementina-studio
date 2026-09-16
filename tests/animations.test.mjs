@@ -49,3 +49,17 @@ test('logical sprite banks and free-positioned origins round trip without hardwa
  assert.throws(()=>animationPackage(p.sprites),/memory-placement/);
  p.sprites[0].frames[0].parts[0].x=32768;assert.throws(()=>encodeProject(p));
 });
+
+test('sprite group canvas bounds, anchor and unique local IDs are validated',()=>{
+ const p=project();p.sprites=[{name:'Group',bank:0,plane:0,canvasPixelWidth:320,canvasPixelHeight:200,originAnchor:'bottom-center',originX:160,originY:200,frames:[{ticks:6,parts:[{spriteId:7,tile:1,x:0,y:0,palette:0,flipX:false,flipY:false}]}]}];
+ assert.deepEqual(decodeProject(encodeProject(p)).sprites,p.sprites);
+ p.sprites[0].canvasPixelHeight=201;assert.throws(()=>encodeProject(p));p.sprites[0].canvasPixelHeight=200;
+ p.sprites[0].frames[0].parts.push({...p.sprites[0].frames[0].parts[0]});assert.throws(()=>encodeProject(p),/unique/);
+});
+
+test('sprite group source-bank lists persist and reject duplicates or more than eight',()=>{
+ const p=project();p.sprites=[{name:'Sources',bank:0,plane:0,bankIds:['bank-a','bank-b'],frames:[{ticks:6,parts:[]}]}];
+ assert.deepEqual(decodeProject(encodeProject(p)).sprites[0].bankIds,['bank-a','bank-b']);
+ p.sprites[0].bankIds=['bank-a','bank-a'];assert.throws(()=>encodeProject(p),/source banks/);
+ p.sprites[0].bankIds=Array.from({length:9},(_,i)=>'bank-'+i);assert.throws(()=>encodeProject(p),/source banks/);
+});

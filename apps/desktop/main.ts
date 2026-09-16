@@ -4,7 +4,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { encodeProject, decodeProject, importBankPrg, runtimePackage, type TileProject } from '../../packages/assets/index.js';
+import { encodeProject, decodeProject, importBankFile, runtimePackage, type TileProject } from '../../packages/assets/index.js';
 const here=path.dirname(fileURLToPath(import.meta.url));
 let win: BrowserWindow;
 let projectPath: string | undefined;
@@ -59,10 +59,16 @@ app.whenReady().then(()=>{
  win.webContents.setWindowOpenHandler(()=>({action:'deny'}));
  win.webContents.on('will-navigate',event=>event.preventDefault());
  ipcMain.handle('bank:import',async()=>{
-  const result=await dialog.showOpenDialog(win,{filters:[{name:'CHR bank PRG',extensions:['prg']}],properties:['openFile']});
+  const result=await dialog.showOpenDialog(win,{filters:[{name:'CHR bank',extensions:['prg','bin','chr']}],properties:['openFile']});
   if(result.canceled)return null;
   const selected=result.filePaths[0];const bytes=await readFile(selected);
-  return {...importBankPrg(bytes),name:path.basename(selected,path.extname(selected))};
+  return {...importBankFile(bytes,path.extname(selected)),name:path.basename(selected,path.extname(selected))};
+ });
+ ipcMain.handle('image:import',async()=>{
+  const result=await dialog.showOpenDialog(win,{filters:[{name:'Pixel artwork',extensions:['png','bmp','gif']}],properties:['openFile']});if(result.canceled)return null;
+  const selected=result.filePaths[0],bytes=await readFile(selected);if(bytes.length>20971520)throw Error('Choose an image smaller than 20 MB.');
+  const ext=path.extname(selected).toLowerCase(),mime=({'.png':'image/png','.bmp':'image/bmp','.gif':'image/gif'} as Record<string,string>)[ext];if(!mime)throw Error('Choose a PNG, BMP or GIF image.');
+  return {name:path.basename(selected),dataUrl:'data:'+mime+';base64,'+bytes.toString('base64'),format:ext.slice(1)};
  });
  ipcMain.handle('project:open',async()=>{
   const result=await dialog.showOpenDialog(win,{filters:[{name:'Studio or legacy tile projects',extensions:['cstudio','mtb']}],properties:['openFile']});

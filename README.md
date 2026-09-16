@@ -228,22 +228,27 @@ snapshot. Running sessions have separate snapshots and are left alone.
 
 The Sprites workspace assembles references to tiles from named graphics banks.
 Create a sprite, select a rectangle in the bank map (or choose a saved Object),
-then drag the selection preview onto the canvas. Alternatively, click **Place
-selection** and click its destination. Each part keeps its bank's stable identity,
+then right-drag the selected tiles onto the canvas. Alternatively, right-click
+to pick up the selection and click its destination. Each part keeps its bank's stable identity,
 tile index, palette, signed pixel offsets and horizontal/vertical flip flags.
 Renaming a bank keeps references intact; deleted banks display missing-part
 markers. Tile graphics changes are reflected when the composition is redrawn.
 
-The width/height fields define a starting editing area in tiles, not clipping
-bounds. Parts may overlap or extend outside it. Drag parts freely, enable **Snap
+The width/height fields define the canvas in tiles or pixels, up to 320 × 200
+pixels. The bottom-right handle resizes it. Tiles outside a resized canvas are
+retained and reported in the status line, while the preview clips to the canvas. Drag parts freely, enable **Snap
 8 px** when useful, or use arrows for one-pixel nudges. Shift-click and rectangular
 selection on empty space select multiple parts; Ctrl/Cmd+A selects all. Exact
 X/Y fields move the selection together. Group flips mirror both placement and
-tile pixels. Later parts draw on top; use Send to back / Bring to front to reorder.
+tile pixels. Higher sprite IDs draw on top. The Sprite IDs panel edits unique IDs within the
+group; Lowest IDs / Highest IDs reorder a selection. Final hardware-slot
+allocation remains part of the future build workflow.
 
 The crosshair marks the sprite origin. Top-left, Center and Bottom-center presets
 refer to the editing area; **Place origin** allows an arbitrary pixel position.
 Changing the origin recalculates offsets while keeping the composition in place.
+Origin presets stay attached to the canvas when it is resized; custom origins
+retain their proportional canvas position.
 The status line reports content bounds; Fit, wheel zoom, Space-drag panning,
 grid/background controls and the miniature help inspect the result. Undo/Redo
 covers composition edits. Double-click the displayed sprite name to rename it.
@@ -255,3 +260,46 @@ workspace has not been redesigned in this phase. Runtime export of logical
 sprite definitions is deferred to the future memory-placement/build workspace;
 the older hardware-slot exporter explicitly rejects them instead of emitting
 incorrect bank numbers or truncated coordinates.
+
+Tile drawing controls include a filled-shape toggle and solid, checkerboard,
+and horizontal-stripe fill patterns in the right toolbar. Patterns apply to
+bucket fills and filled rectangles/ellipses; skipped pattern pixels retain their
+existing values. Pattern controls enable for the relevant tools. Palettes occupy
+three rows (six groups per row), with horizontal scrolling on narrow windows.
+Buttons and settings icons show quick hover/focus tooltips. Paste and display
+settings use compact popups; the clipboard-and-gear icon opens paste options.
+
+
+### Sprite groups workflow
+
+The Sprite groups workspace uses collapsible bank/group and sprite-ID panels,
+an icon tool rail, and a compact bounded canvas. Left-drag in the bank map to
+select tiles. Right-click that selection to pick it up, then click the canvas,
+or hold the right button and drag directly from the map to the canvas. A floating preview follows the pointer throughout placement. New placements must fit in the canvas.
+
+The composition has no palette selector: placed tiles inherit their bank-map
+palette assignments. Group origins use canvas-relative presets or custom points.
+The canvas can be sized in pixels or tiles, or resized with its cyan corner
+handle. Existing sprites outside a shrunken canvas are kept so resizing is
+reversible. The hardware renderer draws ascending sprite IDs, with higher IDs
+overlaying lower ones; IDs here are local to a group pending final allocation.
+
+
+### Sprite group editing refinements
+
+The group library and tile selector have separate toolbar panels. Groups use a
+single list with New/Duplicate/Delete and inline renaming by double-click or F2.
+The tile panel manages up to eight source-bank assets for the selected group;
+its bank selector only offers those assets. Used banks cannot be removed until
+their sprite parts are removed. These are authoring references, not hardware
+slot assignments: the current MIA format has eight resident CHR banks but one
+shared SPRITE_CHR_BANK register for all sprites. Packing and final allocation
+remain deferred to the build workspace.
+
+Selected tiles follow the pointer as a floating placement preview, with a red
+border for an out-of-canvas placement. Escape cancels. Drag the yellow origin
+cross directly; it stays visible outside the canvas clip, including at borders,
+and changing it preserves the composition's position. Origin presets are icons
+with tooltips. Wheel zoom is continuous and anchored at the pointer. Dragging
+the canvas resize handle rounds to whole tiles in tile units, and to individual
+pixels in pixel units.

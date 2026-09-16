@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('studio',{
+ importImage:()=>ipcRenderer.invoke('image:import'),
  importBank:()=>ipcRenderer.invoke('bank:import'),
  open:()=>ipcRenderer.invoke('project:open'),
  opened:(path:string)=>ipcRenderer.invoke('project:opened',path),

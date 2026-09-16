@@ -1,7 +1,7 @@
 export const BANK_BYTES = 6144;
-export interface SpritePart { bankId?:string; tile:number; x:number; y:number; palette:number; flipX:boolean; flipY:boolean }
+export interface SpritePart { bankId?:string; spriteId?:number; tile:number; x:number; y:number; palette:number; flipX:boolean; flipY:boolean }
 export interface SpriteFrame { ticks:number; parts:SpritePart[] }
-export interface SpriteAnimation { canvasWidth?:number; canvasHeight?:number; originX?:number; originY?:number; name:string; bank:number; plane:number; frames:SpriteFrame[] }
+export interface SpriteAnimation { bankIds?:string[]; canvasPixelWidth?:number; canvasPixelHeight?:number; originAnchor?:string; canvasWidth?:number; canvasHeight?:number; originX?:number; originY?:number; name:string; bank:number; plane:number; frames:SpriteFrame[] }
 export interface BankAsset { id?:string; previewBackground?:string; name:string; mode:number; plane:number; chr:number[]; palettes:number[]; cellPalettes:number[]; compositions:{name:string;x:number;y:number;width:number;height:number}[] }
 export interface TileProject { bankAssets?:BankAsset[]; sprites?:SpriteAnimation[]; animations?:SpriteAnimation[]; chr: number[]; palettes: number[]; modes: number[]; planes: number[] }
 function integers(a: unknown, length: number, max: number): a is number[] {
@@ -58,8 +58,12 @@ export function validateAnimations(animations:SpriteAnimation[]):void {
   if(!range(a.bank,0,7)||!range(a.plane,0,2)||!Array.isArray(a.frames)||a.frames.length<1||a.frames.length>255)throw Error('Invalid animation bank, plane, or frame count');
   for(const k of ['canvasWidth','canvasHeight'] as const)if(a[k]!==undefined&&!range(a[k],1,128))throw Error('Invalid sprite canvas size');
   for(const k of ['originX','originY'] as const)if(a[k]!==undefined&&!range(a[k],-32768,32767))throw Error('Invalid sprite origin');
+  if(a.bankIds!==undefined&&(!Array.isArray(a.bankIds)||a.bankIds.length>8||a.bankIds.some(id=>typeof id!=='string'||!id)||new Set(a.bankIds).size!==a.bankIds.length))throw Error('Group source banks must be up to eight unique asset IDs');
+  if(a.canvasPixelWidth!==undefined&&!range(a.canvasPixelWidth,1,320)||a.canvasPixelHeight!==undefined&&!range(a.canvasPixelHeight,1,200))throw Error('Invalid sprite canvas pixel dimensions');
+  if(a.originAnchor!==undefined&&!['top-left','center','bottom-center','custom'].includes(a.originAnchor))throw Error('Invalid sprite origin anchor');
   for(const f of a.frames){
    if(!f||!range(f.ticks,1,255)||!Array.isArray(f.parts)||f.parts.length>64)throw Error('Frames require 1–255 ticks and at most 64 parts');
+   const ids=f.parts.map((p,i)=>p.spriteId??i);if(new Set(ids).size!==ids.length||ids.some(id=>!range(id,0,255)))throw Error('Sprite IDs must be unique within a group');
    for(const part of f.parts)if(!part||!range(part.tile,0,255)||!range(part.x,part.bankId?-32768:-128,part.bankId?32767:127)||!range(part.y,part.bankId?-32768:-128,part.bankId?32767:127)||(part.bankId!==undefined&&(typeof part.bankId!=='string'||!part.bankId.length))||!range(part.palette,0,15)||typeof part.flipX!=='boolean'||typeof part.flipY!=='boolean')throw Error('Invalid sprite part');
   }
  }
@@ -124,4 +128,12 @@ export function importBankPrg(bytes:Uint8Array):{chr:number[];mode:number;addres
  if(payload.length!==2048&&payload.length!==6144)throw Error('Expected 2048 bytes of 1bpp tiles or 6144 bytes of 3bpp tiles after the PRG header');
  const chr=Array(6144).fill(0);chr.splice(0,payload.length,...payload);
  return {chr,mode:payload.length===2048?1:3,address,...(header===3?{bank:bytes[2]}:{})};
+}
+
+/** PRG carries an address header; raw BIN/CHR contains exactly one bank payload. */
+export function importBankFile(bytes:Uint8Array,extension:string):{chr:number[];mode:number}{
+ const ext=extension.toLowerCase().replace(/^\./,'');if(ext==='prg')return importBankPrg(bytes);
+ if(!['bin','chr'].includes(ext))throw Error('Choose a PRG, BIN or CHR bank file.');
+ if(bytes.length!==2048&&bytes.length!==6144)throw Error('Raw banks must contain exactly 2048 (1bpp) or 6144 (3bpp) bytes.');
+ const chr=Array(6144).fill(0);chr.splice(0,bytes.length,...bytes);return {chr,mode:bytes.length===2048?1:3};
 }

@@ -104,8 +104,8 @@ header h1, header .sep, header .lbl, header #bankSel, header #mode1, header #mod
 </style>
 </head>
 <body>
-<aside id="workflowNav"><div class="brand">CLEMENTINA<span>STUDIO</span></div><div class="navGroup">GRAPHICS</div>
-<button data-view="tiles">01 · Banks</button><button data-view="sprites">02 · Sprites</button><button data-view="animations">03 · Animations</button>
+<aside id="workflowNav"><div class="brand">CLEMENTINA STUDIO</div><div class="navGroup">GRAPHICS</div>
+<button data-view="tiles">01 · Banks</button><button data-view="sprites">02 · Sprite groups</button><button data-view="animations">03 · Animations</button>
 <div class="navGroup">DELIVER</div><button data-view="build">Build package</button><button data-view="advanced">Advanced</button>
 <div class="navNote">Create graphics, assemble sprites, animate, then export for your game.</div></aside>
 <div id="workspace"><div id="workflowHeading"><h1 id="viewTitle">Tile sheets</h1><p id="viewHelp"></p></div>
@@ -660,6 +660,7 @@ $('impOk').onclick = applyImport;
 document.querySelectorAll('.toolbtns button[data-op]').forEach(b => b.addEventListener('click', () => transform(b.dataset.op)));
 
 window.addEventListener('keydown', e => {
+  if(document.querySelector('dialog[open]'))return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
   const mod = e.ctrlKey || e.metaKey;
   if (mod && e.key.toLowerCase()==='z') { e.preventDefault(); e.shiftKey ? doRedo() : doUndo(); return; }
@@ -813,7 +814,7 @@ $('partPalette').onchange=()=>{const n=Number($('partPalette').value);if(Number.
 const descriptions={
  palettes:['Palettes','Choose the colors your characters and terrain will use.'],
  tiles:['Banks','Create named graphics files. Select a rectangle and draw across its tiles. Assign palettes per cell.'],
- sprites:['Sprites','Assemble reusable static objects from tiles. Arrange parts around the origin.'],
+ sprites:['Sprite groups','Assemble reusable static objects from tiles. Arrange parts around the origin.'],
  animations:['Animations','Arrange sprite frames and set their timing. Preview the result before export.'],
  build:['Build package','Export runtime assets and a BASIC source loader for your game.'],
  advanced:['Advanced','Inspect raw graphics data or export replacement firmware defaults.']
@@ -847,6 +848,6 @@ $('tilesOverview').prepend(tileControls);
 showView('tiles');
 
 </script>
-</div><script src="bank-editor.js"></script><script src="sprite-composer.js"></script>
+</div><script src="image-import-ui.js"></script><script src="bank-editor.js"></script><script src="sprite-composer.js"></script>
 </body>
 </html>
