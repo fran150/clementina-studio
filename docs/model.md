@@ -19,6 +19,9 @@ The code carries these names as of project format version 2.
 | bank config | a named assignment of palettes to all sixteen banks | one palette RAM layout |
 | tileset | 6144 bytes of CHR data, named, authored | the contents of one CHR bank |
 | CHR bank | one of eight, numbered 0-7 | `CHRLOAD bank,…`, `BGBANK`/`SPRBANK` |
+| sprite | one OAM entry: tile, offset, palette bank, flips | one 5-byte OAM record |
+| shape | an ordered list of sprites drawn together | a run of consecutive OAM records |
+| animation | a sequence of shapes with durations | successive OAM rewrites |
 
 The word "slot" is not used. The word "bank" always carries its qualifier —
 palette bank or CHR bank — because they are different things with different
@@ -113,32 +116,49 @@ Because a tileset fills a whole bank and tile positions are fixed when the
 author draws them, tiles never collide and there is no packing step. A
 tileset maps one-to-one onto a CHR bank.
 
-## Sprite groups
+## Shapes and animations
 
-A sprite group is a character or object assembled from tiles — a four-by-four
-hero, an eight-by-eight boss. It draws from exactly **one** tileset, because
-all sprites share one CHR bank.
+A **shape** is one static arrangement of sprites — a four-by-four hero, an
+eight-by-eight boss, a single pickup. A **sprite** is one OAM entry: a tile,
+an X and Y offset from the shape's origin, a palette bank, and flip X and
+flip Y. So a shape is an ordered list of sprites, and that is exactly what
+gets written to OAM.
 
-A group owns an **ordered list of sprite slots**. Order is the group's, not a
-frame's: slot order becomes OAM index order, and a higher index draws on top.
-Bring-to-front moves a slot to the end of the list. Keeping order at the
-group level means a sprite holds its identity across frames and cannot pop in
-front of its neighbours mid-animation.
+A shape draws from exactly **one** tileset, because all sprites share one CHR
+bank.
 
-Each frame says what every slot draws: tile, X and Y offset from the group's
-origin, flip X, flip Y, and the palette bank. The palette bank defaults to
-the tile's recorded bank and can be overridden per sprite, which is how one
-tileset yields a red enemy and a blue one. A frame also carries a duration in
-ticks.
+Order is the list's order, which becomes OAM index order, and a higher index
+draws on top. Bring-to-front moves a sprite to the end of the list. There is
+no separate sprite id: the array position *is* the offset from whatever OAM
+index the shape is loaded at.
+
+A sprite's palette bank defaults to the one its tile was drawn against and can
+be changed per sprite, which is how one tileset yields a red enemy and a blue
+one.
+
+An **animation** is a sequence of `{shape, ticks}` entries, plus an optional
+per-entry X and Y offset applied to the whole shape. It references shapes
+rather than copying them, so editing a shape updates every animation using it;
+duplicate a shape when you want one to diverge. The per-entry offset exists so
+that a body bobbing one pixel does not need a second shape.
+
+Every shape in one animation must name the same tileset: they are displayed in
+sequence out of the single sprite CHR bank.
+
+This is why a shape needs no per-frame ordering. A limb that passes in front of
+a torso partway through a walk is two shapes built from the same tiles in a
+different order — and since a game rewrites the OAM records each frame anyway,
+two shapes that differ in order cost no more than two that differ in position.
 
 Sprite-versus-background priority is not set here. Nor is the choice of which
-groups share a bank, or which group loads at which OAM base. Those are scene
-decisions.
+shapes share a CHR bank, or which shape loads at which OAM base. Those are
+scene decisions.
 
 ## Authoring versus output
 
-Exported: palettes, bank configs, tileset CHR bytes, and per-sprite tile,
-offsets, flips, palette bank, and slot order.
+Exported: palettes, bank configs, tileset CHR bytes, each sprite's tile,
+offsets, flips and palette bank, the order of sprites within a shape, and an
+animation's shape sequence with its durations and offsets.
 
 Not exported: a tile's recorded palette bank, which config is active, and
 preview backgrounds.
@@ -210,10 +230,14 @@ assume. Sprite-versus-background priority bits are set here.
 Packing several tilesets into one CHR bank, with tile indices rebased at build
 time, is possible but unnecessary while a tileset is a whole bank.
 
-## Open question
+## Open questions
 
-Frame-level versus group-level sprite ordering is written above as
-group-level. If a frame genuinely needs its own order — a limb passing in
-front of a torso partway through an animation — order moves into the frame and
-sprite identity across frames is lost. Group-level is the assumption until
-that case turns up.
+Whether an animation's shapes may span more than one tileset. They cannot be
+displayed in sequence from a single sprite CHR bank unless a game rewrites
+`SPRBANK` between frames, which affects every sprite on screen. The model
+above forbids it; a game doing raster tricks would want it back.
+
+Whether the tileset editor's preview background should be a `(bank, index)`
+pick from palette RAM rather than a free hex value. `BACKDROP_COLOR` is itself
+a palette selector — bits 3-6 pick the bank, bits 0-2 the color index — so a
+free value can show a background the machine cannot produce.
