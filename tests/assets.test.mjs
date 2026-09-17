@@ -1,15 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {runtimePackage,tilesetPackage,spriteAttr,spriteExt,cellAttr,emptyProject,validateTilesets,BANK_BYTES,TILES_PER_BANK} from '../dist/packages/assets/index.js';
+import {spriteAttr,spriteExt,cellAttr,validateTilesets,BANK_BYTES,TILES_PER_BANK} from '../dist/packages/assets/index.js';
 
 const tileset=(name,bpp=3)=>({id:name,name,bpp,chr:Array(BANK_BYTES).fill(0),tilePaletteBanks:Array(TILES_PER_BANK).fill(0),compositions:[]});
 
-test('a tileset exports one full CHR bank under its own name',()=>{
- const t=tileset('Heroes');t.chr[4096]=255;
- const files=tilesetPackage([t]);
- assert.equal(files['Heroes.CHR'].length,BANK_BYTES);
- assert.equal(files['Heroes.CHR'][4096],255);
-});
 
 test('a tileset is 1bpp or 3bpp and its tiles name banks 0-15',()=>{
  validateTilesets([tileset('Mono',1)]);
@@ -50,20 +44,4 @@ test('background cells use a different layout: flip X 4, flip Y 5, priority 6, C
  assert.notEqual(cellAttr({paletteBank:0,flipX:true,flipY:false}),spriteAttr({paletteBank:0,flipX:true,flipY:false}));
 });
 
-test('the runtime package names every tileset and config, and says banks are an example',()=>{
- const p=emptyProject();
- p.tilesets=[tileset('Heroes'),tileset('Ground',1)];
- const files=runtimePackage(p);
- assert.ok(files['Heroes.CHR']&&files['Ground.CHR']&&files['Default.PAL']);
- const loader=new TextDecoder().decode(files['LOADER.bas.txt']);
- assert.match(loader,/CHRLOAD 0,0,6144,"Heroes.CHR"/);
- assert.match(loader,/CHRMODE 1,1/,'the 1bpp tileset sets the CHRMODE flag');
- assert.match(loader,/CHRMODE 0,0/);
- assert.match(loader,/PALLOAD 0,0,0,"Default.PAL"/);
- assert.match(new TextDecoder().decode(files['README.txt']),/bank numbers are an example/);
-});
 
-test('bad projects fail before any binary is generated',()=>{
- const p=emptyProject();p.tilesets=[tileset('Art')];p.tilesets[0].chr[0]=256;
- assert.throws(()=>runtimePackage(p));
-});

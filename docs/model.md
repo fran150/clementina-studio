@@ -8,6 +8,7 @@ generated files. This supersedes the palette and bank vocabulary used in
 
 Studio follows the hardware's vocabulary, which the ROM uses consistently in
 `docs/basic-video.md`, `docs/memory-map.md`, and `src/basic/clementina_extra.s`.
+The code carries these names as of project format version 2.
 
 | Studio term | Means | Hardware |
 | --- | --- | --- |
@@ -27,7 +28,8 @@ Renames from the version 1 format: `BankAsset` becomes `Tileset`,
 `bank.paletteSlots` is removed, `bank.cellPalettes` becomes
 `tileset.tilePaletteBanks`, `bank.mode` becomes `tileset.bpp`, and
 `bank.plane` is removed. The project format version becomes 2. Version 1
-files are rejected rather than migrated; Studio is unreleased.
+files are rejected rather than migrated; Studio is unreleased, and the `.mtb`
+importer that read the pre-Studio flat format is gone with them.
 
 ## What the hardware actually constrains
 
@@ -145,11 +147,17 @@ Never stored on an asset: `CHRMODE`, `CHRPLANE`, `BGBANK`/`BGALT`,
 `SPRBANK`, `OVLBANK`/`OVLALT`. These are global render state and belong to
 the build step. The one exception is `bpp`, which is generated *from* the
 tileset rather than set independently, because it describes the tileset's own
-encoding.
+encoding. The 1bpp plane on screen is editor state too, held by the tileset
+editor rather than the tileset.
 
 ## Build step
 
-The build step is where the user lays out Clementina's memory and chooses
+Not written yet, and deliberately last: it waits on maps, scenes and music, so
+that it lays out all of a project's assets rather than being rebuilt each time
+a new kind arrives. The export path and its UI were removed rather than carried
+half-finished.
+
+When it lands, it is where the user lays out Clementina's memory and chooses
 files. It assigns tilesets to CHR banks, groups palettes into files, names
 the outputs, and selects which runtime routines to include.
 

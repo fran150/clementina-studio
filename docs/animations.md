@@ -1,49 +1,49 @@
-# Sprite animations, version 1
+# Sprite groups and animations
 
-Studio projects use `.cstudio` JSON with `format: "clementina-studio"` and
-`version: 1`. They preserve CHR bytes, RGB565 palette words, bank modes,
-editor planes, and named animations. Legacy `.mtb` files remain importable;
-Save writes a new Studio project so animation metadata is not lost.
+A **sprite group** is a character or object assembled from one tileset's tiles.
+It draws from exactly one tileset because Clementina has a single sprite CHR
+bank (`SPRBANK`) and an OAM entry carries no bank field, so everything on
+screen at once comes from the same tileset.
 
-An animation has a name, CHR bank, 1bpp plane, and ordered frames. Each frame
-has a duration of 1–255 ticks at 60 Hz and up to 64 sprite parts. Each part
-contains tile, signed X/Y offsets, palette, and horizontal/vertical flips.
-Zero color is transparent. Later parts cover earlier parts, matching the
-current renderer. All concurrently displayed sprites share the hardware's
-single sprite CHR bank and plane. Priority against background is not edited
-in this version.
+A group has a name (a unique assembly identifier), the tileset it draws from,
+a canvas size, an origin, and ordered frames. Each frame has a duration of
+1-255 ticks at 60 Hz and up to 64 sprite parts. A part carries a tile index,
+signed X and Y offsets from the origin, a palette bank, and horizontal and
+vertical flips.
 
-## Assembly export
+Static sprites hold exactly one frame; animations hold up to 255.
 
-`ANIMATIONS.BIN` is CPU-side animation data, not raw MIA OAM. Include it with
-`.incbin "ANIMATIONS.BIN"` in the game and include `assets.inc` for names.
-No absolute load address is assumed, so this asset does not have a PRG header.
+Color 0 is transparent for sprites. Higher sprite IDs draw on top, matching the
+renderer, which scans OAM from 0 to `OAM_LAST_INDEX` and lets later entries
+overwrite earlier ones — the opposite of the NES convention.
 
-Bytes:
+A part's palette bank defaults to the bank its tile was drawn against in the
+tileset, and can be changed per sprite. That is how one tileset yields a red
+enemy and a blue one. OAM carries X as 10-bit signed (-512 to 511) and Y as
+9-bit signed (-256 to 255), with the high bits in the `ext` byte.
 
-- Header: ASCII `CSA1`, followed by one-byte animation count.
-- Each animation: bank, plane, frame count (one byte each).
-- Each frame: tick duration, part count (one byte each).
-- Each part: tile, signed X offset, signed Y offset, palette, flags.
-- Flags: bit 2 flip X, bit 3 flip Y; other bits zero.
-
-`ANIM_<NAME>_OFFSET` points to the animation's bank byte, relative to the
-start of ANIMATIONS.BIN. `ANIM_<NAME>_ID` is its zero-based ordinal.
-Names are unique case-insensitively and limited to assembly identifiers.
-Export rejects files larger than 65535 bytes.
-
-The game must advance frames using a 60 Hz clock, add offsets to its entity
-position, translate flags into OAM attributes, write parts to MIA OAM, and
-hide unused parts when changing to a shorter frame. Studio's preview loops;
-the assembly consumer chooses whether to loop. No playback routine is shipped
-yet. The generated BASIC source loader still loads graphics/palettes only;
-animations are linked into the assembly program by the game build.
+Sprite-versus-background priority (`attr` bit 4) is not edited here. It belongs
+to the future scene editor, along with which groups share a CHR bank and which
+group loads at which OAM base. See [model.md](model.md).
 
 ## Editor
 
-Create an animation, select tiles in its bank, then add parts or build a
-16×16 group from a 2×2 selection in the 16-column tile sheet. Edit each part's
-position, palette, and flips. Duplicate frames to build motion, set durations,
-and press Play. Sprite edits have a separate 50-step undo history. Tile and
-palette undo remain in the existing editor. Preview is 4× with a central
-origin; large offsets may extend outside the preview viewport.
+Create a group, pick its tileset, then select tiles from the tile map and place
+them around the origin. Drag to move, arrows nudge by a pixel, and the
+bring-to-front and send-to-back controls reorder sprite IDs. The tileset is
+locked once a group has parts, since changing it would repoint every tile index
+at different graphics.
+
+Animations add a frame timeline: duplicate frames to build motion, set
+durations, and press Play. The preview is 4× with a central origin; large
+offsets may extend outside the preview viewport. Studio's preview loops; a game
+chooses for itself.
+
+Sprite edits keep their own 50-step undo history, separate from tileset and
+palette edits.
+
+## Export
+
+There is none yet. The build step that will write sprite data and assembly
+symbols comes after maps, scenes and music, so that it lays out a whole
+project at once. See [model.md](model.md).

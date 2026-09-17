@@ -1,4 +1,4 @@
-import {PALETTE_BANKS, PALETTE_COLORS, configFromFlat, createConfig, resolveConfig} from './palettes.js';
+import {PALETTE_BANKS, PALETTE_COLORS, createConfig} from './palettes.js';
 export const BANK_BYTES = 6144, TILES_PER_BANK = 256, PROJECT_VERSION = 2;
 /**
  * Studio's project model, in the hardware's vocabulary — see docs/model.md.
@@ -134,29 +134,6 @@ export function emptyProject():StudioProject {
  return {paletteLibrary,paletteConfigs,activeConfigId:config.id,tilesets:[],sprites:[],animations:[]};
 }
 
-/**
- * Builds a project from the flat arrays legacy .mtb files carry: eight fixed
- * CHR banks, one bpp per bank, and a single 128-word palette RAM image. The
- * palette image becomes one config named after the file, since that is what
- * the machine would have loaded.
- */
-export function projectFromFlat(chr:number[],bpp:number[],palettes:number[],name='Imported'):StudioProject {
- const paletteLibrary:ProjectPalette[]=[],paletteConfigs:PaletteBankConfig[]=[];
- const config=configFromFlat(paletteConfigs,paletteLibrary,palettes,name);
- const tilesets=Array.from({length:8},(_,i)=>({
-  id:crypto.randomUUID(),name:`Tileset_${i+1}`,bpp:bpp[i]===3?3:1,
-  chr:chr.slice(i*BANK_BYTES,(i+1)*BANK_BYTES),
-  tilePaletteBanks:Array(TILES_PER_BANK).fill(0),compositions:[],
- }));
- return {paletteLibrary,paletteConfigs,activeConfigId:config.id,tilesets,sprites:[],animations:[]};
-}
-
-/** The colors a tile should be drawn with under a config: its recorded bank. */
-export function tileColors(project:StudioProject,tileset:Tileset,tile:number):number[] {
- const config=project.paletteConfigs.find(c=>c.id===project.activeConfigId);
- return resolveConfig(config,project.paletteLibrary).slice(tileset.tilePaletteBanks[tile]*PALETTE_COLORS,(tileset.tilePaletteBanks[tile]+1)*PALETTE_COLORS);
-}
-
 /** A PRG wraps CHR data in a CPU load header; its address is not a CHR bank. */
 export function importTilesetPrg(bytes:Uint8Array):{chr:number[];bpp:number;address:number;bank?:number}{
  if(bytes.length<2)throw Error('PRG is missing its load address');
@@ -179,59 +156,11 @@ export function importTilesetFile(bytes:Uint8Array,extension:string):{chr:number
 }
 
 // ---------------------------------------------------------------------------
-// Runtime export. This is a direct port of the version 1 exporter onto the new
-// model, kept so the existing export button works; it is not the build step.
-// The real one — where the user lays out Clementina's memory, assigns tilesets
-// to CHR banks and groups palettes into files — comes later, once maps, scenes
-// and music exist. See docs/model.md.
+// Attribute encoding. Background cells and sprites carry the same fields at
+// different bit positions, so each gets its own encoder. The build step that
+// writes them to files comes later; these are hardware facts, kept here with
+// their tests so they do not have to be re-derived.
 // ---------------------------------------------------------------------------
-
-/** One file per tileset: its raw CHR bytes, loadable into any CHR bank. */
-export function tilesetPackage(tilesets:Tileset[]):Record<string,Uint8Array>{
- validateTilesets(tilesets);const files:Record<string,Uint8Array>={};
- for(const t of tilesets)files[t.name+'.CHR']=Uint8Array.from(t.chr);
- return files;
-}
-
-/**
- * One file per config: sixteen banks of eight little-endian RGB565 colors, in
- * bank order. PALLOAD transfers linearly across bank boundaries, so the whole
- * 256 bytes load in a single call.
- */
-export function configPackage(configs:PaletteBankConfig[],library:ProjectPalette[]):Record<string,Uint8Array>{
- validatePaletteConfigs(configs,library);const files:Record<string,Uint8Array>={};
- for(const c of configs){
-  const bytes=new Uint8Array(PALETTE_BANKS*PALETTE_COLORS*2),view=new DataView(bytes.buffer);
-  resolveConfig(c,library).forEach((v,i)=>view.setUint16(i*2,v,true));
-  files[fileStem(c.name)+'.PAL']=bytes;
- }
- return files;
-}
-const fileStem=(name:string)=>name.replace(/[^A-Za-z0-9_-]+/g,'_').replace(/^_+|_+$/g,'')||'CONFIG';
-
-/**
- * Sprite group data, CPU-side, not raw OAM. A part carries its palette bank,
- * so a group's records are ready to copy into OAM once its tileset is in the
- * sprite CHR bank.
- */
-export function groupPackage(groups:SpriteGroup[],tilesets:Tileset[],stem='ANIMATION',binary='ANIMATIONS.BIN'):Record<string,Uint8Array>{
- validateGroups(groups,tilesets);
- const bytes:number[]=[67,83,65,50,groups.length];
- const symbols=[`; Clementina sprite groups v2. Offsets relative to ${binary}.`,`${stem}_COUNT = ${groups.length}`];
- for(let id=0;id<groups.length;id++){
-  const g=groups[id],name=g.name.toUpperCase();
-  symbols.push(`${stem}_${name}_ID = ${id}`,`${stem}_${name}_OFFSET = ${bytes.length}`);
-  bytes.push(g.frames.length);
-  for(const f of g.frames){
-   bytes.push(f.ticks,f.parts.length);
-   // Emitted in OAM order: slot order is draw order, higher index on top.
-   const ordered=[...f.parts].sort((a,b)=>(a.spriteId??0)-(b.spriteId??0));
-   for(const part of ordered)bytes.push(part.tile,part.x&255,part.y&255,spriteAttr(part),spriteExt(part));
-  }
- }
- if(bytes.length>65535)throw Error('Sprite group data exceeds 65535 bytes');
- return {[binary]:Uint8Array.from(bytes),[stem.toLowerCase()+'s.inc']:new TextEncoder().encode(symbols.join('\n')+'\n')};
-}
 
 /** OAM byte 3: palette 0-3, priority 4, flip X 5, flip Y 6 — not the background layout. */
 export function spriteAttr(part:SpritePart):number{
@@ -246,30 +175,3 @@ export function cellAttr(cell:{paletteBank:number;flipX:boolean;flipY:boolean;pr
  return (cell.paletteBank&15)|(cell.flipX?16:0)|(cell.flipY?32:0)|(cell.priority?64:0)|(cell.chrAlt?128:0);
 }
 
-export function runtimePackage(p:StudioProject):Record<string,Uint8Array>{
- validateProject(p);
- const files:Record<string,Uint8Array>={
-  ...tilesetPackage(p.tilesets),
-  ...configPackage(p.paletteConfigs,p.paletteLibrary),
-  ...groupPackage(p.animations??[],p.tilesets,'ANIMATION','ANIMATIONS.BIN'),
-  ...groupPackage(p.sprites??[],p.tilesets,'SPRITE','SPRITES.BIN'),
- };
- const lines=['10 REM CLEMENTINA STUDIO RUNTIME ASSETS'];
- let line=20;
- // CHR bank numbers here are an example, not a decision: a tileset has no
- // fixed home until the build step assigns one.
- p.tilesets.forEach((t,i)=>{
-  lines.push(`${line} CHRLOAD ${i&7},0,6144,"${t.name}.CHR"`);line+=10;
-  lines.push(`${line} CHRMODE ${i&7},${t.bpp===1?1:0}`);line+=10;
- });
- for(const c of p.paletteConfigs){lines.push(`${line} REM PALLOAD 0,0,0,"${fileStem(c.name)}.PAL"`);line+=10;}
- lines.push(`${line} REM SELECT LAYER BANKS AND CHRPLANES FOR YOUR GAME`);
- files['LOADER.bas.txt']=new TextEncoder().encode(lines.join('\n')+'\n');
- files['README.txt']=new TextEncoder().encode(
-  'Runtime assets, not firmware defaults. Run the loader with this folder as the current SD directory. '
- +'LOADER.bas.txt is plain BASIC source: enter it into BASIC and SAVE it, or use a compatible tokenizer before LOAD. '
- +'A .CHR file is one tileset and fits any CHR bank; the loader\'s bank numbers are an example. '
- +'A .PAL file is one palette bank config, 16 banks of 8 RGB565 colors, and only one can be loaded at a time. '
- +'Sprite group data is CPU-side, not raw OAM. Assigning tilesets to banks is a later build step.\n');
- return files;
-}

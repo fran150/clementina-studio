@@ -1,13 +1,14 @@
-// Named bank authoring. CHR pixels and per-cell palette metadata stay separate.
+// Tileset authoring. A tileset is one CHR bank's worth of graphics; its per-tile
+// palette bank numbers are authoring intent, recorded alongside the pixels.
 (() => {
  const host=document.createElement('section');host.id='namedBankEditor';
- host.innerHTML=`<aside class="bankLibrary"><h2>Bank files</h2><div id="bankFiles" role="listbox" aria-label="Bank assets"></div><div class="bankActions"><button id="addBankFile">New</button><button id="copyBankFile">Duplicate</button><button id="importBankFile">Import bank…</button><button id="deleteBankFile">Delete</button></div><p>Files are assigned to memory slots when loaded. Your library can contain more than eight banks.</p></aside>
- <aside class="bankLibrary objectLibrary"><h2>Objects</h2><div id="compositionList" role="listbox" aria-label="Objects"></div><div class="bankActions"><button id="saveComposition">New</button><button id="deleteComposition">Delete</button></div><p>Select a rectangle in the tile map and click New. Double-click an object to rename it. Deleting an object keeps its pixels.</p></aside><div class="bankWork"><p id="emptyBank">Create or import a bank to start drawing.</p><div id="bankEditorContents"><div class="bankActions"><label>Mode <select id="bankFileMode"><option value="3">3 bpp · 8 colors</option><option value="1">1 bpp · 2 colors</option></select></label><label id="bankFilePlaneLabel">Plane <select id="bankFilePlane"><option>0</option><option>1</option><option>2</option></select></label><button id="bankUndo">Undo</button><button id="bankRedo">Redo</button></div>
- <div class="bankCanvases"><div><h2>Bank map · drag to select tiles</h2><canvas id="bankMap" width="384" height="384"></canvas><p id="bankSelectionInfo"></p></div>
- <div class="selectionWork"><h2>Selected tiles</h2><div class="bankActions"><button id="pencilTool">Pencil</button><button id="fillTool">Fill</button><button id="zoomOut">−</button><span id="zoomLabel"></span><button id="zoomIn">+</button><label><input id="cellGrid" type="checkbox" checked>Tile grid</label></div><div class="selectionScroll"><canvas id="bankSelection"></canvas></div><p>Hover a tile to highlight its palette. Click a swatch to assign that palette to the tile and choose your drawing color.</p></div></div>
- <section class="inlinePalettes"><h2>Palette slots · double-click a color to edit it · palettes are shared across banks</h2><div id="bankSwatches"></div><input id="bankColor" type="color" style="position:absolute;opacity:0;width:1px;height:1px"><p id="tilePaletteInfo"></p></section><div class="bankActions"><label>Preview background (color 0 / transparent) <input id="previewBackground" type="color" value="#252830"></label><span>Preview only — does not change exported palette colors.</span></div></div></div>`;
- $('graphicsMain').after(host);
- const style=document.createElement('style');style.textContent=`#graphicsMain,#paletteHost{display:none!important}#namedBankEditor{display:flex;gap:20px;padding:18px;align-items:flex-start}.bankLibrary{width:210px;flex-shrink:0;background:var(--panel);padding:14px;border:1px solid var(--line);border-radius:8px}.bankLibrary select{width:100%;min-height:230px}.bankLibrary input{width:100%;margin-top:8px}.bankLibrary p,.bankWork p{color:var(--text-dim);font-size:11px;line-height:1.6}.bankWork{flex:1;min-width:0}.bankActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.bankCanvases{display:flex;flex-wrap:wrap;gap:22px}#bankMap{width:384px;height:384px;touch-action:none;cursor:crosshair}#bankSelection{image-rendering:pixelated;touch-action:none;cursor:crosshair}.selectionScroll{max-width:100%;max-height:520px;overflow:auto;background:#111}.selectionWork{flex:1;min-width:300px}#bankSwatches{display:flex;gap:5px}#bankSwatches button{width:30px;height:30px}.inlinePalettes{padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-top:16px}#namedBankEditor h2{font-size:12px;color:var(--text-dim)}#namedBankEditor input{background:var(--panel);color:var(--text);border:1px solid var(--line);padding:5px}#bankFiles option{padding:7px}#bankFiles{background:var(--bg)}`;style.textContent+=`.objectLibrary{width:160px}.bankLibrary{width:170px}#bankSwatches{display:grid;grid-template-columns:repeat(4,max-content);gap:2px 8px}.paletteGroup{display:flex;align-items:center;gap:2px;padding:3px;border:2px solid transparent;border-radius:4px}.paletteGroup span{width:20px;color:var(--text-dim)}.paletteGroup.activePalette{border-color:#36c9d6}.paletteGroup button{width:18px!important;height:18px!important;padding:0;border-radius:2px}.paletteGroup button.chosenColor{outline:2px solid white;outline-offset:-4px}.inlinePalettes{width:fit-content}.bankCanvases{gap:14px}#bankMap{width:320px;height:320px}.selectionWork{min-width:240px}.selectionScroll{max-height:450px}#emptyBank{font-size:16px;padding:50px 10px}`;
+ host.innerHTML=`<aside class="bankLibrary"><h2>Tilesets</h2><div id="bankFiles" role="listbox" aria-label="Tilesets"></div><div class="bankActions"><button id="addBankFile">New</button><button id="copyBankFile">Duplicate</button><button id="importBankFile">Import tileset…</button><button id="deleteBankFile">Delete</button></div><p>Each tileset fills one CHR bank. Which bank it lands in is decided when the game is built, so a project can hold more than eight.</p></aside>
+ <aside class="bankLibrary objectLibrary"><h2>Objects</h2><div id="compositionList" role="listbox" aria-label="Objects"></div><div class="bankActions"><button id="saveComposition">New</button><button id="deleteComposition">Delete</button></div><p>Select a rectangle in the tile map and click New. Double-click an object to rename it. Deleting an object keeps its pixels.</p></aside><div class="bankWork"><p id="emptyBank">Create or import a tileset to start drawing.</p><div id="bankEditorContents"><div class="bankActions"><label>Mode <select id="bankFileMode"><option value="3">3 bpp · 8 colors</option><option value="1">1 bpp · 2 colors</option></select></label><label id="bankFilePlaneLabel">Plane <select id="bankFilePlane"><option>0</option><option>1</option><option>2</option></select></label><button id="bankUndo">Undo</button><button id="bankRedo">Redo</button></div>
+ <div class="bankCanvases"><div><h2>Tile map · drag to select tiles</h2><canvas id="bankMap" width="384" height="384"></canvas><p id="bankSelectionInfo"></p></div>
+ <div class="selectionWork"><h2>Selected tiles</h2><div class="bankActions"><button id="pencilTool">Pencil</button><button id="fillTool">Fill</button><button id="zoomOut">−</button><span id="zoomLabel"></span><button id="zoomIn">+</button><label><input id="cellGrid" type="checkbox" checked>Tile grid</label></div><div class="selectionScroll"><canvas id="bankSelection"></canvas></div><p>Hover a tile to highlight the bank it was drawn against. Click a swatch to record that bank on the tile and choose your drawing color.</p></div></div>
+ <section class="inlinePalettes"><h2>Palette banks · double-click a color to edit it · this is the active config's palette RAM</h2><div id="bankSwatches"></div><input id="bankColor" type="color" style="position:absolute;opacity:0;width:1px;height:1px"><p id="tilePaletteInfo"></p></section><div class="bankActions"><label>Preview background (color 0 / transparent) <input id="previewBackground" type="color" value="#252830"></label><span>Preview only — does not change exported palette colors.</span></div></div></div>`;
+ $('workspace').append(host);
+ const style=document.createElement('style');style.textContent=`#namedBankEditor{display:flex;gap:20px;padding:18px;align-items:flex-start}.bankLibrary{width:210px;flex-shrink:0;background:var(--panel);padding:14px;border:1px solid var(--line);border-radius:8px}.bankLibrary select{width:100%;min-height:230px}.bankLibrary input{width:100%;margin-top:8px}.bankLibrary p,.bankWork p{color:var(--text-dim);font-size:11px;line-height:1.6}.bankWork{flex:1;min-width:0}.bankActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.bankCanvases{display:flex;flex-wrap:wrap;gap:22px}#bankMap{width:384px;height:384px;touch-action:none;cursor:crosshair}#bankSelection{image-rendering:pixelated;touch-action:none;cursor:crosshair}.selectionScroll{max-width:100%;max-height:520px;overflow:auto;background:#111}.selectionWork{flex:1;min-width:300px}#bankSwatches{display:flex;gap:5px}#bankSwatches button{width:30px;height:30px}.inlinePalettes{padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-top:16px}#namedBankEditor h2{font-size:12px;color:var(--text-dim)}#namedBankEditor input{background:var(--panel);color:var(--text);border:1px solid var(--line);padding:5px}#bankFiles option{padding:7px}#bankFiles{background:var(--bg)}`;style.textContent+=`.objectLibrary{width:160px}.bankLibrary{width:170px}#bankSwatches{display:grid;grid-template-columns:repeat(4,max-content);gap:2px 8px}.paletteGroup{display:flex;align-items:center;gap:2px;padding:3px;border:2px solid transparent;border-radius:4px}.paletteGroup span{width:20px;color:var(--text-dim)}.paletteGroup.activePalette{border-color:#36c9d6}.paletteGroup button{width:18px!important;height:18px!important;padding:0;border-radius:2px}.paletteGroup button.chosenColor{outline:2px solid white;outline-offset:-4px}.inlinePalettes{width:fit-content}.bankCanvases{gap:14px}#bankMap{width:320px;height:320px}.selectionWork{min-width:240px}.selectionScroll{max-height:450px}#emptyBank{font-size:16px;padding:50px 10px}`;
  document.head.append(style);
  const palettePanel=host.querySelector('.inlinePalettes');const canvasPanel=host.querySelector('.bankCanvases');canvasPanel.before(palettePanel);
  const backgroundRow=$('previewBackground').closest('.bankActions');canvasPanel.before(backgroundRow);
@@ -16,27 +17,28 @@
  let usagePalette=null,resizeDrag=null;
  let moveDrag=null,spaceHeld=false,panDrag=null;
  let shapeStart=null,shapeEnd=null,miniVisible=false;
- let erasing=false,hovering=false,objectIndex=-1,targetTile=0,zoom=8,colorEdit={slot:0,ink:1};
+ let erasing=false,hovering=false,objectIndex=-1,targetTile=0,zoom=8,colorEdit={bank:0,ink:1};
+ let plane=0;
  let index=0,selection={x:0,y:0,width:1,height:1},palette=0,ink=1,tool='pencil',undo=[],redo=[],reference=null,anchor=null,stroke=null,last=null;
- const asset=()=>ensureBankAssets()[index];
+ const asset=()=>tilesets[index];
  // Colors live in the shared library, so history has to carry it alongside the
  // banks. Sprite groups keep their own history and are only folded in for the
  // rare edit that spans both, so ordinary drawing cannot revert sprite work.
- const snapshot=withGroups=>JSON.stringify({bankAssets:ensureBankAssets(),paletteLibrary,...(withGroups?{sprites,animations}:{})});
+ const snapshot=withGroups=>JSON.stringify({tilesets:tilesets,paletteLibrary,...(withGroups?{sprites,animations}:{})});
  function restore(state){
-  bankAssets=state.bankAssets;paletteLibrary=state.paletteLibrary;
+  tilesets=state.tilesets;paletteLibrary=state.paletteLibrary;
   if(state.sprites){sprites=state.sprites;animations=state.animations;}
-  reference=bankAssets;index=Math.min(index,bankAssets.length-1);
+  reference=tilesets;index=Math.min(index,tilesets.length-1);
  }
  function remember(withGroups){undo.push(snapshot(withGroups));if(undo.length>50)undo.shift();redo=[];}
  function changed(){markDirty();render();}
  function mutate(fn,withGroups){remember(withGroups);fn();changed();}
- function sample(a,t,x,y){let n=0;for(let p=0;p<3;p++)n|=((a.chr[p*2048+t*8+y]>>x)&1)<<p;return a.mode===1?(n>>a.plane)&1:n;}
- function write(a,t,x,y,value){for(const p of a.mode===1?[a.plane]:[0,1,2]){const pos=p*2048+t*8+y,bit=a.mode===1?(value?1:0):(value>>p)&1;a.chr[pos]=(a.chr[pos]&~(1<<x))|(bit<<x);}}
+ function sample(a,t,x,y){let n=0;for(let p=0;p<3;p++)n|=((a.chr[p*2048+t*8+y]>>x)&1)<<p;return a.bpp===1?(n>>plane)&1:n;}
+ function write(a,t,x,y,value){for(const p of a.bpp===1?[plane]:[0,1,2]){const pos=p*2048+t*8+y,bit=a.bpp===1?(value?1:0):(value>>p)&1;a.chr[pos]=(a.chr[pos]&~(1<<x))|(bit<<x);}}
  function selectedTiles(){const out=[];for(let y=selection.y;y<selection.y+selection.height;y++)for(let x=selection.x;x<selection.x+selection.width;x++)out.push(y*16+x);return out;}
  function render(){
   host.hidden=currentView!=='tiles';document.body.classList.toggle('drawingView',!host.hidden);if(host.hidden){hovering=false;return;}
-  const list=ensureBankAssets();if(reference!==list){pixelSelection=null;pasteAnchor=null;selectStart=null;index=Math.min(index,list.length-1);reference=list;undo=[];redo=[];}
+  const list=tilesets;if(reference!==list){pixelSelection=null;pasteAnchor=null;selectStart=null;index=Math.min(index,list.length-1);reference=list;undo=[];redo=[];}
   if(index<0)index=0;const a=asset();if(a&&objectIndex>=a.compositions.length)objectIndex=-1;
   $('emptyBank').hidden=!!a;$('miniaturePanel').hidden=!a||!miniVisible;
   for(const id of ['copyBankFile','deleteBankFile','saveComposition','importBankImage'])$(id).disabled=!a;
@@ -45,7 +47,7 @@
   if(!a){$('canvasStage').hidden=true;$('paletteDock').hidden=true;$('canvasTop').hidden=true;$('bankFiles').replaceChildren();$('compositionList').replaceChildren();return;}
   $('canvasStage').hidden=false;$('paletteDock').hidden=false;$('canvasTop').hidden=false;$('canvasAssetLabel').textContent=a.name+(objectIndex>=0?' / '+a.compositions[objectIndex].name:'');
   renderList($('bankFiles'),list,index,selectBank,renameBank);
-  $('bankFileMode').value=a.mode;$('bankFilePlane').value=a.plane;$('bankFilePlaneLabel').hidden=a.mode!==1;
+  $('bankFileMode').value=a.bpp;$('bankFilePlane').value=plane;$('bankFilePlaneLabel').hidden=a.bpp!==1;
   $('bankUndo').disabled=!undo.length;$('bankRedo').disabled=!redo.length;
   $('pencilTool').classList.toggle('on',tool==='pencil');$('eraserTool').classList.toggle('on',tool==='eraser');$('pickerTool').classList.toggle('on',tool==='picker');$('fillTool').classList.toggle('on',tool==='fill');$('zoomLabel').textContent=zoom+'×';$('zoomOut').disabled=zoom===1;$('zoomIn').disabled=zoom===32;
   $('previewBackground').value=a.previewBackground??'#252830';
@@ -53,7 +55,7 @@
   const map=$('bankMap'),m=map.getContext('2d');
   for(let t=0;t<256;t++)for(let y=0;y<8;y++)for(let x=0;x<8;x++){m.fillStyle=pixelColor(a,t,x,y);m.fillRect((t%16*8+x)*3,(Math.floor(t/16)*8+y)*3,3,3);}
   m.strokeStyle='#ffffff30';m.lineWidth=1;for(let n=0;n<=16;n++){m.beginPath();m.moveTo(n*24,0);m.lineTo(n*24,384);m.moveTo(0,n*24);m.lineTo(384,n*24);m.stroke();}
-  if(usagePalette!==null){for(let t=0;t<256;t++)if(a.cellPalettes[t]===usagePalette){m.fillStyle='#36c9d650';m.fillRect(t%16*24,Math.floor(t/16)*24,24,24);m.strokeStyle='#fff';m.strokeRect(t%16*24+.5,Math.floor(t/16)*24+.5,23,23);}}
+  if(usagePalette!==null){for(let t=0;t<256;t++)if(a.tilePaletteBanks[t]===usagePalette){m.fillStyle='#36c9d650';m.fillRect(t%16*24,Math.floor(t/16)*24,24,24);m.strokeStyle='#fff';m.strokeRect(t%16*24+.5,Math.floor(t/16)*24+.5,23,23);}}
   m.strokeStyle='#36c9d6';m.lineWidth=3;m.strokeRect(selection.x*24+1.5,selection.y*24+1.5,selection.width*24-3,selection.height*24-3);
   const canvas=$('bankSelection'),scale=zoom;canvas.width=selection.width*8*scale;canvas.height=selection.height*8*scale;const c=canvas.getContext('2d');
   for(let cy=0;cy<selection.height;cy++)for(let cx=0;cx<selection.width;cx++){const t=(selection.y+cy)*16+selection.x+cx;for(let y=0;y<8;y++)for(let x=0;x<8;x++){c.fillStyle=pixelColor(a,t,x,y);c.fillRect((cx*8+x)*scale,(cy*8+y)*scale,scale,scale);}if($('cellGrid').checked){c.strokeStyle='#36c9d680';c.strokeRect(cx*8*scale+.5,cy*8*scale+.5,8*scale-1,8*scale-1);}}
@@ -62,35 +64,29 @@
   for(const id of ['line','rectangle','ellipse'])$(id+'Tool').classList.toggle('on',tool===id);
   $('drawingFlyout').style.bottom=($('paletteDock').offsetHeight+($('drawingStatus')?.offsetHeight??0))+'px';
   for(const name of ['solid','checker','stripes']){const b=$('fillPattern_'+name);if(b){b.disabled=!(tool==='fill'||(['rectangle','ellipse'].includes(tool)&&$('filledShapes').checked));b.classList.toggle('on',fillPattern===name);b.setAttribute('aria-pressed',String(fillPattern===name));}}if($('filledShapeToggle')){$('filledShapeToggle').disabled=!['rectangle','ellipse'].includes(tool);$('filledShapeToggle').classList.toggle('on',$('filledShapes').checked);$('filledShapeToggle').setAttribute('aria-pressed',String($('filledShapes').checked));}
-  drawMiniature();drawPixelOverlay();if(usagePalette!==null){const ctx=$('bankSelection').getContext('2d');for(let y=0;y<selection.height;y++)for(let x=0;x<selection.width;x++)if(a.cellPalettes[(selection.y+y)*16+selection.x+x]===usagePalette){ctx.fillStyle='#36c9d630';ctx.fillRect(x*8*zoom,y*8*zoom,8*zoom,8*zoom);ctx.strokeStyle='#36c9d6';ctx.lineWidth=2;ctx.strokeRect(x*8*zoom+1,y*8*zoom+1,8*zoom-2,8*zoom-2);}}updateStatus();for(const id of ['flipHorizontal','flipVertical','rotateSelection'])$(id).disabled=!pixelSelection;$('selectionTool').classList.toggle('on',tool==='select');$('copyPixels').disabled=!pixelSelection;$('pastePixels').disabled=!pixelClipboard;
+  drawMiniature();drawPixelOverlay();if(usagePalette!==null){const ctx=$('bankSelection').getContext('2d');for(let y=0;y<selection.height;y++)for(let x=0;x<selection.width;x++)if(a.tilePaletteBanks[(selection.y+y)*16+selection.x+x]===usagePalette){ctx.fillStyle='#36c9d630';ctx.fillRect(x*8*zoom,y*8*zoom,8*zoom,8*zoom);ctx.strokeStyle='#36c9d6';ctx.lineWidth=2;ctx.strokeRect(x*8*zoom+1,y*8*zoom+1,8*zoom-2,8*zoom-2);}}updateStatus();for(const id of ['flipHorizontal','flipVertical','rotateSelection'])$(id).disabled=!pixelSelection;$('selectionTool').classList.toggle('on',tool==='select');$('copyPixels').disabled=!pixelSelection;$('pastePixels').disabled=!pixelClipboard;
  } 
- function pixelColor(a,t,x,y){const value=sample(a,t,x,y);return value===0?(a.previewBackground??'#252830'):css565(bankColor(a,a.cellPalettes[t],value));}
+ function pixelColor(a,t,x,y){const value=sample(a,t,x,y);return value===0?(a.previewBackground??'#252830'):css565(bankColor(a,a.tilePaletteBanks[t],value));}
  function refreshPalettes(){
   const a=asset();if(!a)return;
-  ensureSlotRows(a.paletteSlots.length);
-  if(palette>=a.paletteSlots.length)palette=0;
-  const repeats=a.paletteSlots.length-new Set(a.paletteSlots).size;
-  $('compactPaletteSlots').hidden=!repeats;
-  $('compactPaletteSlots').title=`${repeats} slot${repeats===1?'':'s'} repeat a palette already in this bank. Compacting frees them and moves their tiles onto the slot that stays.`;
-  const spare=unboundPalette(a);
-  $('addPaletteSlot').disabled=a.paletteSlots.length>=16||!spare;
-  $('addPaletteSlot').title=a.paletteSlots.length>=16?'This bank already binds all 16 hardware palette slots'
-   :spare?'Bind '+spare.name+' to this bank':'This bank already binds every palette in the project. Add one in Palettes first.';
-  for(const b of $('bankSwatches').querySelectorAll('.paletteUsage')){const p=+b.dataset.palette,n=a.cellPalettes.filter(v=>v===p).length;b.textContent=n||'—';b.title=n?`${n} tiles use slot ${String(p).padStart(2,'0')}, including blank tiles. Hover to locate them.`:`Slot ${String(p).padStart(2,'0')}: no tiles painted with it`;}
-  $('bankSwatches').querySelectorAll('button[data-ink]').forEach(button=>{const p=Number(button.dataset.palette),i=Number(button.dataset.ink);button.style.background=i===0?'linear-gradient(135deg,white 43%,#e32636 44%,#e32636 56%,white 57%)':css565(bankColor(a,p,i));button.classList.toggle('chosenColor',p===palette&&i===ink);button.disabled=a.mode===1&&i>1;});
-  const shared=new Set();for(const b of ensureBankAssets())if(b!==a)for(const id of b.paletteSlots)shared.add(id);
-  $('bankSwatches').querySelectorAll('.paletteBinding').forEach(select=>{
-   const slot=Number(select.dataset.palette),bound=a.paletteSlots[slot];
-   select.replaceChildren(...paletteLibrary.map(q=>{const elsewhere=a.paletteSlots.map((id,i)=>id===q.id&&i!==slot?String(i).padStart(2,'0'):null).filter(Boolean);
-    return new Option(q.name+(elsewhere.length?` (also ${elsewhere.join(', ')})`:shared.has(q.id)?' ·':''),q.id,false,q.id===bound);}),
-    new Option('Fork a private copy…','__fork'),new Option('Rename…','__rename'),
-    ...(a.paletteSlots.length>1&&!a.cellPalettes.includes(slot)?[new Option('Remove this slot','__remove')]:[]));
-   select.title=shared.has(bound)?`${slotPalette(a,slot).name} is shared with other banks; editing a color changes it everywhere. Fork a copy to diverge.`:`${slotPalette(a,slot).name} is used only by this bank.`;
+  ensureBankRows();
+  // 1bpp tiles carry colors 0 and 1 only, whichever bank they name.
+  const limit=a.bpp===1?1:7;
+  if(ink>limit)ink=1;
+  for(const b of $('bankSwatches').querySelectorAll('.paletteUsage')){const p=+b.dataset.palette,n=a.tilePaletteBanks.filter(v=>v===p).length;b.textContent=n||'—';b.title=n?`${n} tiles were drawn against bank ${String(p).padStart(2,'0')}, including blank tiles. Hover to locate them.`:`Bank ${String(p).padStart(2,'0')}: no tiles drawn against it`;}
+  $('bankSwatches').querySelectorAll('button[data-ink]').forEach(button=>{const p=Number(button.dataset.palette),i=Number(button.dataset.ink);button.style.background=i===0?'linear-gradient(135deg,white 43%,#e32636 44%,#e32636 56%,white 57%)':css565(bankColor(p,i));button.classList.toggle('chosenColor',p===palette&&i===ink);button.disabled=i>limit;
+   button.title=i===0?'Color 0 — transparent for sprites and the overlay, drawn on background cells':`${bankPalette(p)?.name??'Empty bank'} · color ${i}`;button.setAttribute('aria-label',button.title);});
+  $('bankSwatches').querySelectorAll('.paletteBinding').forEach(button=>{
+   const bank=Number(button.dataset.palette),palette=bankPalette(bank);
+   button.textContent=palette?palette.name:'— empty —';
+   button.title=palette?`${palette.name} is in bank ${bank} under "${activeConfig().name}". Open Palettes to change what this config loads.`
+    :`Bank ${bank} holds nothing in "${activeConfig().name}". Open Palettes to fill it.`;
+   button.setAttribute('aria-label',button.title);
   });
-  $('bankSwatches').querySelectorAll('.paletteGroup').forEach(row=>row.classList.toggle('activePalette',hovering&&Number(row.dataset.palette)===a.cellPalettes[targetTile]));
+  $('bankSwatches').querySelectorAll('.paletteGroup').forEach(row=>row.classList.toggle('activePalette',hovering&&Number(row.dataset.palette)===a.tilePaletteBanks[targetTile]));
   $('copyColor').disabled=ink===0;$('pasteColor').disabled=colorClipboard===null||ink===0;
-  $('tilePaletteInfo').textContent=hovering?`Under cursor: tile ${targetTile} · palette ${a.cellPalettes[targetTile]}`:'Hover a tile to inspect its palette. Painting applies the selected color’s palette.';
-
+  $('tilePaletteInfo').textContent=hovering?`Under cursor: tile ${targetTile} · palette bank ${a.tilePaletteBanks[targetTile]} (${bankPalette(a.tilePaletteBanks[targetTile])?.name??'empty'})`
+   :'Hover a tile to inspect the bank it was drawn against. Painting records the selected color\u2019s bank.';
  }
  const historyBar=document.createElement('div');historyBar.className='bankActions';historyBar.append($('bankUndo'),$('bankRedo'));host.querySelector('.bankLibrary').append(historyBar);
  window.renderBankEditor=render;
@@ -104,10 +100,10 @@
  $('bankMap').onpointerdown=e=>{anchor=mapCell(e);$('bankMap').setPointerCapture(e.pointerId);selectTo(anchor);};
  $('bankMap').onpointermove=e=>{if(anchor)selectTo(mapCell(e));};
  $('bankMap').onpointerup=$('bankMap').onpointercancel=()=>anchor=null;
- function paintAt(x,y,value){if(x<0||y<0||x>=selection.width*8||y>=selection.height*8)return;const t=(selection.y+Math.floor(y/8))*16+selection.x+Math.floor(x/8);if(!erasing)asset().cellPalettes[t]=palette;write(asset(),t,x%8,y%8,value);}
+ function paintAt(x,y,value){if(x<0||y<0||x>=selection.width*8||y>=selection.height*8)return;const t=(selection.y+Math.floor(y/8))*16+selection.x+Math.floor(x/8);if(!erasing)asset().tilePaletteBanks[t]=palette;write(asset(),t,x%8,y%8,value);}
  function point(e){const r=$('bankSelection').getBoundingClientRect();return [Math.floor((e.clientX-r.left)/r.width*selection.width*8),Math.floor((e.clientY-r.top)/r.height*selection.height*8)];}
  function drawTo(pnt){const [x,y]=pnt;if(last){const steps=Math.max(Math.abs(x-last[0]),Math.abs(y-last[1]));for(let i=0;i<=steps;i++)paintAt(Math.round(last[0]+(x-last[0])*i/(steps||1)),Math.round(last[1]+(y-last[1])*i/(steps||1)),stroke);}else paintAt(x,y,stroke);last=pnt;changed();}
- $('bankSelection').onpointerdown=e=>{e.preventDefault();if(!asset())return;erasing=e.button===2||tool==='eraser';hoverTile(point(e));clipboardArea='pixels';if(pasteAnchor){pasteAnchor=boundedPoint(e);commitPaste();return;}if(tool==='select'){const pos=boundedPoint(e),handle=selectionHandle(e);if(handle){resizeDrag=handle;$('bankSelection').setPointerCapture(e.pointerId);return;}if(pixelSelection&&pos[0]>=pixelSelection.x&&pos[1]>=pixelSelection.y&&pos[0]<pixelSelection.x+pixelSelection.width&&pos[1]<pixelSelection.y+pixelSelection.height){moveDrag={start:pos,rect:{...pixelSelection},clip:capturePixels(pixelSelection),at:[pixelSelection.x,pixelSelection.y]};$('bankSelection').setPointerCapture(e.pointerId);return;}selectStart=pos;pixelSelection={x:selectStart[0],y:selectStart[1],width:1,height:1};$('bankSelection').setPointerCapture(e.pointerId);render();return;}if(tool==='picker'){const [x,y]=point(e),t=(selection.y+Math.floor(y/8))*16+selection.x+Math.floor(x/8);palette=asset().cellPalettes[t];ink=sample(asset(),t,x%8,y%8);refreshPalettes();return;}if(['line','rectangle','ellipse'].includes(tool)){shapeStart=point(e);shapeEnd=shapeStart;$('bankSelection').setPointerCapture(e.pointerId);previewShape();return;}remember();if(tool==='fill'){flood(point(e),e.button===2||tool==='eraser'?0:ink);changed();return;}stroke=e.button===2||tool==='eraser'?0:ink;last=null;$('bankSelection').setPointerCapture(e.pointerId);drawTo(point(e));};
+ $('bankSelection').onpointerdown=e=>{e.preventDefault();if(!asset())return;erasing=e.button===2||tool==='eraser';hoverTile(point(e));clipboardArea='pixels';if(pasteAnchor){pasteAnchor=boundedPoint(e);commitPaste();return;}if(tool==='select'){const pos=boundedPoint(e),handle=selectionHandle(e);if(handle){resizeDrag=handle;$('bankSelection').setPointerCapture(e.pointerId);return;}if(pixelSelection&&pos[0]>=pixelSelection.x&&pos[1]>=pixelSelection.y&&pos[0]<pixelSelection.x+pixelSelection.width&&pos[1]<pixelSelection.y+pixelSelection.height){moveDrag={start:pos,rect:{...pixelSelection},clip:capturePixels(pixelSelection),at:[pixelSelection.x,pixelSelection.y]};$('bankSelection').setPointerCapture(e.pointerId);return;}selectStart=pos;pixelSelection={x:selectStart[0],y:selectStart[1],width:1,height:1};$('bankSelection').setPointerCapture(e.pointerId);render();return;}if(tool==='picker'){const [x,y]=point(e),t=(selection.y+Math.floor(y/8))*16+selection.x+Math.floor(x/8);palette=asset().tilePaletteBanks[t];ink=sample(asset(),t,x%8,y%8);refreshPalettes();return;}if(['line','rectangle','ellipse'].includes(tool)){shapeStart=point(e);shapeEnd=shapeStart;$('bankSelection').setPointerCapture(e.pointerId);previewShape();return;}remember();if(tool==='fill'){flood(point(e),e.button===2||tool==='eraser'?0:ink);changed();return;}stroke=e.button===2||tool==='eraser'?0:ink;last=null;$('bankSelection').setPointerCapture(e.pointerId);drawTo(point(e));};
  $('bankSelection').onpointermove=e=>{clipboardArea='pixels';hoverTile(point(e));lastPixel=boundedPoint(e);if(resizeDrag){resizeSelection(lastPixel);render();return;}if(moveDrag){moveDrag.at=movePosition(lastPixel[0]-moveDrag.start[0],lastPixel[1]-moveDrag.start[1],moveDrag.rect);render();return;}if(pasteAnchor){pasteAnchor=lastPixel;render();return;}if(selectStart){updatePixelSelection(lastPixel);render();return;}if(shapeStart){shapeEnd=boundedPoint(e);previewShape();}else if(stroke!==null)drawTo(point(e));};
  $('bankSelection').onpointerleave=()=>{hovering=false;refreshPalettes();updateStatus();};
  $('bankSelection').onpointerup=e=>{if(resizeDrag){resizeSelection(boundedPoint(e));resizeDrag=null;render();return;}if(moveDrag){const m=moveDrag;moveDrag=null;movePixels(m.rect,m.clip,m.at);return;}if(selectStart){updatePixelSelection(boundedPoint(e));selectStart=null;render();return;}if(shapeStart){shapeEnd=boundedPoint(e);const points=shapePixels(tool,shapeStart,shapeEnd);remember();points.forEach(([x,y])=>paintAt(x,y,erasing?0:ink));shapeStart=shapeEnd=null;changed();}stroke=null;last=null;};$('bankSelection').onpointercancel=()=>{resizeDrag=null;moveDrag=null;selectStart=null;pasteAnchor=null;shapeStart=shapeEnd=null;stroke=null;last=null;render();};$('bankSelection').oncontextmenu=e=>e.preventDefault();
@@ -118,60 +114,38 @@
   const old=get(sx,sy),seen=new Uint8Array(w*h),stack=[[sx,sy]];
   while(stack.length){const [x,y]=stack.pop();if(x<0||y<0||x>=w||y>=h||seen[y*w+x]||get(x,y)!==old)continue;seen[y*w+x]=1;if(value===0||patternAt(x,y))paintAt(x,y,value);stack.push([x-1,y],[x+1,y],[x,y-1],[x,y+1]);}
  }
- // A bank binds only the palettes it uses, so the dock grows and shrinks with it.
- function slotRow(p){
-  const group=document.createElement('div');group.className='paletteGroup';group.dataset.palette=p;const label=document.createElement('span');label.textContent=String(p).padStart(2,'0');group.append(label);
-  for(let i=0;i<8;i++){const button=document.createElement('button');button.dataset.palette=p;button.dataset.ink=i;button.title=i===0?'No color / transparent':`Palette ${p}, color ${i}`;button.setAttribute('aria-label',button.title);
-   button.onclick=()=>{clipboardArea='color';palette=p;ink=i;refreshPalettes();};
-   button.ondblclick=()=>{if(i===0)return;colorEdit={slot:p,ink:i};$('bankColor').value=css565ToInput(bankColor(asset(),p,i));$('bankColor').click();};group.append(button);
-  }const binding=document.createElement('select');binding.className='paletteBinding';binding.dataset.palette=p;binding.setAttribute('aria-label','Palette in slot '+p);binding.onchange=()=>bindSlot(p,binding.value);group.append(binding);
-  const usage=document.createElement('button');usage.className='paletteUsage';usage.dataset.palette=p;usage.setAttribute('aria-label','Usage of palette '+p);usage.onmouseenter=()=>{usagePalette=p;if(activePanel!=='objects')openPanel('objects');render();};usage.onmouseleave=e=>{if(e&&group.contains(e.relatedTarget))return;usagePalette=null;render();};usage.onfocus=usage.onmouseenter;usage.onblur=usage.onmouseleave;group.onmouseenter=usage.onmouseenter;group.onmouseleave=usage.onmouseleave;group.onfocusin=usage.onmouseenter;group.onfocusout=e=>{if(!group.contains(e.relatedTarget))usage.onmouseleave();};group.append(usage);
+ // The dock shows palette RAM as the active config arranges it: sixteen banks,
+ // fixed. Nothing binds a palette to this tileset, so a tile simply records the
+ // bank number it was drawn against and recolors when another config loads.
+ function bankRow(b){
+  const group=document.createElement('div');group.className='paletteGroup';group.dataset.palette=b;
+  const label=document.createElement('span');label.textContent=String(b).padStart(2,'0');group.append(label);
+  for(let i=0;i<8;i++){const button=document.createElement('button');button.dataset.palette=b;button.dataset.ink=i;
+   button.onclick=()=>{clipboardArea='color';palette=b;ink=i;refreshPalettes();};
+   button.ondblclick=()=>{if(i===0)return;colorEdit={bank:b,ink:i};$('bankColor').value=css565ToInput(bankColor(b,i));$('bankColor').click();};group.append(button);
+  }
+  const name=document.createElement('button');name.className='paletteBinding';name.dataset.palette=b;
+  name.onclick=()=>{const palette=bankPalette(b);if(!palette){setStatus('Bank '+b+' is empty in this config. Fill it in Palettes.');return;}showView('palettes');};
+  group.append(name);
+  const usage=document.createElement('button');usage.className='paletteUsage';usage.dataset.palette=b;usage.setAttribute('aria-label','Usage of palette bank '+b);usage.onmouseenter=()=>{usagePalette=b;if(activePanel!=='objects')openPanel('objects');render();};usage.onmouseleave=e=>{if(e&&group.contains(e.relatedTarget))return;usagePalette=null;render();};usage.onfocus=usage.onmouseenter;usage.onblur=usage.onmouseleave;group.onmouseenter=usage.onmouseenter;group.onmouseleave=usage.onmouseleave;group.onfocusin=usage.onmouseenter;group.onfocusout=e=>{if(!group.contains(e.relatedTarget))usage.onmouseleave();};group.append(usage);
   return group;
  }
- const addSlot=document.createElement('button');addSlot.id='addPaletteSlot';addSlot.textContent='+ Palette slot';
- addSlot.title='Bind another project palette to this bank';
- const unboundPalette=a=>paletteLibrary.find(q=>!a.paletteSlots.includes(q.id));
- addSlot.onclick=()=>{const a=asset(),free=a&&unboundPalette(a);if(!free||a.paletteSlots.length>=16)return;mutate(()=>a.paletteSlots.push(free.id));};
- const compact=document.createElement('button');compact.id='compactPaletteSlots';compact.textContent='Compact slots';
- compact.onclick=()=>{const a=asset();if(!a)return;mutate(()=>{compactBankSlots(a);if(palette>=a.paletteSlots.length)palette=0;});
-  setStatus('Removed repeated palettes from this bank\'s slots; their tiles follow the slot that stayed.');};
- function ensureSlotRows(count){
-  const host=$('bankSwatches'),rows=[...host.querySelectorAll('.paletteGroup')];
-  while(rows.length>count)rows.pop().remove();
-  while(rows.length<count){const row=slotRow(rows.length);host.append(row);rows.push(row);}
-  host.append(addSlot,compact);
+ function ensureBankRows(){
+  const host=$('bankSwatches');
+  if(host.querySelectorAll('.paletteGroup').length===16)return;
+  host.replaceChildren(...Array.from({length:16},(_,b)=>bankRow(b)));
  }
- // A slot holds one library palette. Picking another shares it; forking copies
- // the colors so this bank can diverge without repainting every other bank.
- function bindSlot(slot,choice){
-  const a=asset();if(!a)return;
-  if(choice==='__fork'){mutate(()=>{a.paletteSlots[slot]=createPalette([...slotColors(a,slot)]).id;});return;}
-  if(choice==='__remove'){
-   if(a.cellPalettes.includes(slot)){setStatus('Tiles still use this slot. Repaint them first.');render();return;}
-   mutate(()=>{a.paletteSlots.splice(slot,1);a.cellPalettes=a.cellPalettes.map(v=>v>slot?v-1:v);if(palette>slot)palette--;});
-   return;
-  }
-  if(choice==='__rename'){
-   const current=slotPalette(a,slot),name=prompt('Palette name',current.name)?.trim();
-   if(!name||name===current.name){render();return;}
-   if(paletteLibrary.some(q=>q!==current&&q.name.toLowerCase()===name.toLowerCase())){setStatus('That palette name is already used.');render();return;}
-   mutate(()=>current.name=name);return;
-  }
-  // Repeating a palette across slots is allowed: a tile names a slot, so holding
-  // one palette in two slots is a legitimate way to stage a later divergence.
-  mutate(()=>a.paletteSlots[slot]=choice);
- }
- $('bankColor').onchange=()=>mutate(()=>setBankColor(asset(),colorEdit.slot,colorEdit.ink,inputTo565($('bankColor').value)));
+ $('bankColor').onchange=()=>mutate(()=>setBankColor(colorEdit.bank,colorEdit.ink,inputTo565($('bankColor').value)));
  $('previewBackground').onchange=()=>mutate(()=>asset().previewBackground=$('previewBackground').value);
  $('pencilTool').onclick=()=>{tool='pencil';render();};$('fillTool').onclick=()=>{tool='fill';render();};$('cellGrid').onchange=render;
  $('zoomIn').onclick=()=>{zoom=Math.min(32,zoom*2);render();};$('zoomOut').onclick=()=>{zoom=Math.max(1,Math.floor(zoom/2));render();};
- function selectBank(i){pixelSelection=null;pasteAnchor=null;index=i;objectIndex=-1;targetTile=0;hovering=false;selection={x:0,y:0,width:1,height:1};render();}
- function freshName(){let n=1;while(ensureBankAssets().some(a=>a.name.toLowerCase()==='bank_'+n))n++;return 'Bank_'+n;}
- $('addBankFile').onclick=()=>mutate(()=>{const name=freshName();ensureBankAssets().push({name,mode:3,plane:0,chr:Array(6144).fill(0),paletteSlots:inheritedPaletteSlots(asset()),cellPalettes:Array(256).fill(0),compositions:[]});index=bankAssets.length-1;objectIndex=-1;targetTile=0;palette=0;});
- $('importBankFile').onclick=()=>studioAction(async()=>{const imported=await window.studio.importBank();if(!imported)return;let name=imported.name.replace(/[^A-Za-z0-9_-]/g,'_').slice(0,40);if(!/^[A-Za-z]/.test(name))name='Bank_'+name;let unique=name,n=2;while(ensureBankAssets().some(a=>a.name.toLowerCase()===unique.toLowerCase()))unique=name+'_'+n++;mutate(()=>{bankAssets.push({name:unique,mode:imported.mode,plane:0,chr:imported.chr,paletteSlots:inheritedPaletteSlots(asset()),cellPalettes:Array(256).fill(0),compositions:[]});index=bankAssets.length-1;objectIndex=-1;targetTile=0;palette=0;});setStatus('Imported CHR bank data. Choose its memory slot later when building the game.');});
- $('deleteBankFile').onclick=()=>{if(!asset()||!confirm('Delete bank "'+asset().name+'" and its objects?'))return;mutate(()=>{bankAssets.splice(index,1);index=Math.max(0,index-1);objectIndex=-1;targetTile=0;});};
- $('copyBankFile').onclick=()=>mutate(()=>{const copy=structuredClone(asset());copy.id=crypto.randomUUID();copy.name=freshName();bankAssets.push(copy);index=bankAssets.length-1;objectIndex=-1;targetTile=0;palette=0;});
- function renameBank(i,name){if(!/^[A-Za-z][A-Za-z0-9_-]{0,47}$/.test(name)||bankAssets.some((a,j)=>j!==i&&a.name.toLowerCase()===name.toLowerCase())){setStatus('Use a unique filename: letters, digits, underscore or hyphen.');return false;}mutate(()=>bankAssets[i].name=name);return true;}
+ function selectBank(i){pixelSelection=null;pasteAnchor=null;index=i;plane=0;objectIndex=-1;targetTile=0;hovering=false;selection={x:0,y:0,width:1,height:1};render();}
+ function freshName(){let n=1;while(tilesets.some(a=>a.name.toLowerCase()==='tileset_'+n))n++;return 'Tileset_'+n;}
+ $('addBankFile').onclick=()=>mutate(()=>{const name=freshName();tilesets.push({id:crypto.randomUUID(),name,bpp:3,chr:Array(6144).fill(0),tilePaletteBanks:Array(256).fill(0),compositions:[]});index=tilesets.length-1;objectIndex=-1;targetTile=0;palette=0;});
+ $('importBankFile').onclick=()=>studioAction(async()=>{const imported=await window.studio.importTileset();if(!imported)return;let name=imported.name.replace(/[^A-Za-z0-9_-]/g,'_').slice(0,40);if(!/^[A-Za-z]/.test(name))name='Tileset_'+name;let unique=name,n=2;while(tilesets.some(a=>a.name.toLowerCase()===unique.toLowerCase()))unique=name+'_'+n++;mutate(()=>{tilesets.push({id:crypto.randomUUID(),name:unique,bpp:imported.bpp,chr:imported.chr,tilePaletteBanks:Array(256).fill(0),compositions:[]});index=tilesets.length-1;objectIndex=-1;targetTile=0;palette=0;});setStatus('Imported CHR data as a tileset. Assign it to a CHR bank later, when building the game.');});
+ $('deleteBankFile').onclick=()=>{if(!asset()||!confirm('Delete tileset "'+asset().name+'" and its objects?'))return;mutate(()=>{tilesets.splice(index,1);index=Math.max(0,index-1);objectIndex=-1;targetTile=0;});};
+ $('copyBankFile').onclick=()=>mutate(()=>{const copy=structuredClone(asset());copy.id=crypto.randomUUID();copy.name=freshName();tilesets.push(copy);index=tilesets.length-1;objectIndex=-1;targetTile=0;palette=0;});
+ function renameBank(i,name){if(!/^[A-Za-z][A-Za-z0-9_-]{0,47}$/.test(name)||tilesets.some((a,j)=>j!==i&&a.name.toLowerCase()===name.toLowerCase())){setStatus('Use a unique filename: letters, digits, underscore or hyphen.');return false;}mutate(()=>tilesets[i].name=name);return true;}
  function renameObject(i,name){if(!name.trim()||asset().compositions.some((a,j)=>j!==i&&a.name===name.trim())){setStatus('Use a unique object name.');return false;}mutate(()=>asset().compositions[i].name=name.trim());return true;}
  function selectObject(i){pixelSelection=null;pasteAnchor=null;objectIndex=i;const c=asset().compositions[i];selection={x:c.x,y:c.y,width:c.width,height:c.height};render();}
  function renderList(container,items,selected,choose,rename){
@@ -188,7 +162,10 @@
   function finish(save){if(done)return;const value=input.value;done=true;row.textContent=name;if(save&&value!==name)rename(i,value);render();}
   input.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();finish(true);}if(e.key==='Escape'){e.preventDefault();finish(false);}};input.onblur=()=>finish(true);input.focus();input.select();
  }
- $('bankFileMode').onchange=()=>mutate(()=>{asset().mode=Number($('bankFileMode').value);ink=1;});$('bankFilePlane').onchange=()=>mutate(()=>asset().plane=Number($('bankFilePlane').value));
+ $('bankFileMode').onchange=()=>mutate(()=>{asset().bpp=Number($('bankFileMode').value);ink=1;});
+ // The plane is which of a 1bpp tileset's three pages is on screen, not a
+ // property of the tileset, so switching it is not a project edit.
+ $('bankFilePlane').onchange=()=>{plane=Number($('bankFilePlane').value);render();};
  function step(from,to){if(!from.length)return;const state=JSON.parse(from.pop());to.push(snapshot('sprites' in state));restore(state);changed();if(window.renderPaletteLibrary)window.renderPaletteLibrary();}
  $('bankUndo').onclick=()=>step(undo,redo);
  $('bankRedo').onclick=()=>step(redo,undo);
@@ -282,13 +259,13 @@
  function tileAt(x,y){return (selection.y+Math.floor(y/8))*16+selection.x+Math.floor(x/8);}
  // Previews may bind palettes; they must not reach the project's library.
  function withScratchLibrary(fn){const saved=paletteLibrary;paletteLibrary=structuredClone(saved);try{return fn();}finally{paletteLibrary=saved;}}
- function capturePixels(r){const data=[],palettes=[];for(let y=0;y<r.height;y++)for(let x=0;x<r.width;x++){const sx=r.x+x,sy=r.y+y,t=tileAt(sx,sy);data.push(sample(asset(),t,sx%8,sy%8));palettes.push([...slotColors(asset(),asset().cellPalettes[t])]);}return {width:r.width,height:r.height,data,palettes};}
+ function capturePixels(r){const data=[],banks=[];for(let y=0;y<r.height;y++)for(let x=0;x<r.width;x++){const sx=r.x+x,sy=r.y+y,t=tileAt(sx,sy);data.push(sample(asset(),t,sx%8,sy%8));banks.push(asset().tilePaletteBanks[t]);}return {width:r.width,height:r.height,data,banks};}
+ // Pasted pixels bring the bank number they were drawn against. Banks are
+ // global under a config, so the same number means the same colors and there is
+ // nothing to rebind — unlike the old per-tileset slots this replaced.
  function applyPixels(a,clip,at,opaque,source){
   const assigned=new Set();for(let y=0;y<clip.height;y++)for(let x=0;x<clip.width;x++){const i=y*clip.width+x,v=clip.data[i],dx=at[0]+x,dy=at[1]+y;if((!opaque&&!v)||dx<0||dy<0||dx>=selection.width*8||dy>=selection.height*8)continue;const t=tileAt(dx,dy);
-   if(source&&!assigned.has(t)){const colors=clip.palettes[i];let p=-1;for(let n=0;n<16;n++)if(colors.every((v,k)=>slotColors(a,n)[k]===v)){p=n;break;}if(p<0){p=a.paletteSlots.findIndex((_,n)=>!a.cellPalettes.includes(n));
-    if(p<0&&a.paletteSlots.length<16){p=a.paletteSlots.length;a.paletteSlots.push(internPalette(colors).id);}
-    else if(p<0)throw new Error('This bank already binds all 16 palette slots and every one is painted. Preserve destination palettes or free a slot first.');
-    else a.paletteSlots[p]=internPalette(colors).id;}a.cellPalettes[t]=p;assigned.add(t);}
+   if(source&&!assigned.has(t)){a.tilePaletteBanks[t]=clip.banks[i];assigned.add(t);}
    write(a,t,dx%8,dy%8,v);
   }
  }
@@ -303,7 +280,7 @@
   try{withScratchLibrary(()=>applyPixels(structuredClone(asset()),pixelClipboard,pasteAnchor,opaque,source));}catch(e){setStatus(e.message);return;}
   mutate(()=>{applyPixels(asset(),pixelClipboard,[left,top],opaque,source);pixelSelection={x:left,y:top,width:Math.min(pixelClipboard.width,selection.width*8-left),height:Math.min(pixelClipboard.height,selection.height*8-top)};pasteAnchor=null;});}
  function patternAt(x,y){return fillPattern==='solid'||(fillPattern==='checker'?(x+y)%2===0:y%2===0);}
- function updateStatus(){if(!$('drawingStatus'))return;const r=pixelSelection,info=[];if(hovering&&asset())info.push(`Pixel ${lastPixel[0]}, ${lastPixel[1]}`,`Tile ${targetTile}`,`Palette ${asset().cellPalettes[targetTile]}`);if(r)info.push(`Selection ${r.width} × ${r.height}`);info.push(`Canvas ${selection.width*8} × ${selection.height*8} px`);$('drawingStatus').textContent=info.join(' · ');}
+ function updateStatus(){if(!$('drawingStatus'))return;const r=pixelSelection,info=[];if(hovering&&asset())info.push(`Pixel ${lastPixel[0]}, ${lastPixel[1]}`,`Tile ${targetTile}`,`Palette ${asset().tilePaletteBanks[targetTile]}`);if(r)info.push(`Selection ${r.width} × ${r.height}`);info.push(`Canvas ${selection.width*8} × ${selection.height*8} px`);$('drawingStatus').textContent=info.join(' · ');}
 
  paths.select='<rect x="3" y="3" width="19" height="19" stroke-dasharray="3 3"/>';
  paths.copy='<rect x="8" y="8" width="14" height="14"/><path d="M17 8V3H3v14h5"/>';
@@ -379,7 +356,7 @@
  const bgLabel=$('previewBackground').parentElement;for(const n of [...bgLabel.childNodes])if(n.nodeType===Node.TEXT_NODE)n.textContent='Background';
  for(const id of ['bankFileMode','bankFilePlane','previewBackground']){const input=$(id),label=input.parentElement;const caption=document.createElement('span');caption.textContent=id==='bankFileMode'?'Color mode':id==='bankFilePlane'?'Plane':'Background';label.replaceChildren(caption,input);}
  const polishPanels=document.createElement('style');polishPanels.textContent=`
- #bankSwatches{grid-template-columns:repeat(4,minmax(268px,1fr));gap:4px 6px;width:100%}.paletteGroup{min-width:0;padding:2px;gap:1px}.paletteGroup button[data-ink]{width:0!important;min-width:10px;height:18px!important;flex:1}.paletteGroup span{width:17px;flex-shrink:0;font-size:10px}.paletteGroup button.paletteUsage{width:25px!important;flex-shrink:0}.paletteBinding{width:106px;flex-shrink:0;margin-left:5px;font-size:10px;padding:1px;background:var(--bg);color:var(--text);border:1px solid var(--line)}#addPaletteSlot,#compactPaletteSlots{white-space:nowrap;align-self:center;justify-self:start;padding:5px 11px;font-size:10px;margin:0}#paletteDock{max-height:none;overflow:auto}#paletteDock .inlinePalettes{min-width:1120px}
+ #bankSwatches{grid-template-columns:repeat(4,minmax(268px,1fr));gap:4px 6px;width:100%}.paletteGroup{min-width:0;padding:2px;gap:1px}.paletteGroup button[data-ink]{width:0!important;min-width:10px;height:18px!important;flex:1}.paletteGroup span{width:17px;flex-shrink:0;font-size:10px}.paletteGroup button.paletteUsage{width:25px!important;flex-shrink:0}.paletteBinding{width:106px;flex-shrink:0;margin-left:5px;font-size:10px;padding:1px;background:var(--bg);color:var(--text);border:1px solid var(--line);text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#paletteDock{max-height:none;overflow:auto}#paletteDock .inlinePalettes{min-width:1120px}
  #viewTools .viewPopover{width:290px;padding:14px;border-radius:7px;box-shadow:0 10px 30px #0009}#viewTools .viewPopover label{display:flex;align-items:center;gap:12px;margin:0;padding:9px 0;font-size:12px;line-height:1.4}#viewTools .viewPopover input[type=checkbox]{margin:0;flex:0 0 auto;width:16px;height:16px}#displaySettings .viewPopover label{justify-content:space-between}#displaySettings .viewPopover label span{white-space:nowrap}#displaySettings select{min-width:165px;padding:7px}#displaySettings .bankActions{display:block;margin:0}#displaySettings input[type=color]{width:54px;height:32px;padding:3px}#transformTools{overflow-y:auto}#transformTools hr{border:0;border-top:1px solid var(--line);margin:6px auto}
  #studioTooltip{position:fixed;z-index:10000;pointer-events:none;background:#080a0e;color:#f5f5f5;border:1px solid #626772;border-radius:5px;padding:6px 9px;font:12px system-ui;max-width:280px;box-shadow:0 3px 10px #0008}
  `;document.head.append(polishPanels);
@@ -388,10 +365,30 @@
  function showTip(target){hideTip();const text=target.title||target.getAttribute('aria-label')||target.textContent.trim();if(!text)return;tipTarget=target;tipTimer=setTimeout(()=>{if(!target.isConnected)return;tooltip.textContent=text;tooltip.hidden=false;const r=target.getBoundingClientRect(),w=tooltip.offsetWidth,h=tooltip.offsetHeight;tooltip.style.left=Math.max(6,Math.min(innerWidth-w-6,r.left+r.width/2-w/2))+'px';tooltip.style.top=(r.bottom+h+12<innerHeight?r.bottom+7:Math.max(6,r.top-h-7))+'px';},300);}
  document.addEventListener('pointerover',e=>{const b=e.target.closest?.('button,summary');if(b&&b!==tipTarget)showTip(b);});document.addEventListener('pointerout',e=>{if(tipTarget&&!tipTarget.contains(e.relatedTarget))hideTip();});document.addEventListener('focusin',e=>{const b=e.target.closest?.('button,summary');if(b)showTip(b);});document.addEventListener('focusout',hideTip);document.addEventListener('pointerdown',hideTip);window.addEventListener('blur',hideTip);document.addEventListener('keydown',hideTip);document.addEventListener('scroll',hideTip,true);
 
- const importArtwork=document.createElement('button');importArtwork.id='importBankImage';importArtwork.textContent='Import image…';importArtwork.title='Import PNG, BMP or GIF artwork into this bank';$('bankMap').before(importArtwork);
- importArtwork.onclick=()=>studioAction(async()=>{const target=asset();if(!target)return;const protectedPalettes=new Set();for(const library of [sprites,animations])for(const item of library)for(const frame of item.frames)for(const part of frame.parts)if(part.bankId===target.id){const slot=target.paletteSlots.indexOf(part.paletteId);if(slot>=0)protectedPalettes.add(slot);}
-  // Import reads and writes flattened palette RAM; the binding is resolved in and rebound out.
-  await window.openBankImageImport({bank:{...target,palettes:resolveBankPalettes(target)},selection:{...selection},protectedPalettes,commit:(next,rect,createdObject)=>{if(asset()!==target)throw Error('The destination bank changed. Reopen image import.');mutate(()=>{const {palettes,...rest}=next,bound=Math.max(target.paletteSlots.length,Math.max(...next.cellPalettes)+1);Object.assign(target,rest);bindFlatPalettes(target,palettes,bound);selection=rect;pixelSelection=null;pasteAnchor=null;objectIndex=createdObject?target.compositions.length-1:-1;});setStatus('Imported image into '+target.name+'. Undo restores pixels, palettes and Objects.');}});
+ const importArtwork=document.createElement('button');importArtwork.id='importBankImage';importArtwork.textContent='Import image…';importArtwork.title='Import PNG, BMP or GIF artwork into this tileset';$('bankMap').before(importArtwork);
+ importArtwork.onclick=()=>studioAction(async()=>{const target=asset();if(!target)return;
+  // Banks a sprite already names are protected: reassigning their colors would
+  // recolor art elsewhere in the project.
+  const protectedPalettes=new Set();
+  for(const library of [sprites,animations])for(const item of library)if(item.tilesetId===target.id)for(const frame of item.frames)for(const part of frame.parts)protectedPalettes.add(part.paletteBank);
+  // Import reads and writes flattened palette RAM. Whatever it invents is
+  // interned into the library and placed in the active config's banks.
+  await window.openTilesetImageImport({tileset:{...target,plane,palettes:resolveActiveConfig()},selection:{...selection},protectedPalettes,
+   commit:(next,rect,createdObject)=>{
+    if(asset()!==target)throw Error('The destination tileset changed. Reopen image import.');
+    mutate(()=>{
+     const {palettes,plane:_plane,...rest}=next;
+     Object.assign(target,rest);
+     const config=activeConfig(),before=resolveActiveConfig();
+     for(let bank=0;bank<16;bank++){
+      const colors=palettes.slice(bank*8,bank*8+8);
+      if(colors.every((v,i)=>v===before[bank*8+i]))continue;
+      config.banks[bank]=internPalette(colors).id;
+     }
+     selection=rect;pixelSelection=null;pasteAnchor=null;objectIndex=createdObject?target.compositions.length-1:-1;
+    });
+    setStatus('Imported image into '+target.name+'. Undo restores pixels, palettes and Objects.');
+   }});
  });
  render();
 })();

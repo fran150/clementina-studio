@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {encodeProject,decodeProject,validateProject,emptyProject,projectFromFlat,configPackage,PROJECT_VERSION} from '../dist/packages/assets/index.js';
-import {bankColors,resolveConfig,createPalette,createConfig,configFromFlat,internPalette,repointPalette,unbindPalette,paletteUsage,PALETTE_BANKS} from '../dist/packages/assets/palettes.js';
+import {encodeProject,decodeProject,validateProject,emptyProject,PROJECT_VERSION} from '../dist/packages/assets/index.js';
+import {bankColors,resolveConfig,createPalette,createConfig,internPalette,repointPalette,unbindPalette,paletteUsage} from '../dist/packages/assets/palettes.js';
 
 const flat=fn=>Array.from({length:128},(_,i)=>fn(Math.floor(i/8),i%8));
 const palette=(id,colors)=>({id,name:'Palette '+id,colors});
@@ -16,16 +16,6 @@ test('a config resolves to palette RAM in bank order, empty banks reading black'
  const ram=resolveConfig(c,library);
  assert.equal(ram.length,128);
  assert.equal(ram[0],0x1234);assert.equal(ram[8],0);assert.equal(ram[16],0x5678);
-});
-
-test('a flat palette RAM image becomes one config, sharing palettes with identical colors',()=>{
- const library=[],configs=[];
- const shared=flat((bank,i)=>bank===5?i:bank*8+i);   // bank 5 duplicates bank 0's colors
- const c=configFromFlat(configs,library,shared,'Overworld');
- assert.equal(c.name,'Overworld');
- assert.equal(library.length,15,'two banks with identical colors intern to one palette');
- assert.equal(c.banks[0],c.banks[5]);
- assert.deepEqual(resolveConfig(c,library),shared,'colors survive the round trip exactly');
 });
 
 test('two banks of one config may hold the same palette',()=>{
@@ -92,24 +82,3 @@ test('a project round trips and refuses versions it did not write',()=>{
  assert.throws(()=>decodeProject('{"format":"something-else","version":2}'),/Not a Studio project/);
 });
 
-test('legacy flat graphics import as eight tilesets and one config',()=>{
- const chr=Array(49152).fill(0);chr[2*6144+7]=123;
- const bpp=Array(8).fill(3);bpp[2]=1;
- const p=projectFromFlat(chr,bpp,flat((bank,i)=>bank*8+i),'Imported');
- validateProject(p);
- assert.equal(p.tilesets.length,8);
- assert.equal(p.tilesets[2].bpp,1);
- assert.equal(p.tilesets[2].chr[7],123);
- assert.equal(p.paletteConfigs.length,1);
- assert.equal(p.paletteConfigs[0].name,'Imported');
- assert.equal(p.activeConfigId,p.paletteConfigs[0].id);
-});
-
-test('each config exports one 256 byte little endian palette RAM image',()=>{
- const library=[palette('a',[0xf81f,...Array(7).fill(0)])];
- const files=configPackage([config('c',['a',...Array(15).fill(null)])],library);
- const bytes=files['Config_c.PAL'];
- assert.equal(bytes.length,PALETTE_BANKS*8*2);
- assert.deepEqual(Array.from(bytes.slice(0,2)),[31,248]);
- assert.deepEqual(Array.from(bytes.slice(16,18)),[0,0],'an empty bank exports as black');
-});

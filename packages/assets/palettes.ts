@@ -47,19 +47,6 @@ export function createConfig(configs:PaletteBankConfig[],library:ProjectPalette[
   banks:banks?[...banks]:Array.from({length:PALETTE_BANKS},(_,i)=>library[i]?.id??null)};
  configs.push(config);return config;
 }
-/**
- * Builds a config from 128 flat RGB565 values, reusing library palettes whose
- * colors already match so edits stay shared instead of forking a private copy.
- * Two banks of one config may name the same palette: banks are an authored
- * layout, and a game is free to spend two of them on identical colors.
- */
-export function configFromFlat(configs:PaletteBankConfig[],library:ProjectPalette[],flat:number[],name?:string):PaletteBankConfig{
- const banks=Array.from({length:PALETTE_BANKS},(_,bank)=>{
-  const colors=flat.slice(bank*PALETTE_COLORS,(bank+1)*PALETTE_COLORS);
-  return internPalette(library,colors).id;
- });
- return createConfig(configs,library,name,banks);
-}
 /** Clears a palette from every bank of every config, for a delete with no replacement. */
 export function unbindPalette(configs:PaletteBankConfig[],id:string):number{
  let cleared=0;

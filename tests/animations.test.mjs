@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {encodeProject,decodeProject,groupPackage,runtimePackage,importTilesetPrg,emptyProject,BANK_BYTES,TILES_PER_BANK} from '../dist/packages/assets/index.js';
+import {encodeProject,decodeProject,validateGroups,importTilesetPrg,emptyProject,BANK_BYTES,TILES_PER_BANK} from '../dist/packages/assets/index.js';
 
 const tileset=(name='Graphics')=>({id:name+'-id',name,bpp:3,chr:Array(BANK_BYTES).fill(0),tilePaletteBanks:Array(TILES_PER_BANK).fill(0),compositions:[]});
 const groups=()=>[{name:'Hero_Walk',tilesetId:'Graphics-id',frames:[
@@ -14,15 +14,6 @@ test('a project round trips its tilesets and sprite groups unchanged',()=>{
  assert.deepEqual(restored,p);
 });
 
-test('the assembly stream decodes signed offsets, flips, timing and empty frames',()=>{
- const files=groupPackage(groups(),[tileset()]);
- const bytes=files['ANIMATIONS.BIN'];
- // CSA2, one group, two frames; then ticks/count and one part per frame.
- // ext 0x03 is the high bits of x=-8, which is 0x3F8 as a 10-bit signed value.
- assert.deepEqual(Array.from(bytes),[67,83,65,50,1,2,6,1,19,248,16,0x23,0x03,12,0]);
- assert.equal(new DataView(bytes.buffer).getInt8(9),-8,'x is stored as a signed low byte');
- assert.match(new TextDecoder().decode(files['animations.inc']),/ANIMATION_HERO_WALK_OFFSET = 5/);
-});
 
 test('a sprite part names a palette bank, and X and Y stay inside OAM range',()=>{
  for(const mutate of [
@@ -35,7 +26,7 @@ test('a sprite part names a palette bank, and X and Y stay inside OAM range',()=
   g=>g[0].frames[0].parts[0].tile=256,
   g=>g[0].name='bad name',
   g=>g.push({...g[0],name:'hero_walk'}),
- ]){const g=groups();mutate(g);assert.throws(()=>groupPackage(g,[tileset()]));}
+ ]){const g=groups();mutate(g);assert.throws(()=>validateGroups(g,[tileset()]));}
 });
 
 test('a group draws from one tileset, which must be in the project',()=>{
@@ -52,12 +43,10 @@ test('sprite X and Y reach the full OAM range',()=>{
  assert.deepEqual(decodeProject(encodeProject(p)).animations,p.animations);
 });
 
-test('static sprites hold one frame and export their own assembly symbols',()=>{
+test('static sprites hold exactly one frame',()=>{
  const p=project();p.sprites=groups();p.sprites[0].frames=p.sprites[0].frames.slice(0,1);
  const restored=decodeProject(encodeProject(p));
  assert.deepEqual(restored.sprites,p.sprites);
- const files=runtimePackage(restored);
- assert.match(new TextDecoder().decode(files['sprites.inc']),/SPRITE_HERO_WALK_OFFSET = 5/);
  p.sprites[0].frames.push({ticks:6,parts:[]});
  assert.throws(()=>encodeProject(p),/exactly one frame/);
 });

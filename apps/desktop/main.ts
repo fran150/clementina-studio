@@ -4,7 +4,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { encodeProject, decodeProject, importTilesetFile, runtimePackage, type StudioProject } from '../../packages/assets/index.js';
+import { encodeProject, decodeProject, importTilesetFile, type StudioProject } from '../../packages/assets/index.js';
 const here=path.dirname(fileURLToPath(import.meta.url));
 let win: BrowserWindow;
 let projectPath: string | undefined;
@@ -58,7 +58,7 @@ app.whenReady().then(()=>{
  })();});
  win.webContents.setWindowOpenHandler(()=>({action:'deny'}));
  win.webContents.on('will-navigate',event=>event.preventDefault());
- ipcMain.handle('bank:import',async()=>{
+ ipcMain.handle('tileset:import',async()=>{
   const result=await dialog.showOpenDialog(win,{filters:[{name:'CHR bank',extensions:['prg','bin','chr']}],properties:['openFile']});
   if(result.canceled)return null;
   const selected=result.filePaths[0];const bytes=await readFile(selected);
@@ -80,14 +80,5 @@ app.whenReady().then(()=>{
  ipcMain.handle('project:opened',(_event,selected:string)=>{projectPath=path.extname(selected).toLowerCase()==='.cstudio'?selected:undefined;});
  ipcMain.handle('project:new',()=>{projectPath=undefined;});
  ipcMain.handle('project:save',(_event,p:StudioProject,saveAs:boolean)=>saveProject(p,saveAs));
- ipcMain.handle('assets:export',async(_event,p:StudioProject)=>{
-  const files=runtimePackage(p);
-  const result=await dialog.showOpenDialog(win,{properties:['openDirectory','createDirectory']});if(result.canceled)return null;
-  // Create a unique child folder so exports never overwrite another package.
-  const {mkdtemp}=await import('node:fs/promises');
-  const target=await mkdtemp(path.join(result.filePaths[0],'clementina-assets-'));
-  for(const [name,bytes] of Object.entries(files))await writeFile(path.join(target,name),bytes);
-  return target;
- });
 });
 app.on('window-all-closed',()=>app.quit());
