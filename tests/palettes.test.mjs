@@ -1,146 +1,115 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {encodeProject,decodeProject,bankAssetPackage,validateProject} from '../dist/packages/assets/index.js';
-import {migrateProjectPalettes,resolveBankPalettes,slotColors,internPalette,bindFlatPalettes,compactBankSlots,removeBankSlot} from '../dist/packages/assets/palettes.js';
-const findPalette=(library,id)=>library.find(p=>p.id===id);
+import {encodeProject,decodeProject,validateProject,emptyProject,projectFromFlat,configPackage,PROJECT_VERSION} from '../dist/packages/assets/index.js';
+import {bankColors,resolveConfig,createPalette,createConfig,configFromFlat,internPalette,repointPalette,unbindPalette,paletteUsage,PALETTE_BANKS} from '../dist/packages/assets/palettes.js';
 
 const flat=fn=>Array.from({length:128},(_,i)=>fn(Math.floor(i/8),i%8));
-const legacyBank=(name,palettes)=>({name,mode:3,plane:0,chr:Array(6144).fill(0),palettes,cellPalettes:Array(256).fill(0),compositions:[]});
-const legacyProject=banks=>({format:'clementina-studio',version:1,chr:Array(49152).fill(0),palettes:Array(128).fill(0),modes:Array(8).fill(3),planes:Array(8).fill(0),animations:[],sprites:[],bankAssets:banks});
+const palette=(id,colors)=>({id,name:'Palette '+id,colors});
+const config=(id,banks)=>({id,name:'Config '+id,banks});
 
-test('legacy per-bank palettes migrate into one shared library, collapsing identical colors',()=>{
- const shared=flat((slot,i)=>slot*8+i);
- const p=legacyProject([legacyBank('Alpha',[...shared]),legacyBank('Beta',[...shared])]);
- migrateProjectPalettes(p);
- assert.equal(p.paletteLibrary.length,16);
- for(const bank of p.bankAssets)assert.equal(bank.palettes,undefined);
- assert.deepEqual(p.bankAssets[0].paletteSlots,p.bankAssets[1].paletteSlots);
- assert.deepEqual(resolveBankPalettes(p.bankAssets[0],p.paletteLibrary),shared);
+test('a config resolves to palette RAM in bank order, empty banks reading black',()=>{
+ const library=[palette('a',Array(8).fill(0x1234)),palette('b',Array(8).fill(0x5678))];
+ const c=config('c',['a',null,'b',...Array(13).fill(null)]);
+ assert.deepEqual(bankColors(c,library,0),library[0].colors);
+ assert.deepEqual(bankColors(c,library,1),Array(8).fill(0));
+ assert.deepEqual(bankColors(c,library,2),library[1].colors);
+ const ram=resolveConfig(c,library);
+ assert.equal(ram.length,128);
+ assert.equal(ram[0],0x1234);assert.equal(ram[8],0);assert.equal(ram[16],0x5678);
+});
+
+test('a flat palette RAM image becomes one config, sharing palettes with identical colors',()=>{
+ const library=[],configs=[];
+ const shared=flat((bank,i)=>bank===5?i:bank*8+i);   // bank 5 duplicates bank 0's colors
+ const c=configFromFlat(configs,library,shared,'Overworld');
+ assert.equal(c.name,'Overworld');
+ assert.equal(library.length,15,'two banks with identical colors intern to one palette');
+ assert.equal(c.banks[0],c.banks[5]);
+ assert.deepEqual(resolveConfig(c,library),shared,'colors survive the round trip exactly');
+});
+
+test('two banks of one config may hold the same palette',()=>{
+ const library=[palette('a',Array(8).fill(7))];
+ const configs=[];const c=createConfig(configs,library,'Doubled',['a','a',...Array(14).fill(null)]);
+ assert.equal(c.banks[0],c.banks[1]);
+ validateProject({paletteLibrary:library,paletteConfigs:configs,tilesets:[],sprites:[],animations:[]});
+});
+
+test('a new config fills banks from the library in order and names itself uniquely',()=>{
+ const library=Array.from({length:3},(_,i)=>createPalette([],Array(8).fill(i)));
+ const configs=[];
+ const first=createConfig(configs,library),second=createConfig(configs,library);
+ assert.deepEqual(first.banks.slice(0,3),library.map(p=>p.id));
+ assert.deepEqual(first.banks.slice(3),Array(13).fill(null));
+ assert.notEqual(first.name,second.name);
+});
+
+test('deleting a palette either repoints every bank naming it or clears them',()=>{
+ const library=[palette('a',Array(8).fill(1)),palette('b',Array(8).fill(2))];
+ const configs=[config('x',['a','a',...Array(14).fill(null)]),config('y',['b',...Array(15).fill(null)])];
+ assert.deepEqual(paletteUsage(configs,'a').map(u=>[u.config.id,u.banks]),[['x',[0,1]]]);
+ assert.equal(repointPalette(configs,'a','b'),2);
+ assert.deepEqual(configs[0].banks.slice(0,2),['b','b']);
+ assert.equal(unbindPalette(configs,'b'),3);
+ assert.deepEqual(configs[0].banks,Array(16).fill(null));
+});
+
+test('interning reuses a palette whose colors already exist',()=>{
+ const library=[];
+ const first=internPalette(library,Array(8).fill(9),'First');
+ const again=internPalette(library,Array(8).fill(9),'Second');
+ assert.equal(again,first);assert.equal(library.length,1);
+});
+
+test('a config names a palette, or nothing, for exactly sixteen banks',()=>{
+ const base=()=>({paletteLibrary:[palette('a',Array(8).fill(0))],paletteConfigs:[config('c',['a',...Array(15).fill(null)])],tilesets:[],sprites:[],animations:[]});
+ validateProject(base());
+ for(const mutate of [
+  p=>p.paletteConfigs[0].banks.pop(),
+  p=>p.paletteConfigs[0].banks.push(null),
+  p=>p.paletteConfigs[0].banks[0]='missing',
+  p=>p.paletteConfigs.push(config('c',Array(16).fill(null))),          // duplicate id
+  p=>p.paletteConfigs.push({id:'d',name:'Config c',banks:Array(16).fill(null)}), // duplicate name
+ ]){const p=base();mutate(p);assert.throws(()=>validateProject(p));}
+});
+
+test('the active config must be one the project holds',()=>{
+ const p=emptyProject();
  validateProject(p);
+ assert.equal(p.paletteConfigs.length,1);
+ assert.equal(p.activeConfigId,p.paletteConfigs[0].id);
+ p.activeConfigId='gone';assert.throws(()=>validateProject(p),/active config/);
 });
 
-test('migration preserves colors exactly, including banks that differ in one slot',()=>{
- const base=flat((slot,i)=>slot*8+i),different=[...base];different[3*8+2]=0xf81f;
- const p=legacyProject([legacyBank('Alpha',[...base]),legacyBank('Beta',different)]);
- migrateProjectPalettes(p);
- assert.deepEqual(resolveBankPalettes(p.bankAssets[0],p.paletteLibrary),base);
- assert.deepEqual(resolveBankPalettes(p.bankAssets[1],p.paletteLibrary),different);
- assert.notEqual(p.bankAssets[0].paletteSlots[3],p.bankAssets[1].paletteSlots[3]);
- assert.deepEqual(p.bankAssets[0].paletteSlots.filter((_,s)=>s!==3),p.bankAssets[1].paletteSlots.filter((_,s)=>s!==3));
- assert.equal(p.paletteLibrary.length,17);
+test('a project round trips and refuses versions it did not write',()=>{
+ const p=emptyProject();
+ createPalette(p.paletteLibrary,Array(8).fill(0xf81f),'Magenta');
+ p.paletteConfigs[0].banks[4]=p.paletteLibrary[0].id;
+ const restored=decodeProject(encodeProject(p));
+ assert.deepEqual(restored,p);
+ assert.equal(JSON.parse(encodeProject(p)).version,PROJECT_VERSION);
+ assert.throws(()=>decodeProject('{"format":"clementina-studio","version":1}'),/version 1/);
+ assert.throws(()=>decodeProject('{"format":"something-else","version":2}'),/Not a Studio project/);
 });
 
-test('exported palette bytes are unchanged by migration',()=>{
- const colors=flat((slot,i)=>(slot*8+i)*257&0xffff);
- const p=legacyProject([legacyBank('Alpha',[...colors])]);
- migrateProjectPalettes(p);
- const bytes=bankAssetPackage(p.bankAssets,p.paletteLibrary)['Alpha.PAL'],view=new DataView(bytes.buffer);
- assert.equal(bytes.length,256);
- colors.forEach((word,i)=>assert.equal(view.getUint16(i*2,true),word));
-});
-
-test('editing a shared palette reaches every bank bound to it',()=>{
- const p=legacyProject([legacyBank('Alpha',Array(128).fill(0)),legacyBank('Beta',Array(128).fill(0))]);
- migrateProjectPalettes(p);
- p.paletteLibrary[0].colors[4]=0x07e0;
- for(const bank of p.bankAssets)assert.equal(slotColors(bank,p.paletteLibrary,0)[4],0x07e0);
-});
-
-test('slots of one bank stay independent while a second bank reuses the same palettes',()=>{
- const library=[],uniform=Array(128).fill(1);
- assert.equal(internPalette(library,Array(8).fill(1)),internPalette(library,Array(8).fill(1)));
- const alpha={},beta={};
- bindFlatPalettes(alpha,library,uniform);
- assert.equal(new Set(alpha.paletteSlots).size,16,'identical colors must not fuse two slots of one bank');
- assert.equal(library.length,16);
- bindFlatPalettes(beta,library,uniform);
- assert.deepEqual(beta.paletteSlots,alpha.paletteSlots);
- assert.equal(library.length,16);
-});
-
-test('projects round trip in the new shape and reject broken bindings',()=>{
- const p=legacyProject([legacyBank('Alpha',flat(slot=>slot))]);
- const restored=decodeProject(encodeProject(migrateProjectPalettes(p)));
- assert.deepEqual(restored.paletteLibrary,p.paletteLibrary);
- assert.deepEqual(restored.bankAssets[0].paletteSlots,p.bankAssets[0].paletteSlots);
- p.bankAssets[0].paletteSlots[0]='missing';assert.throws(()=>encodeProject(p),/palette slots/);
- p.bankAssets[0].paletteSlots.pop();assert.throws(()=>encodeProject(p),/palette slots/);
-});
-
-test('group parts stop meaning "slot in my own bank" and name the palette instead',()=>{
- const base=flat((slot,i)=>slot*8+i),other=[...base];other[3*8+2]=0xf81f;
- const p=legacyProject([{...legacyBank('Alpha',[...base]),id:'alpha'},{...legacyBank('Beta',other),id:'beta'}]);
- // Both parts said "palette 3" while showing different colors, which the hardware cannot do.
- p.sprites=[{name:'Hero',bank:0,plane:0,frames:[{ticks:6,parts:[
-  {bankId:'alpha',tile:0,x:0,y:0,palette:3,flipX:false,flipY:false},
-  {bankId:'beta',tile:1,x:8,y:0,palette:3,flipX:false,flipY:false}]}]}];
- migrateProjectPalettes(p);
- const [a,b]=p.sprites[0].frames[0].parts;
- assert.equal(a.palette,undefined);
- assert.notEqual(a.paletteId,b.paletteId,'parts that showed different colors must name different palettes');
- assert.deepEqual(findPalette(p.paletteLibrary,a.paletteId).colors,base.slice(24,32));
- assert.deepEqual(findPalette(p.paletteLibrary,b.paletteId).colors,other.slice(24,32));
+test('legacy flat graphics import as eight tilesets and one config',()=>{
+ const chr=Array(49152).fill(0);chr[2*6144+7]=123;
+ const bpp=Array(8).fill(3);bpp[2]=1;
+ const p=projectFromFlat(chr,bpp,flat((bank,i)=>bank*8+i),'Imported');
  validateProject(p);
+ assert.equal(p.tilesets.length,8);
+ assert.equal(p.tilesets[2].bpp,1);
+ assert.equal(p.tilesets[2].chr[7],123);
+ assert.equal(p.paletteConfigs.length,1);
+ assert.equal(p.paletteConfigs[0].name,'Imported');
+ assert.equal(p.activeConfigId,p.paletteConfigs[0].id);
 });
 
-test('a bank binds only the palettes it uses, and compacting repoints its tiles',()=>{
- const p=legacyProject([legacyBank('Alpha',flat((slot,i)=>slot*8+i))]);
- migrateProjectPalettes(p);
- const bank=p.bankAssets[0],[a,b,c]=bank.paletteSlots;
- bank.cellPalettes[0]=0;bank.cellPalettes[1]=1;bank.cellPalettes[2]=2;
- // Two slots land on one palette, as a reassigning delete leaves them.
- bank.paletteSlots[1]=c;
- compactBankSlots(bank);
- assert.deepEqual(bank.paletteSlots.slice(0,2),[a,c]);
- assert.equal(new Set(bank.paletteSlots).size,bank.paletteSlots.length);
- assert.equal(bank.cellPalettes[1],1,'a tile on the duplicate slot follows the survivor');
- assert.equal(bank.cellPalettes[2],1,'the original slot for that palette is the survivor');
- validateProject(p);
-});
-
-test('removing a slot shifts the tiles above it and refuses while painted',()=>{
- const p=legacyProject([legacyBank('Alpha',flat((slot,i)=>slot*8+i))]);
- migrateProjectPalettes(p);
- const bank=p.bankAssets[0],third=bank.paletteSlots[2];
- bank.cellPalettes[0]=3;
- assert.throws(()=>removeBankSlot(bank,3),/painted/);
- removeBankSlot(bank,1);
- assert.equal(bank.paletteSlots.length,15);
- assert.equal(bank.paletteSlots[1],third,'slots above the removed one shift down');
- assert.equal(bank.cellPalettes[0],2,'tiles follow their palette');
- validateProject(p);
-});
-
-test('a bank may bind fewer than sixteen slots but never a slot its tiles lack',()=>{
- const p=legacyProject([legacyBank('Alpha',flat((slot,i)=>slot*8+i))]);
- migrateProjectPalettes(p);
- const bank=p.bankAssets[0];
- bank.paletteSlots=bank.paletteSlots.slice(0,2);
- validateProject(p);
- bank.cellPalettes[5]=2;
- assert.throws(()=>validateProject(p),/does not bind/);
- bank.cellPalettes[5]=1;
- bank.paletteSlots=[];
- assert.throws(()=>validateProject(p),/1 to 16/);
-});
-
-test('a bank may repeat a palette across slots, and compacting is opt-in',()=>{
- const p=legacyProject([legacyBank('Alpha',flat((slot,i)=>slot*8+i))]);
- migrateProjectPalettes(p);
- const bank=p.bankAssets[0];
- assert.equal(new Set(bank.paletteSlots).size,bank.paletteSlots.length,'migration binds distinct palettes');
- // A tile names a slot, so two slots may hold one palette on purpose.
- bank.paletteSlots[1]=bank.paletteSlots[0];
- validateProject(p);
- compactBankSlots(bank);
- assert.equal(new Set(bank.paletteSlots).size,bank.paletteSlots.length);
- validateProject(p);
-});
-
-test('palette library rejects duplicate identities, duplicate names and wrong color counts',()=>{
- const p=legacyProject([]);migrateProjectPalettes(p);
- const valid={id:'a',name:'Grass',colors:Array(8).fill(0)};
- p.paletteLibrary=[valid,{...valid,name:'Other'}];assert.throws(()=>validateProject(p),/identities/);
- p.paletteLibrary=[valid,{...valid,id:'b'}];assert.throws(()=>validateProject(p),/names/);
- p.paletteLibrary=[{...valid,colors:Array(7).fill(0)}];assert.throws(()=>validateProject(p),/eight/);
+test('each config exports one 256 byte little endian palette RAM image',()=>{
+ const library=[palette('a',[0xf81f,...Array(7).fill(0)])];
+ const files=configPackage([config('c',['a',...Array(15).fill(null)])],library);
+ const bytes=files['Config_c.PAL'];
+ assert.equal(bytes.length,PALETTE_BANKS*8*2);
+ assert.deepEqual(Array.from(bytes.slice(0,2)),[31,248]);
+ assert.deepEqual(Array.from(bytes.slice(16,18)),[0,0],'an empty bank exports as black');
 });

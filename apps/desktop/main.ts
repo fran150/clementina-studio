@@ -4,11 +4,11 @@ import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { encodeProject, decodeProject, importBankFile, runtimePackage, type TileProject } from '../../packages/assets/index.js';
+import { encodeProject, decodeProject, importTilesetFile, runtimePackage, type StudioProject } from '../../packages/assets/index.js';
 const here=path.dirname(fileURLToPath(import.meta.url));
 let win: BrowserWindow;
 let projectPath: string | undefined;
-async function saveProject(p:TileProject,saveAs=false):Promise<string|null>{
+async function saveProject(p:StudioProject,saveAs=false):Promise<string|null>{
  const bytes=encodeProject(p);let target=projectPath;
  if(!target||saveAs){const r=await dialog.showSaveDialog(win,{defaultPath:target??'project.cstudio',filters:[{name:'Studio project',extensions:['cstudio']}]});if(r.canceled||!r.filePath)return null;target=r.filePath;}
  await writeFile(target,bytes);projectPath=target;return path.basename(target);
@@ -27,7 +27,7 @@ app.whenReady().then(()=>{
  }
 
  win=new BrowserWindow({width:1440,height:960,webPreferences:{preload:path.join(here,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
- installCloseGuard<TileProject>(win,{
+ installCloseGuard<StudioProject>(win,{
   snapshot:()=>win.webContents.executeJavaScript('({dirty,project:studioProject()})'),
   decide:async()=>{const result=await dialog.showMessageBox(win,{type:'question',message:'Save changes before closing?',detail:'Unsaved changes will be lost if you discard them.',buttons:['Save','Discard','Cancel'],defaultId:0,cancelId:2,noLink:true});return (['save','discard','cancel'] as const)[result.response];},
   save:async p=>(await saveProject(p))!==null,
@@ -62,7 +62,7 @@ app.whenReady().then(()=>{
   const result=await dialog.showOpenDialog(win,{filters:[{name:'CHR bank',extensions:['prg','bin','chr']}],properties:['openFile']});
   if(result.canceled)return null;
   const selected=result.filePaths[0];const bytes=await readFile(selected);
-  return {...importBankFile(bytes,path.extname(selected)),name:path.basename(selected,path.extname(selected))};
+  return {...importTilesetFile(bytes,path.extname(selected)),name:path.basename(selected,path.extname(selected))};
  });
  ipcMain.handle('image:import',async()=>{
   const result=await dialog.showOpenDialog(win,{filters:[{name:'Pixel artwork',extensions:['png','bmp','gif']}],properties:['openFile']});if(result.canceled)return null;
@@ -79,8 +79,8 @@ app.whenReady().then(()=>{
  });
  ipcMain.handle('project:opened',(_event,selected:string)=>{projectPath=path.extname(selected).toLowerCase()==='.cstudio'?selected:undefined;});
  ipcMain.handle('project:new',()=>{projectPath=undefined;});
- ipcMain.handle('project:save',(_event,p:TileProject,saveAs:boolean)=>saveProject(p,saveAs));
- ipcMain.handle('assets:export',async(_event,p:TileProject)=>{
+ ipcMain.handle('project:save',(_event,p:StudioProject,saveAs:boolean)=>saveProject(p,saveAs));
+ ipcMain.handle('assets:export',async(_event,p:StudioProject)=>{
   const files=runtimePackage(p);
   const result=await dialog.showOpenDialog(win,{properties:['openDirectory','createDirectory']});if(result.canceled)return null;
   // Create a unique child folder so exports never overwrite another package.
