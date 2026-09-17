@@ -4,8 +4,8 @@ Development tools for creating Clementina games and programs.
 
 ## Scope
 
-- Desktop editors for tilesets, palettes, composite sprites, animations, maps,
-  music, and sound effects.
+- Desktop editors for tilesets, palettes, shapes, animations, maps, music, and
+  sound effects.
 - Shared asset converters and command-line build tools.
 - BASIC tokenizer and generated runtime asset loaders.
 - A future VS Code extension for Clementina BASIC.
@@ -33,9 +33,9 @@ drawn against them.
 ## Normal workflow
 
 Define palettes and the bank configs that place them in palette RAM, draw
-tilesets, then assemble and animate sprite groups from them. The active config
-is a preview choice, switchable from the header in every editor; it does not
-change what a project stores.
+tilesets, build shapes from their tiles, then sequence shapes into animations.
+The active config is a preview choice, switchable from the header in every
+editor; it does not change what a project stores.
 
 A later build step will lay out Clementina's memory, choose files and emit a
 loader. It is deliberately last, so that it handles maps, scenes and music too
@@ -51,7 +51,7 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
 - `apps/desktop`: the asset studio. `editor.html` is the shell — model, state,
   helpers, the animation editor and view switching. Each other editor is a
   self-attaching script: `bank-editor.js` (tilesets), `palette-library.js`
-  (palettes and bank configs), `sprite-composer.js` (sprite groups),
+  (palettes and bank configs), `sprite-composer.js` (shapes),
   `image-import-ui.js` (artwork import). They load after the shell and wrap its
   `showView`/`redrawAll`, so the shell boots them via `bootStudio()`.
 - `packages/assets`: the project format, its validators, and the attribute
@@ -78,7 +78,7 @@ behavior.
 
 Projects are `.cstudio` JSON, `format: "clementina-studio"`, `version: 2`.
 They hold the palette library, the bank configs and which is active, the
-tilesets, and the sprite and animation groups. Version 1 files are rejected:
+tilesets, the shapes, and the animations that sequence them. Version 1 files are rejected:
 they stored palettes per bank and eight fixed CHR banks, a model with no
 equivalent here, and Studio is unreleased. The `.mtb` importer that read the
 pre-Studio flat format is gone with them.
@@ -99,20 +99,21 @@ the selected color's bank number on the tile. A tileset is 1bpp or 3bpp; at
 1bpp it is three independent 256-tile pages and the plane selector picks which
 is on screen, with the color picker limited to indices 0 and 1.
 
-**Sprite groups.** Free positioning around an origin, drawing from one tileset
-— Clementina has a single sprite CHR bank, so everything on screen at once
-comes from the same one. The tileset is locked once a group has parts. Each
-part carries a palette bank, defaulting to the one its tile was drawn against
-and overridable per sprite. Higher sprite IDs draw on top, matching the
-renderer, which scans OAM ascending and lets later entries overwrite earlier
-ones.
+**Shapes.** One arrangement of sprites, free-positioned around an origin,
+drawing from one tileset — Clementina has a single sprite CHR bank, so
+everything on screen at once comes from the same one. The tileset is locked
+once a shape holds sprites. Each sprite carries a palette bank, defaulting to
+the one its tile was drawn against and overridable per sprite. List order is
+OAM order, so a later sprite draws on top, matching the renderer.
 
-**Animations.** Frames of sprite parts with 60 Hz tick durations and a 4×
-preview. Sprite-versus-background priority is not editable yet; it belongs to
-the future scene editor.
+**Animations.** A sequence of shapes with 60 Hz tick durations, an optional
+per-frame offset, and a 4× preview. An animation references its shapes rather
+than copying them, so editing a shape updates every frame showing it. All of
+an animation's shapes must draw from the same tileset. Sprite-versus-background
+priority is not editable yet; it belongs to the future scene editor.
 
-Sprite edits keep a separate 50-step undo history from tileset and palette
-edits.
+Shape and animation edits share a 50-step undo history, separate from tileset
+and palette edits.
 
 ## Tests
 

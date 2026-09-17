@@ -16,11 +16,20 @@ export interface Tileset {
  tilePaletteBanks:number[];
  compositions:{name:string;x:number;y:number;width:number;height:number}[];
 }
-export interface SpritePart { spriteId?:number; tile:number; x:number; y:number; paletteBank:number; flipX:boolean; flipY:boolean }
-export interface SpriteFrame { ticks:number; parts:SpritePart[] }
-/** A character or object built from one tileset's tiles; sprites share one CHR bank. */
-export interface SpriteGroup { tilesetId?:string; canvasPixelWidth?:number; canvasPixelHeight?:number; originAnchor?:string; canvasWidth?:number; canvasHeight?:number; originX?:number; originY?:number; name:string; frames:SpriteFrame[] }
-export interface StudioProject { paletteLibrary:ProjectPalette[]; paletteConfigs:PaletteBankConfig[]; activeConfigId?:string; tilesets:Tileset[]; sprites:SpriteGroup[]; animations:SpriteGroup[] }
+/** One OAM entry. X is 10-bit signed and Y 9-bit signed; the high bits live in ext. */
+export interface Sprite { tile:number; x:number; y:number; paletteBank:number; flipX:boolean; flipY:boolean }
+/**
+ * One static arrangement of sprites, drawn from a single tileset because all
+ * sprites share one CHR bank. List order is OAM order, so a later sprite draws
+ * on top; there is no separate id, the array position being the offset from
+ * whatever index the shape is loaded at.
+ */
+export interface Shape { id:string; name:string; tilesetId?:string; canvasPixelWidth?:number; canvasPixelHeight?:number; originAnchor?:string; canvasWidth?:number; canvasHeight?:number; originX?:number; originY?:number; sprites:Sprite[] }
+/** One entry of an animation: a shape to show, for how long, nudged by dx/dy. */
+export interface AnimationFrame { shapeId:string; ticks:number; dx?:number; dy?:number }
+/** A sequence of shapes. It references them, so editing a shape updates every animation using it. */
+export interface Animation { name:string; frames:AnimationFrame[] }
+export interface StudioProject { paletteLibrary:ProjectPalette[]; paletteConfigs:PaletteBankConfig[]; activeConfigId?:string; tilesets:Tileset[]; shapes:Shape[]; animations:Animation[] }
 
 function integers(a: unknown, length: number, max: number): a is number[] {
  return Array.isArray(a) && a.length === length && a.every(v => Number.isInteger(v) && v >= 0 && v <= max);
@@ -33,9 +42,8 @@ export function validateProject(p: StudioProject): void {
  validatePaletteConfigs(p.paletteConfigs,p.paletteLibrary);
  if(p.activeConfigId!==undefined&&!p.paletteConfigs.some(c=>c.id===p.activeConfigId))throw Error('The active config is not in the project');
  validateTilesets(p.tilesets);
- validateGroups(p.animations??[],p.tilesets);
- validateGroups(p.sprites??[],p.tilesets);
- if(p.sprites?.some(s=>s.frames.length!==1))throw Error("Static sprites must have exactly one frame");
+ validateShapes(p.shapes??[],p.tilesets);
+ validateAnimations(p.animations??[],p.shapes??[]);
 }
 
 export function validatePaletteLibrary(library:ProjectPalette[]):void {
@@ -83,29 +91,48 @@ export function validateTilesets(tilesets:Tileset[]):void {
  }
 }
 
-export function validateGroups(groups:SpriteGroup[],tilesets:Tileset[]=[]):void {
- if(!Array.isArray(groups)||groups.length>255)throw Error('At most 255 sprite groups are supported');
+export function validateShapes(shapes:Shape[],tilesets:Tileset[]=[]):void {
+ if(!Array.isArray(shapes)||shapes.length>255)throw Error('At most 255 shapes are supported');
  const tilesetIds=new Set(tilesets.map(t=>t.id).filter(Boolean) as string[]);
- const names=new Set<string>();
- for(const g of groups){
-  if(!g||typeof g.name!=='string'||!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(g.name)||names.has(g.name.toUpperCase()))throw Error('Sprite group names must be unique assembly identifiers (1–32 characters)');
-  names.add(g.name.toUpperCase());
-  // Sprites all read one CHR bank, so a group draws from exactly one tileset.
-  if(g.tilesetId!==undefined&&!tilesetIds.has(g.tilesetId))throw Error('A sprite group draws from one tileset in the project');
-  if(!Array.isArray(g.frames)||g.frames.length<1||g.frames.length>255)throw Error('Invalid frame count');
-  for(const k of ['canvasWidth','canvasHeight'] as const)if(g[k]!==undefined&&!range(g[k],1,128))throw Error('Invalid sprite canvas size');
-  for(const k of ['originX','originY'] as const)if(g[k]!==undefined&&!range(g[k],-32768,32767))throw Error('Invalid sprite origin');
-  if(g.canvasPixelWidth!==undefined&&!range(g.canvasPixelWidth,1,320)||g.canvasPixelHeight!==undefined&&!range(g.canvasPixelHeight,1,200))throw Error('Invalid sprite canvas pixel dimensions');
-  if(g.originAnchor!==undefined&&!['top-left','center','bottom-center','custom'].includes(g.originAnchor))throw Error('Invalid sprite origin anchor');
-  for(const f of g.frames){
-   if(!f||!range(f.ticks,1,255)||!Array.isArray(f.parts)||f.parts.length>64)throw Error('Frames require 1–255 ticks and at most 64 parts');
-   const ids=f.parts.map((p,i)=>p.spriteId??i);if(new Set(ids).size!==ids.length||ids.some(id=>!range(id,0,255)))throw Error('Sprite IDs must be unique within a group');
-   for(const part of f.parts){
-    // X is 10-bit signed and Y 9-bit signed in OAM; the high bits live in ext.
-    if(!part||!range(part.tile,0,TILES_PER_BANK-1)||!range(part.x,-512,511)||!range(part.y,-256,255)||typeof part.flipX!=='boolean'||typeof part.flipY!=='boolean')throw Error('Invalid sprite part');
-    if(!range(part.paletteBank,0,PALETTE_BANKS-1))throw Error('A sprite part names a palette bank 0-15');
-   }
+ const names=new Set<string>(),ids=new Set<string>();
+ for(const shape of shapes){
+  if(!shape||typeof shape.name!=='string'||!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(shape.name)||names.has(shape.name.toUpperCase()))throw Error('Shape names must be unique assembly identifiers (1–32 characters)');
+  names.add(shape.name.toUpperCase());
+  // Animations name shapes, so a shape needs an identity of its own.
+  if(typeof shape.id!=='string'||!shape.id.length||ids.has(shape.id))throw Error('Shape identities must be unique');
+  ids.add(shape.id);
+  // Sprites all read one CHR bank, so a shape draws from exactly one tileset.
+  if(shape.tilesetId!==undefined&&!tilesetIds.has(shape.tilesetId))throw Error('A shape draws from one tileset in the project');
+  for(const k of ['canvasWidth','canvasHeight'] as const)if(shape[k]!==undefined&&!range(shape[k],1,128))throw Error('Invalid shape canvas size');
+  for(const k of ['originX','originY'] as const)if(shape[k]!==undefined&&!range(shape[k],-32768,32767))throw Error('Invalid shape origin');
+  if(shape.canvasPixelWidth!==undefined&&!range(shape.canvasPixelWidth,1,320)||shape.canvasPixelHeight!==undefined&&!range(shape.canvasPixelHeight,1,200))throw Error('Invalid shape canvas pixel dimensions');
+  if(shape.originAnchor!==undefined&&!['top-left','center','bottom-center','custom'].includes(shape.originAnchor))throw Error('Invalid shape origin anchor');
+  if(!Array.isArray(shape.sprites)||shape.sprites.length>64)throw Error('A shape holds at most 64 sprites');
+  for(const sprite of shape.sprites){
+   // X is 10-bit signed and Y 9-bit signed in OAM; the high bits live in ext.
+   if(!sprite||!range(sprite.tile,0,TILES_PER_BANK-1)||!range(sprite.x,-512,511)||!range(sprite.y,-256,255)||typeof sprite.flipX!=='boolean'||typeof sprite.flipY!=='boolean')throw Error('Invalid sprite');
+   if(!range(sprite.paletteBank,0,PALETTE_BANKS-1))throw Error('A sprite names a palette bank 0-15');
   }
+ }
+}
+
+export function validateAnimations(animations:Animation[],shapes:Shape[]=[]):void {
+ if(!Array.isArray(animations)||animations.length>255)throw Error('At most 255 animations are supported');
+ const byId=new Map(shapes.map(s=>[s.id,s]));
+ const names=new Set<string>();
+ for(const animation of animations){
+  if(!animation||typeof animation.name!=='string'||!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(animation.name)||names.has(animation.name.toUpperCase()))throw Error('Animation names must be unique assembly identifiers (1–32 characters)');
+  names.add(animation.name.toUpperCase());
+  if(!Array.isArray(animation.frames)||animation.frames.length<1||animation.frames.length>255)throw Error('An animation holds 1 to 255 frames');
+  for(const frame of animation.frames){
+   if(!frame||!byId.has(frame.shapeId))throw Error('Every animation frame names a shape in the project');
+   if(!range(frame.ticks,1,255))throw Error('Animation frames run for 1 to 255 ticks');
+   for(const k of ['dx','dy'] as const)if(frame[k]!==undefined&&!range(frame[k],-512,511))throw Error('Invalid animation frame offset');
+  }
+  // The frames play in sequence out of the one sprite CHR bank, so they cannot
+  // come from different tilesets without rewriting SPRBANK mid-animation.
+  const tilesets=new Set(animation.frames.map(f=>byId.get(f.shapeId)!.tilesetId));
+  if(tilesets.size>1)throw Error(`Every shape in "${animation.name}" must draw from the same tileset`);
  }
 }
 
@@ -113,7 +140,7 @@ export function encodeProject(p:StudioProject):string {
  validateProject(p);
  return JSON.stringify({format:'clementina-studio',version:PROJECT_VERSION,
   paletteLibrary:p.paletteLibrary,paletteConfigs:p.paletteConfigs,activeConfigId:p.activeConfigId,
-  tilesets:p.tilesets,sprites:p.sprites,animations:p.animations})+'\n';
+  tilesets:p.tilesets,shapes:p.shapes,animations:p.animations})+'\n';
 }
 export function decodeProject(text:string):StudioProject {
  const p=JSON.parse(text);
@@ -131,7 +158,7 @@ export function decodeProject(text:string):StudioProject {
 export function emptyProject():StudioProject {
  const paletteLibrary:ProjectPalette[]=[],paletteConfigs:PaletteBankConfig[]=[];
  const config=createConfig(paletteConfigs,paletteLibrary,'Default');
- return {paletteLibrary,paletteConfigs,activeConfigId:config.id,tilesets:[],sprites:[],animations:[]};
+ return {paletteLibrary,paletteConfigs,activeConfigId:config.id,tilesets:[],shapes:[],animations:[]};
 }
 
 /** A PRG wraps CHR data in a CPU load header; its address is not a CHR bank. */
@@ -163,12 +190,12 @@ export function importTilesetFile(bytes:Uint8Array,extension:string):{chr:number
 // ---------------------------------------------------------------------------
 
 /** OAM byte 3: palette 0-3, priority 4, flip X 5, flip Y 6 — not the background layout. */
-export function spriteAttr(part:SpritePart):number{
- return (part.paletteBank&15)|(part.flipX?32:0)|(part.flipY?64:0);
+export function spriteAttr(sprite:Sprite):number{
+ return (sprite.paletteBank&15)|(sprite.flipX?32:0)|(sprite.flipY?64:0);
 }
 /** OAM byte 4: X high bits 0-1, Y high bit 2, disable 3. */
-export function spriteExt(part:SpritePart):number{
- return ((part.x>>8)&3)|(((part.y>>8)&1)<<2);
+export function spriteExt(sprite:Sprite):number{
+ return ((sprite.x>>8)&3)|(((sprite.y>>8)&1)<<2);
 }
 /** Background and overlay cells: palette 0-3, flip X 4, flip Y 5, priority 6, CHR_ALT 7. */
 export function cellAttr(cell:{paletteBank:number;flipX:boolean;flipY:boolean;priority?:boolean;chrAlt?:boolean}):number{

@@ -102,8 +102,8 @@ header h1, header .sep, header .lbl, header #bankSel, header #mode1, header #mod
 </head>
 <body>
 <aside id="workflowNav"><div class="brand">CLEMENTINA STUDIO</div><div class="navGroup">GRAPHICS</div>
-<button data-view="palettes">Palettes</button><button data-view="tiles">Tilesets</button><button data-view="sprites">Sprite groups</button><button data-view="animations">Animations</button>
-<div class="navNote">Define palettes and bank configs, draw tilesets, then assemble and animate sprites.</div></aside>
+<button data-view="palettes">Palettes</button><button data-view="tiles">Tilesets</button><button data-view="shapes">Shapes</button><button data-view="animations">Animations</button>
+<div class="navNote">Define palettes and bank configs, draw tilesets, build shapes from their tiles, then sequence shapes into animations.</div></aside>
 <div id="workspace"><div id="workflowHeading"><h1 id="viewTitle">Tilesets</h1><p id="viewHelp"></p></div>
 <header>
   <h1>Clementina Studio <small>· 8×8 tiles · 1/3 bpp · 16 palette banks</small></h1>
@@ -117,26 +117,23 @@ header h1, header .sep, header .lbl, header #bankSel, header #mode1, header #mod
 </header>
 
 <section class="panel" id="spritePanel" style="margin:12px;flex:none">
- <h2 id="spriteSectionTitle">Sprite frames</h2>
+ <h2 id="spriteSectionTitle">Animation</h2>
  <div class="toolbtns">
   <select id="animationSelect" aria-label="Animation"></select>
   <button id="addAnimation">New animation</button><button id="deleteAnimation">Delete animation</button>
   <label>Name <input id="animationName" maxlength="32"></label>
-  <label>Tileset <select id="animationTileset" aria-label="Source tileset"></select></label>
  </div>
- <div id="frameLibraryBar" class="toolbtns"><label>Sprite frame <select id="spriteLibraryPicker"></select></label><button id="useSpriteFrame">Use in current frame</button><span class="hint">Copies a reusable sprite. Later sprite edits do not change existing animation frames.</span></div>
 <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:12px">
   <div><canvas id="spritePreview" width="256" height="256" style="image-rendering:pixelated;border:1px solid #444"></canvas><div id="playbackStatus" class="hint"></div></div>
   <div style="flex:1;min-width:450px">
-   <div class="toolbtns" id="timelineControls"><select id="frameSelect" aria-label="Frame"></select>
-    <button id="duplicateFrame">Duplicate frame</button><button id="deleteFrame">Delete frame</button>
-    <label>Duration (60 Hz ticks) <input id="frameTicks" type="number" min="1" max="255" style="width:65px"></label>
-    <button id="playAnimation">Play</button>
+   <div class="toolbtns" id="timelineControls">
+    <label>Add shape <select id="addFrameShape" aria-label="Shape to append"></select></label>
+    <button id="addFrame">Append frame</button><button id="duplicateFrame">Duplicate frame</button>
+    <button id="playAnimation">Play</button><button id="spriteUndo">Undo</button>
    </div>
-   <div class="toolbtns" id="partTools"><button id="spriteUndo">Undo sprite edit</button></div>
-   <p class="hint" id="partsHelp">Offsets are relative to the crosshair. Color 0 is transparent. Higher sprite IDs draw on top. A part's palette bank defaults to the one its tile was drawn against and can be changed here.</p>
-   <table id="partsTable"><thead><tr><th>Tile</th><th>X</th><th>Y</th><th>Palette bank</th><th>Flip X</th><th>Flip Y</th><th></th></tr></thead><tbody id="spriteParts"></tbody></table>
-   <p class="hint">A group draws from one tileset: Clementina has a single sprite CHR bank, so everything on screen at once comes from the same tileset.</p>
+   <p class="hint" id="partsHelp">An animation is a sequence of shapes. It references them, so editing a shape updates every frame showing it. Offsets nudge the whole shape, for a bob that does not need its own shape.</p>
+   <table id="partsTable"><thead><tr><th>#</th><th>Shape</th><th>Ticks</th><th>dX</th><th>dY</th><th></th><th></th></tr></thead><tbody id="spriteParts"></tbody></table>
+   <p class="hint">Every shape in one animation draws from the same tileset: they play in sequence out of Clementina's single sprite CHR bank.</p>
   </div>
  </div>
 </section>
@@ -159,8 +156,8 @@ const statusEl = $('status'), dirtyEl = $('dirty'), nameInput = $('nameInput');
 
 // ===== state =====
 let paletteLibrary = [], paletteConfigs = [], activeConfigId = null, tilesets = [];
-let currentView = 'tiles', sprites = [], animations = [];
-let animationIndex = 0, frameIndex = 0, spriteHistory = [], playing = false, playFrame = 0, playStart = 0;
+let currentView = 'tiles', shapes = [], animations = [];
+let shapeIndex = 0, animationIndex = 0, frameIndex = 0, shapeHistory = [], playing = false, playFrame = 0, playStart = 0;
 let dirty = false;
 
 // ===== RGB565 helpers =====
@@ -265,7 +262,7 @@ function setDirtyLabel() { dirtyEl.className = dirty ? 'dirty' : ''; dirtyEl.tex
 function baseName() { return (nameInput.value.trim() || 'tiles').replace(/[^\w.\-]+/g, '_'); }
 function setNameFromFile(name) { nameInput.value = (name || '').replace(/\.[^/.]+$/, '') || 'tiles'; }
 /** Every editor redraws on a config change, since all of them preview through it. */
-function redrawAll() { renderConfigPicker(); window.renderBankEditor?.(); window.renderPaletteLibrary?.(); renderSprites(); }
+function redrawAll() { renderConfigPicker(); window.renderBankEditor?.(); window.renderPaletteLibrary?.(); renderAnimations(); }
 
 // ===== active config picker =====
 // Switching config is a constant part of drawing, not a setting, so it lives in
@@ -281,94 +278,108 @@ function renderConfigPicker() {
 $('configPicker').onchange = () => { activeConfigId = $('configPicker').value; redrawAll(); };
 
 // ===== sprite groups and animations =====
-function activeLibrary(){return currentView==='sprites'?sprites:animations;}
-function currentAnimation(){return activeLibrary()[animationIndex];}
+// An animation is a sequence of shapes with durations. It names them rather
+// than owning sprites, so a shape edit reaches every frame showing it.
+function currentAnimation(){return animations[animationIndex];}
 function currentFrame(){return currentAnimation()?.frames[frameIndex];}
-function spriteEdit(fn){
- spriteHistory.push(JSON.stringify({animations,sprites}));if(spriteHistory.length>50)spriteHistory.shift();
- fn();playing=false;markDirty();renderSprites();
+function shapeById(id){return shapes.find(s=>s.id===id);}
+function animationEdit(fn){
+ shapeHistory.push(JSON.stringify({animations,shapes}));if(shapeHistory.length>50)shapeHistory.shift();
+ fn();playing=false;markDirty();renderAnimations();
 }
-function renderSprites(){
- const a=currentAnimation(),f=currentFrame();
- $('useSpriteFrame').disabled=!sprites.length||!a;
+/** The tileset an animation is pinned to: the one its existing frames use. */
+function animationTileset(a){return shapeById(a?.frames[0]?.shapeId)?.tilesetId;}
+function renderAnimations(){
+ const a=currentAnimation();
  const options=(select,items,index)=>{select.replaceChildren(...items.map((label,i)=>new Option(label,String(i),false,i===index)));};
- options($('animationSelect'),activeLibrary().map(a=>a.name),animationIndex);
- options($('frameSelect'),a?a.frames.map((_,i)=>'Frame '+(i+1)):[],frameIndex);
- for(const id of ['deleteAnimation','animationName','animationTileset','duplicateFrame','deleteFrame','frameTicks','playAnimation'])$(id).disabled=!a;
- $('addAnimation').textContent=currentView==='sprites'?'New sprite':'New animation';$('deleteAnimation').textContent=currentView==='sprites'?'Delete sprite':'Delete animation';
- $('animationName').value=a?.name??'';$('frameTicks').value=f?.ticks??6;
- $('animationTileset').replaceChildren(...tilesets.map(t=>new Option(t.name,t.id,false,t.id===a?.tilesetId)));
- $('playAnimation').textContent=playing?'Stop':'Play';$('spriteUndo').disabled=!spriteHistory.length;
+ options($('animationSelect'),animations.map(a=>a.name),animationIndex);
+ for(const id of ['deleteAnimation','animationName','playAnimation'])$(id).disabled=!a;
+ $('animationName').value=a?.name??'';
+ $('playAnimation').textContent=playing?'Stop':'Play';$('spriteUndo').disabled=!shapeHistory.length;
+ // Only shapes on the animation's tileset can join it: the frames play out of
+ // one sprite CHR bank.
+ const pinned=a&&animationTileset(a);
+ const usable=shapes.filter(s=>!pinned||s.tilesetId===pinned);
+ $('addFrameShape').replaceChildren(...usable.map(s=>new Option(s.name,s.id)));
+ $('addFrameShape').disabled=$('addFrame').disabled=!a||!usable.length;
+ $('duplicateFrame').disabled=!currentFrame();
  $('spriteParts').replaceChildren();
- // Parts are listed in OAM order, which is draw order: later covers earlier.
- f?.parts.forEach((part,i)=>{
+ a?.frames.forEach((frame,i)=>{
   const row=document.createElement('tr');
-  for(const key of ['tile','x','y','paletteBank','flipX','flipY']){
+  row.classList.toggle('on',i===frameIndex);
+  const index=document.createElement('td');index.textContent=String(i);row.append(index);
+  const pick=document.createElement('td'),select=document.createElement('select');
+  select.setAttribute('aria-label',`Frame ${i} shape`);
+  select.replaceChildren(...usable.map(s=>new Option(s.name,s.id,false,s.id===frame.shapeId)));
+  select.onchange=()=>animationEdit(()=>frame.shapeId=select.value);
+  pick.append(select);row.append(pick);
+  for(const key of ['ticks','dx','dy']){
    const td=document.createElement('td'),input=document.createElement('input');
-   input.setAttribute('aria-label',`Part ${i+1} ${key}`);
-   if(key.startsWith('flip')){input.type='checkbox';input.checked=part[key];}
-   else{
-    input.type='number';input.style.width='75px';
-    // OAM carries X as 10-bit signed and Y as 9-bit signed.
-    const limits={tile:[0,255],x:[-512,511],y:[-256,255],paletteBank:[0,15]}[key];
-    input.min=limits[0];input.max=limits[1];input.value=part[key];
-    if(key==='paletteBank')input.title=bankPalette(part[key])?.name??'This bank is empty in the active config';
-   }
-   input.onchange=()=>{const value=input.type==='checkbox'?input.checked:Number(input.value);if(input.type!=='checkbox'&&(!Number.isInteger(value)||value<Number(input.min)||value>Number(input.max))){renderSprites();return;}spriteEdit(()=>part[key]=value);};
+   input.type='number';input.style.width='70px';
+   input.setAttribute('aria-label',`Frame ${i} ${key}`);
+   const limits=key==='ticks'?[1,255]:[-512,511];
+   input.min=limits[0];input.max=limits[1];
+   input.value=key==='ticks'?frame.ticks:(frame[key]??0);
+   input.onchange=()=>{
+    const value=Number(input.value);
+    if(!Number.isInteger(value)||value<Number(input.min)||value>Number(input.max)){renderAnimations();return;}
+    animationEdit(()=>{if(key==='ticks')frame.ticks=value;else if(value)frame[key]=value;else delete frame[key];});
+   };
    td.append(input);row.append(td);
   }
-  const td=document.createElement('td'),button=document.createElement('button');button.textContent='Remove';button.onclick=()=>spriteEdit(()=>f.parts.splice(i,1));td.append(button);row.append(td);$('spriteParts').append(row);
+  const show=document.createElement('td'),select2=document.createElement('button');
+  select2.textContent='Show';select2.onclick=()=>{frameIndex=i;playing=false;renderAnimations();};
+  show.append(select2);row.append(show);
+  const kill=document.createElement('td'),remove=document.createElement('button');
+  remove.textContent='Remove';remove.disabled=a.frames.length===1;
+  remove.onclick=()=>animationEdit(()=>{a.frames.splice(i,1);frameIndex=Math.max(0,Math.min(frameIndex,a.frames.length-1));});
+  kill.append(remove);row.append(kill);
+  $('spriteParts').append(row);
  });
- drawSpritePreview();
+ drawAnimationPreview();
 }
-function drawSpritePreview(){
- const canvas=$('spritePreview'),ctx=canvas.getContext('2d'),a=currentAnimation(),f=a?.frames[playing?playFrame:frameIndex];
+function drawAnimationPreview(){
+ const canvas=$('spritePreview'),ctx=canvas.getContext('2d'),a=currentAnimation();
+ const frame=a?.frames[playing?playFrame:Math.min(frameIndex,a.frames.length-1)];
  for(let y=0;y<256;y+=16)for(let x=0;x<256;x+=16){ctx.fillStyle=((x+y)/16)%2?'#292d35':'#22262e';ctx.fillRect(x,y,16,16);}
  ctx.fillStyle='#586174';ctx.fillRect(128,0,1,256);ctx.fillRect(0,128,256,1);
- const source=tilesetById(a?.tilesetId);
- // The renderer draws ascending OAM indexes: later parts cover earlier ones.
- if(f&&source)for(const part of [...f.parts].sort((p,q)=>(p.spriteId??0)-(q.spriteId??0)))for(let y=0;y<8;y++)for(let x=0;x<8;x++){
-  const sx=part.flipX?7-x:x,sy=part.flipY?7-y:y;
-  const ink=tilePixel(source,part.tile,sx,sy,0);
+ const shape=shapeById(frame?.shapeId),source=tilesetById(shape?.tilesetId);
+ // Sprites are drawn in list order, which is OAM order: later covers earlier.
+ if(shape&&source)for(const sprite of shape.sprites)for(let y=0;y<8;y++)for(let x=0;x<8;x++){
+  const sx=sprite.flipX?7-x:x,sy=sprite.flipY?7-y:y;
+  const ink=tilePixel(source,sprite.tile,sx,sy,0);
   // Color 0 is transparent for sprites, so nothing is drawn for it.
-  if(ink){ctx.fillStyle=css565(bankColor(part.paletteBank,ink));ctx.fillRect(128+(part.x+x)*4,128+(part.y+y)*4,4,4);}
+  if(ink){ctx.fillStyle=css565(bankColor(sprite.paletteBank,ink));
+   ctx.fillRect(128+(sprite.x+(frame.dx??0)+x)*4,128+(sprite.y+(frame.dy??0)+y)*4,4,4);}
  }
- $('playbackStatus').textContent=a?`${a.name} · frame ${(playing?playFrame:frameIndex)+1}/${a.frames.length} · 4× preview`+(source?'':' · choose a tileset'):'Create an animation to assemble your tiles.';
+ $('playbackStatus').textContent=!a?'Create an animation to sequence your shapes.'
+  :`${a.name} · frame ${(playing?playFrame:frameIndex)+1}/${a.frames.length} · ${shape?.name??'missing shape'} · 4× preview`;
 }
 $('addAnimation').onclick=()=>{
- if(activeLibrary().length>=255)return;
- let n=activeLibrary().length+1;while(activeLibrary().some(a=>a.name.toLowerCase()==='sprite_'+n))n++;
- spriteEdit(()=>{activeLibrary().push({name:'sprite_'+n,tilesetId:tilesets[0]?.id,frames:[{ticks:6,parts:[]}]});animationIndex=activeLibrary().length-1;frameIndex=0;});
+ if(animations.length>=255||!shapes.length){setStatus(shapes.length?'':'Create a shape first.');return;}
+ let n=animations.length+1;while(animations.some(a=>a.name.toLowerCase()==='animation_'+n))n++;
+ animationEdit(()=>{animations.push({name:'animation_'+n,frames:[{shapeId:shapes[0].id,ticks:6}]});animationIndex=animations.length-1;frameIndex=0;});
 };
-$('animationSelect').onchange=()=>{animationIndex=Number($('animationSelect').value);frameIndex=0;playing=false;renderSprites();};
-$('frameSelect').onchange=()=>{frameIndex=Number($('frameSelect').value);playing=false;renderSprites();};
-$('animationName').onchange=()=>{const name=$('animationName').value;if(!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(name)||activeLibrary().some((a,i)=>i!==animationIndex&&a.name.toLowerCase()===name.toLowerCase())){setStatus('Use a unique name: letters, digits, underscores; start with a letter.');renderSprites();return;}spriteEdit(()=>currentAnimation().name=name);};
-// Changing tileset repoints every tile index at a different bank's graphics, so
-// it is only offered while the group is empty of parts that would break.
-$('animationTileset').onchange=()=>{const id=$('animationTileset').value;if(!tilesetById(id)){renderSprites();return;}spriteEdit(()=>currentAnimation().tilesetId=id);};
-$('frameTicks').onchange=()=>{const value=Number($('frameTicks').value);if(!Number.isInteger(value)||value<1||value>255){renderSprites();return;}spriteEdit(()=>currentFrame().ticks=value);};
-$('duplicateFrame').onclick=()=>{if(currentAnimation().frames.length>=255)return;spriteEdit(()=>{currentAnimation().frames.splice(frameIndex+1,0,structuredClone(currentFrame()));frameIndex++;});};
-$('deleteFrame').onclick=()=>{if(currentAnimation().frames.length===1)return;spriteEdit(()=>{currentAnimation().frames.splice(frameIndex,1);frameIndex=Math.max(0,frameIndex-1);});};
-$('deleteAnimation').onclick=()=>{if(!confirm('Delete this animation?'))return;spriteEdit(()=>{activeLibrary().splice(animationIndex,1);animationIndex=Math.max(0,animationIndex-1);frameIndex=0;});};
-$('spriteUndo').onclick=()=>{if(!spriteHistory.length)return;({animations,sprites}=JSON.parse(spriteHistory.pop()));animationIndex=Math.min(animationIndex,Math.max(0,activeLibrary().length-1));frameIndex=0;playing=false;markDirty();renderSprites();};
-$('playAnimation').onclick=()=>{playing=!playing;playFrame=0;playStart=performance.now();renderSprites();};
-$('useSpriteFrame').onclick=()=>{
- const source=sprites[Number($('spriteLibraryPicker').value)],target=currentAnimation();if(!source||!target)return;
- spriteEdit(()=>{target.tilesetId=source.tilesetId;target.frames[frameIndex].parts=structuredClone(source.frames[0].parts);});
-};
-function animateSprite(now){
+$('animationSelect').onchange=()=>{animationIndex=Number($('animationSelect').value);frameIndex=0;playing=false;renderAnimations();};
+$('animationName').onchange=()=>{const name=$('animationName').value;if(!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(name)||animations.some((a,i)=>i!==animationIndex&&a.name.toLowerCase()===name.toLowerCase())){setStatus('Use a unique name: letters, digits, underscores; start with a letter.');renderAnimations();return;}animationEdit(()=>currentAnimation().name=name);};
+$('addFrame').onclick=()=>{const a=currentAnimation(),id=$('addFrameShape').value;if(!a||!shapeById(id)||a.frames.length>=255)return;animationEdit(()=>{a.frames.push({shapeId:id,ticks:6});frameIndex=a.frames.length-1;});};
+$('duplicateFrame').onclick=()=>{const a=currentAnimation();if(!a||a.frames.length>=255||!currentFrame())return;animationEdit(()=>{a.frames.splice(frameIndex+1,0,structuredClone(currentFrame()));frameIndex++;});};
+$('deleteAnimation').onclick=()=>{if(!currentAnimation()||!confirm('Delete this animation?'))return;animationEdit(()=>{animations.splice(animationIndex,1);animationIndex=Math.max(0,animationIndex-1);frameIndex=0;});};
+$('spriteUndo').onclick=()=>{if(!shapeHistory.length)return;({animations,shapes}=JSON.parse(shapeHistory.pop()));animationIndex=Math.min(animationIndex,Math.max(0,animations.length-1));frameIndex=0;playing=false;markDirty();redrawAll();};
+$('playAnimation').onclick=()=>{playing=!playing;playFrame=0;playStart=performance.now();renderAnimations();};
+function animateShape(now){
  const a=currentAnimation();
  if(playing&&a&&currentView==='animations'){const total=a.frames.reduce((sum,f)=>sum+f.ticks,0);let tick=Math.floor((now-playStart)*60/1000)%total;playFrame=0;while(tick>=a.frames[playFrame].ticks){tick-=a.frames[playFrame].ticks;playFrame++;}}
- drawSpritePreview();requestAnimationFrame(animateSprite);
+ drawAnimationPreview();requestAnimationFrame(animateShape);
 }
-requestAnimationFrame(animateSprite);
+requestAnimationFrame(animateShape);
 
 // ===== project =====
 function newProject() {
   if (dirty && !confirm('Discard unsaved changes?')) return;
   window.studio?.newProject();
-  tilesets = []; animations = []; sprites = []; animationIndex = 0; frameIndex = 0;
-  spriteHistory = []; playing = false;
+  tilesets = []; animations = []; shapes = []; shapeIndex = 0; animationIndex = 0; frameIndex = 0;
+  shapeHistory = []; playing = false;
   loadDefaultPalettes();
   nameInput.value = 'tiles';
   dirty = false; setDirtyLabel(); redrawAll();
@@ -376,13 +387,13 @@ function newProject() {
 }
 function studioProject() {
   return {paletteLibrary:structuredClone(paletteLibrary),paletteConfigs:structuredClone(paletteConfigs),
-   activeConfigId,tilesets:structuredClone(tilesets),sprites:structuredClone(sprites),animations:structuredClone(animations)};
+   activeConfigId,tilesets:structuredClone(tilesets),shapes:structuredClone(shapes),animations:structuredClone(animations)};
 }
 function restoreStudioProject(p,name='Recovered project') {
   paletteLibrary=structuredClone(p.paletteLibrary??[]);paletteConfigs=structuredClone(p.paletteConfigs??[]);
   activeConfigId=p.activeConfigId??paletteConfigs[0]?.id??null;tilesets=structuredClone(p.tilesets??[]);
-  animations=structuredClone(p.animations??[]);sprites=structuredClone(p.sprites??[]);
-  animationIndex=0;frameIndex=0;playing=false;spriteHistory=[];
+  animations=structuredClone(p.animations??[]);shapes=structuredClone(p.shapes??[]);
+  shapeIndex=0;animationIndex=0;frameIndex=0;playing=false;shapeHistory=[];
   setNameFromFile(name);dirty=false;setDirtyLabel();redrawAll();
 }
 async function studioAction(action) { try { await action(); } catch(e) { alert(e.message); setStatus(e.message); } }
@@ -401,21 +412,14 @@ if(!window.studio)for(const id of ['nativeOpen','nativeSave','nativeSaveAs'])$(i
 const descriptions={
  palettes:['Palettes','Palettes hold eight colors. A bank config places sixteen of them in palette RAM; a game loads one config at a time.'],
  tiles:['Tilesets','Each tileset fills one CHR bank. Draw tiles and record which palette bank each was drawn against.'],
- sprites:['Sprite groups','Assemble objects from one tileset’s tiles. Arrange parts around the origin.'],
- animations:['Animations','Arrange sprite frames and set their timing. Preview the result before export.'],
+ shapes:['Shapes','One arrangement of sprites from a single tileset. Later sprites draw on top.'],
+ animations:['Animations','Sequence shapes and set their timing. Editing a shape updates every frame showing it.'],
 };
 function showView(view){
- currentView=view;playing=false;animationIndex=0;frameIndex=0;window.scrollTo(0,0);
+ currentView=view;playing=false;frameIndex=0;window.scrollTo(0,0);
  $('viewTitle').textContent=descriptions[view][0];$('viewHelp').textContent=descriptions[view][1];
- $('spritePanel').hidden=!(view==='sprites'||view==='animations');
- $('timelineControls').hidden=view!=='animations';$('frameLibraryBar').hidden=view!=='animations';
- $('partTools').hidden=view!=='animations';$('partsTable').hidden=view!=='animations';$('partsHelp').hidden=view!=='animations';
- $('spriteSectionTitle').textContent=view==='sprites'?'Sprite assembly':'Animation timeline';
- $('animationSelect').setAttribute('aria-label',view==='sprites'?'Sprite':'Animation');
- $('spriteLibraryPicker').replaceChildren(...sprites.map((sprite,i)=>new Option(sprite.name,String(i))));
- $('useSpriteFrame').disabled=!sprites.length||!animations.length;
- document.querySelectorAll('[data-view]').forEach(button=>button.classList.toggle('on',button.dataset.view===view));
- renderConfigPicker();renderSprites();window.renderBankEditor?.();
+ $('spritePanel').hidden=view!=='animations';
+ renderConfigPicker();renderAnimations();window.renderBankEditor?.();
 }
 document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>showView(button.dataset.view));
 

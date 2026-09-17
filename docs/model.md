@@ -221,10 +221,10 @@ primary and an alternate CHR bank with `CHR_ALT` choosing per cell. Cells are
 arranged by `BGMODE` across up to eight 40 by 25 tables rather than placed
 freely.
 
-A **scene editor** combines backgrounds, sprite groups, and a bank config into
-one screen, and is where the remaining validations belong: that every group in
+A **scene editor** combines backgrounds, shapes, and a bank config into
+one screen, and is where the remaining validations belong: that every shape in
 a scene draws from the same tileset, that OAM bases give the intended
-cross-group priority, and that the scene's config matches what its placements
+cross-shape priority, and that the scene's config matches what its placements
 assume. Sprite-versus-background priority bits are set here.
 
 Packing several tilesets into one CHR bank, with tile indices rebased at build

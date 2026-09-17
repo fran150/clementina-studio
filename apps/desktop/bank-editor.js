@@ -22,12 +22,12 @@
  let index=0,selection={x:0,y:0,width:1,height:1},palette=0,ink=1,tool='pencil',undo=[],redo=[],reference=null,anchor=null,stroke=null,last=null;
  const asset=()=>tilesets[index];
  // Colors live in the shared library, so history has to carry it alongside the
- // banks. Sprite groups keep their own history and are only folded in for the
+ // banks. Shapes keep their own history and are only folded in for the
  // rare edit that spans both, so ordinary drawing cannot revert sprite work.
- const snapshot=withGroups=>JSON.stringify({tilesets:tilesets,paletteLibrary,...(withGroups?{sprites,animations}:{})});
+ const snapshot=withShapes=>JSON.stringify({tilesets:tilesets,paletteLibrary,...(withShapes?{shapes,animations}:{})});
  function restore(state){
   tilesets=state.tilesets;paletteLibrary=state.paletteLibrary;
-  if(state.sprites){sprites=state.sprites;animations=state.animations;}
+  if(state.shapes){shapes=state.shapes;animations=state.animations;}
   reference=tilesets;index=Math.min(index,tilesets.length-1);
  }
  function remember(withGroups){undo.push(snapshot(withGroups));if(undo.length>50)undo.shift();redo=[];}
@@ -166,7 +166,7 @@
  // The plane is which of a 1bpp tileset's three pages is on screen, not a
  // property of the tileset, so switching it is not a project edit.
  $('bankFilePlane').onchange=()=>{plane=Number($('bankFilePlane').value);render();};
- function step(from,to){if(!from.length)return;const state=JSON.parse(from.pop());to.push(snapshot('sprites' in state));restore(state);changed();if(window.renderPaletteLibrary)window.renderPaletteLibrary();}
+ function step(from,to){if(!from.length)return;const state=JSON.parse(from.pop());to.push(snapshot('shapes' in state));restore(state);changed();if(window.renderPaletteLibrary)window.renderPaletteLibrary();}
  $('bankUndo').onclick=()=>step(undo,redo);
  $('bankRedo').onclick=()=>step(redo,undo);
  $('saveComposition').onclick=()=>{let n=1;while(asset().compositions.some(c=>c.name==='Object_'+n))n++;const name='Object_'+n;mutate(()=>{asset().compositions.push({name,...selection});objectIndex=asset().compositions.length-1;});startRename($('compositionList'),objectIndex,name,renameObject);};
@@ -367,10 +367,10 @@
 
  const importArtwork=document.createElement('button');importArtwork.id='importBankImage';importArtwork.textContent='Import image…';importArtwork.title='Import PNG, BMP or GIF artwork into this tileset';$('bankMap').before(importArtwork);
  importArtwork.onclick=()=>studioAction(async()=>{const target=asset();if(!target)return;
-  // Banks a sprite already names are protected: reassigning their colors would
-  // recolor art elsewhere in the project.
+  // Banks a shape's sprites already name are protected: reassigning their colors
+  // would recolor art elsewhere in the project.
   const protectedPalettes=new Set();
-  for(const library of [sprites,animations])for(const item of library)if(item.tilesetId===target.id)for(const frame of item.frames)for(const part of frame.parts)protectedPalettes.add(part.paletteBank);
+  for(const shape of shapes)if(shape.tilesetId===target.id)for(const sprite of shape.sprites)protectedPalettes.add(sprite.paletteBank);
   // Import reads and writes flattened palette RAM. Whatever it invents is
   // interned into the library and placed in the active config's banks.
   await window.openTilesetImageImport({tileset:{...target,plane,palettes:resolveActiveConfig()},selection:{...selection},protectedPalettes,

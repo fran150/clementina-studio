@@ -22,7 +22,7 @@ test('two banks of one config may hold the same palette',()=>{
  const library=[palette('a',Array(8).fill(7))];
  const configs=[];const c=createConfig(configs,library,'Doubled',['a','a',...Array(14).fill(null)]);
  assert.equal(c.banks[0],c.banks[1]);
- validateProject({paletteLibrary:library,paletteConfigs:configs,tilesets:[],sprites:[],animations:[]});
+ validateProject({paletteLibrary:library,paletteConfigs:configs,tilesets:[],shapes:[],animations:[]});
 });
 
 test('a new config fills banks from the library in order and names itself uniquely',()=>{
@@ -52,7 +52,7 @@ test('interning reuses a palette whose colors already exist',()=>{
 });
 
 test('a config names a palette, or nothing, for exactly sixteen banks',()=>{
- const base=()=>({paletteLibrary:[palette('a',Array(8).fill(0))],paletteConfigs:[config('c',['a',...Array(15).fill(null)])],tilesets:[],sprites:[],animations:[]});
+ const base=()=>({paletteLibrary:[palette('a',Array(8).fill(0))],paletteConfigs:[config('c',['a',...Array(15).fill(null)])],tilesets:[],shapes:[],animations:[]});
  validateProject(base());
  for(const mutate of [
   p=>p.paletteConfigs[0].banks.pop(),

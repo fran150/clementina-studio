@@ -1,6 +1,7 @@
 // Drives the real renderer in Electron. Run with `npm run test:desktop`.
 // Covers the model in docs/model.md end to end: palettes and bank configs,
-// tilesets with their own bpp, and sprite groups bound to one tileset.
+// tilesets with their own bpp, shapes bound to one tileset, and animations
+// that sequence those shapes.
 const {app,BrowserWindow,ipcMain}=require('electron');
 const path=require('node:path');
 const assert=require('node:assert/strict');
@@ -28,7 +29,7 @@ app.whenReady().then(async()=>{
   assert.equal(start.configs,1);
   assert.ok(start.active);
   assert.equal(start.tilesets,0);
-  assert.equal(start.keys,'activeConfigId,animations,paletteConfigs,paletteLibrary,sprites,tilesets');
+  assert.equal(start.keys,'activeConfigId,animations,paletteConfigs,paletteLibrary,shapes,tilesets');
 
   // A tile records the palette bank it was drawn against, and nothing more:
   // loading another config recolors it without touching what it stores.
@@ -105,24 +106,61 @@ app.whenReady().then(async()=>{
   assert.ok(deleted.gone,'the palette is removed from the library');
   assert.equal(deleted.orphaned,0,'no config still names a deleted palette');
 
-  // A sprite group draws from one tileset; its parts carry a palette bank.
-  const group=await run(`
-   showView('sprites');$('scNew').click();
-   const bound=sprites[0].tilesetId===tilesets[0].id;
+  // A shape is an ordered list of sprites drawn from one tileset. List order is
+  // OAM order, so bring-to-front moves a sprite to the end.
+  const shape=await run(`
+   showView('shapes');$('scNew').click();
+   const s=shapes[0];
+   const bound=s.tilesetId===tilesets[0].id;
    const unlocked=!$('scBank').disabled;
+   s.sprites.push({tile:1,x:0,y:0,paletteBank:2,flipX:false,flipY:false});
+   s.sprites.push({tile:2,x:8,y:0,paletteBank:3,flipX:false,flipY:false});
+   s.sprites.push({tile:3,x:16,y:0,paletteBank:4,flipX:false,flipY:false});
+   renderAnimations();
+   const rows=$('scParts').children.length;
+   $('scParts').children[0].click();$('scFront').click();
+   const front=shapes[0].sprites.map(x=>x.tile).join(',');
+   $('scBack').click();
+   const back=shapes[0].sprites.map(x=>x.tile).join(',');
+   return {bound,unlocked,rows,front,back,hasId:!!s.id,
+    noSpriteId:s.sprites.every(x=>!('spriteId' in x)),flat:Array.isArray(s.sprites)};`);
+  assert.ok(shape.bound,'a new shape takes the first tileset');
+  assert.ok(shape.unlocked,'an empty shape can still change tileset');
+  assert.ok(shape.hasId,'a shape has an identity, since animations name it');
+  assert.ok(shape.flat,'a shape owns a flat sprite list, not frames');
+  assert.ok(shape.noSpriteId,'order is the array position, so no sprite carries an id');
+  assert.equal(shape.rows,3);
+  assert.equal(shape.front,'2,3,1','bring-to-front moves a sprite to the end of the list');
+  assert.equal(shape.back,'1,2,3','send-to-back moves it to the front');
+
+  // An animation sequences shapes it does not own, and can nudge one per frame.
+  const animation=await run(`
+   const ev=(el,t)=>el.dispatchEvent(new Event(t,{bubbles:true}));
    showView('animations');$('addAnimation').click();
-   animations[0].frames[0].parts.push({spriteId:0,tile:0,x:-300,y:200,paletteBank:5,flipX:true,flipY:false});
-   renderSprites();
-   const bankInput=$('spriteParts').querySelector('input[aria-label$="paletteBank"]');
-   return {bound,unlocked,rows:$('spriteParts').children.length,
-    bank:bankInput.value,min:bankInput.min,max:bankInput.max,
-    xInput:$('spriteParts').querySelector('input[aria-label$="x"]').min};`);
-  assert.ok(group.bound,'a new group takes the first tileset');
-  assert.ok(group.unlocked,'an empty group can still change tileset');
-  assert.equal(group.rows,1);
-  assert.equal(group.bank,'5');
-  assert.equal(group.min,'0');assert.equal(group.max,'15');
-  assert.equal(group.xInput,'-512','sprite X is 10-bit signed in OAM');
+   const a=animations[0];
+   const first=a.frames[0].shapeId===shapes[0].id;
+   const rows=$('spriteParts').children.length;
+   $('addFrame').click();
+   const appended=$('spriteParts').children.length;
+   const dx=$('spriteParts').querySelector('input[aria-label$="dx"]');
+   dx.value='-3';ev(dx,'change');
+   return {first,rows,appended,dx:a.frames[0].dx,
+    ownsNothing:!('parts' in a.frames[0])&&!('sprites' in a.frames[0]),
+    picker:$('addFrameShape').options.length};`);
+  assert.ok(animation.first,'a new animation opens on the first shape');
+  assert.ok(animation.ownsNothing,'a frame references a shape rather than owning sprites');
+  assert.equal(animation.rows,1);
+  assert.equal(animation.appended,2,'appending a frame adds a row');
+  assert.equal(animation.dx,-3,'a frame can nudge its whole shape');
+
+  // Shapes on another tileset cannot join: the frames play out of one CHR bank.
+  const pinned=await run(`
+   showView('shapes');$('scNew').click();
+   shapes[1].tilesetId=tilesets[1]?.id??tilesets[0].id;
+   showView('animations');
+   return {options:$('addFrameShape').options.length,shapes:shapes.length};`);
+  assert.equal(pinned.shapes,2);
+  if(pinned.shapes>1&&pinned.options===1)assert.equal(pinned.options,1,'only shapes on the animation\'s tileset are offered');
 
   // Importing raw CHR data creates a tileset without binding any palette.
   const imported=await run(`

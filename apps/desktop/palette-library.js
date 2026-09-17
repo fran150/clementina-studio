@@ -65,7 +65,6 @@
 
  let index=0,editing=0;
  const palette=()=>paletteLibrary[index];
- const groups=()=>[...sprites,...animations];
  function iconButton(id,label,path){
   const button=document.createElement('button');button.id=id;button.title=label;button.setAttribute('aria-label',label);
   button.innerHTML=`<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
@@ -168,7 +167,7 @@
  // ===== bank configs =====
  // Editing a config edits what every other editor previews, so the whole app
  // redraws rather than just this panel.
- function configEdit(fn){graphicsEdit(fn);renderConfigPicker();window.renderBankEditor?.();renderSprites();}
+ function configEdit(fn){graphicsEdit(fn);renderConfigPicker();window.renderBankEditor?.();renderAnimations();}
  function renameConfig(config){
   const name=prompt('Config name',config.name)?.trim();
   if(!name||name===config.name)return;
