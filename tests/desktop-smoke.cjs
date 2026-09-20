@@ -107,31 +107,48 @@ app.whenReady().then(async()=>{
   assert.equal(deleted.orphaned,0,'no config still names a deleted palette');
 
   // A shape is an ordered list of sprites drawn from one tileset. List order is
-  // OAM order, so bring-to-front moves a sprite to the end.
+  // OAM order. Switching tileset is never locked: a sprite only names a tile
+  // index, so switching repoints it at the new tileset's graphics without
+  // touching the sprite itself, and switching back restores the shape exactly.
   const shape=await run(`
-   showView('shapes');$('scNew').click();
+   showView('shapes');$('addBankFile').click();$('scNew').click();
    const s=shapes[0];
    const bound=s.tilesetId===tilesets[0].id;
-   const unlocked=!$('scBank').disabled;
+   const bankRows=$('scBank').children.length;
    s.sprites.push({tile:1,x:0,y:0,paletteBank:2,flipX:false,flipY:false});
    s.sprites.push({tile:2,x:8,y:0,paletteBank:3,flipX:false,flipY:false});
    s.sprites.push({tile:3,x:16,y:0,paletteBank:4,flipX:false,flipY:false});
    renderAnimations();
+   const before=JSON.stringify(s.sprites);
+   $('scBank').children[1].click();
+   const switched=shapes[0].tilesetId===tilesets[1].id&&JSON.stringify(shapes[0].sprites)===before;
+   $('scBank').children[0].click();
+   const restored=shapes[0].tilesetId===tilesets[0].id&&JSON.stringify(shapes[0].sprites)===before;
    const rows=$('scParts').children.length;
+   const paletteBankRows=$('scPalettes').children.length;
    $('scParts').children[0].click();$('scFront').click();
    const front=shapes[0].sprites.map(x=>x.tile).join(',');
    $('scBack').click();
    const back=shapes[0].sprites.map(x=>x.tile).join(',');
-   return {bound,unlocked,rows,front,back,hasId:!!s.id,
+   $('scMoveUp').click();
+   const up=shapes[0].sprites.map(x=>x.tile).join(',');
+   $('scMoveDown').click();
+   const down=shapes[0].sprites.map(x=>x.tile).join(',');
+   return {bound,bankRows,switched,restored,rows,paletteBankRows,front,back,up,down,hasId:!!s.id,
     noSpriteId:s.sprites.every(x=>!('spriteId' in x)),flat:Array.isArray(s.sprites)};`);
   assert.ok(shape.bound,'a new shape takes the first tileset');
-  assert.ok(shape.unlocked,'an empty shape can still change tileset');
+  assert.equal(shape.bankRows,2,'the tileset picker lists every tileset');
+  assert.ok(shape.switched,'a shape with sprites can still switch tileset, unchanged sprites and all');
+  assert.ok(shape.restored,'switching back restores the shape exactly');
   assert.ok(shape.hasId,'a shape has an identity, since animations name it');
   assert.ok(shape.flat,'a shape owns a flat sprite list, not frames');
   assert.ok(shape.noSpriteId,'order is the array position, so no sprite carries an id');
   assert.equal(shape.rows,3);
+  assert.equal(shape.paletteBankRows,16,'the palette dock is palette RAM: always sixteen banks');
   assert.equal(shape.front,'2,3,1','bring-to-front moves a sprite to the end of the list');
   assert.equal(shape.back,'1,2,3','send-to-back moves it to the front');
+  assert.equal(shape.up,'2,1,3','move up steps a sprite one OAM index forward');
+  assert.equal(shape.down,'1,2,3','move down steps it back');
 
   // An animation sequences shapes it does not own, and can nudge one per frame.
   const animation=await run(`

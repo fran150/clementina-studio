@@ -51,9 +51,13 @@ and which shape loads at which OAM base. See [model.md](model.md).
 
 **Shapes.** Create a shape, pick its tileset, then select tiles from the tile
 map and place them around the origin. Drag to move, arrows nudge by a pixel,
-and bring-to-front and send-to-back reorder the list. The tileset is locked
-once a shape holds sprites, since changing it would repoint every tile index
-at different graphics.
+and the flip and reorder controls on the right edge move or mirror the
+selected sprites — move up/down step one OAM index, bring-to-front and
+move-to-bottom go all the way to an end of the list. A shape's tileset can be
+switched at any time, even with sprites already placed: a sprite carries only
+a tile index, so switching repoints every sprite at that index in the new
+tileset rather than needing any migration. Switch back and the shape looks
+right again, since nothing about the sprites themselves changed.
 
 **Animations.** Append shapes as frames, set each frame's duration and offset,
 and press Play. The preview is 4× with a central origin; large offsets may

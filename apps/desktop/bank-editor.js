@@ -2,14 +2,28 @@
 // palette bank numbers are authoring intent, recorded alongside the pixels.
 (() => {
  const host=document.createElement('section');host.id='namedBankEditor';
- host.innerHTML=`<aside class="bankLibrary"><h2>Tilesets</h2><div id="bankFiles" role="listbox" aria-label="Tilesets"></div><div class="bankActions"><button id="addBankFile">New</button><button id="copyBankFile">Duplicate</button><button id="importBankFile">Import tileset…</button><button id="deleteBankFile">Delete</button></div><p>Each tileset fills one CHR bank. Which bank it lands in is decided when the game is built, so a project can hold more than eight.</p></aside>
- <aside class="bankLibrary objectLibrary"><h2>Objects</h2><div id="compositionList" role="listbox" aria-label="Objects"></div><div class="bankActions"><button id="saveComposition">New</button><button id="deleteComposition">Delete</button></div><p>Select a rectangle in the tile map and click New. Double-click an object to rename it. Deleting an object keeps its pixels.</p></aside><div class="bankWork"><p id="emptyBank">Create or import a tileset to start drawing.</p><div id="bankEditorContents"><div class="bankActions"><label>Mode <select id="bankFileMode"><option value="3">3 bpp · 8 colors</option><option value="1">1 bpp · 2 colors</option></select></label><label id="bankFilePlaneLabel">Plane <select id="bankFilePlane"><option>0</option><option>1</option><option>2</option></select></label><button id="bankUndo">Undo</button><button id="bankRedo">Redo</button></div>
+ host.innerHTML=`<aside class="bankLibrary"><h2>Tilesets</h2><div id="bankFileActions" class="assetToolbar"></div><div id="bankFiles" role="listbox" aria-label="Tilesets"></div></aside>
+ <aside class="bankLibrary objectLibrary"><h2>Objects</h2><div id="compositionList" role="listbox" aria-label="Objects"></div><div class="bankActions"><button id="saveComposition">New</button><button id="deleteComposition">Delete</button></div></aside><div class="bankWork"><p id="emptyBank">Create or import a tileset to start drawing.</p><div id="bankEditorContents"><div class="bankActions"><label>Mode <select id="bankFileMode"><option value="3">3 bpp · 8 colors</option><option value="1">1 bpp · 2 colors</option></select></label><label id="bankFilePlaneLabel">Plane <select id="bankFilePlane"><option>0</option><option>1</option><option>2</option></select></label><button id="bankUndo">Undo</button><button id="bankRedo">Redo</button></div>
  <div class="bankCanvases"><div><h2>Tile map · drag to select tiles</h2><canvas id="bankMap" width="384" height="384"></canvas><p id="bankSelectionInfo"></p></div>
  <div class="selectionWork"><h2>Selected tiles</h2><div class="bankActions"><button id="pencilTool">Pencil</button><button id="fillTool">Fill</button><button id="zoomOut">−</button><span id="zoomLabel"></span><button id="zoomIn">+</button><label><input id="cellGrid" type="checkbox" checked>Tile grid</label></div><div class="selectionScroll"><canvas id="bankSelection"></canvas></div><p>Hover a tile to highlight the bank it was drawn against. Click a swatch to record that bank on the tile and choose your drawing color.</p></div></div>
- <section class="inlinePalettes"><h2>Palette banks · double-click a color to edit it · this is the active config's palette RAM</h2><div id="bankSwatches"></div><input id="bankColor" type="color" style="position:absolute;opacity:0;width:1px;height:1px"><p id="tilePaletteInfo"></p></section><div class="bankActions"><label>Preview background (color 0 / transparent) <input id="previewBackground" type="color" value="#252830"></label><span>Preview only — does not change exported palette colors.</span></div></div></div>`;
- $('workspace').append(host);
+ <section class="inlinePalettes"><div class="paletteDockHead"><label id="bankConfigWrap">Group <select id="bankConfigPicker" aria-label="Palette bank group"></select></label></div><div id="bankSwatches"></div><input id="bankColor" type="color" style="position:absolute;opacity:0;width:1px;height:1px"></section><div class="bankActions"><label>Preview background (color 0 / transparent) <input id="previewBackground" type="color" value="#252830"></label><span>Preview only — does not change exported palette colors.</span></div></div></div>`;
+ // Inserted before the footer, not appended to #workspace, so the status bar
+ // stays at the bottom of the page instead of landing above this section.
+ $('spritePanel').after(host);
  const style=document.createElement('style');style.textContent=`#namedBankEditor{display:flex;gap:20px;padding:18px;align-items:flex-start}.bankLibrary{width:210px;flex-shrink:0;background:var(--panel);padding:14px;border:1px solid var(--line);border-radius:8px}.bankLibrary select{width:100%;min-height:230px}.bankLibrary input{width:100%;margin-top:8px}.bankLibrary p,.bankWork p{color:var(--text-dim);font-size:11px;line-height:1.6}.bankWork{flex:1;min-width:0}.bankActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.bankCanvases{display:flex;flex-wrap:wrap;gap:22px}#bankMap{width:384px;height:384px;touch-action:none;cursor:crosshair}#bankSelection{image-rendering:pixelated;touch-action:none;cursor:crosshair}.selectionScroll{max-width:100%;max-height:520px;overflow:auto;background:#111}.selectionWork{flex:1;min-width:300px}#bankSwatches{display:flex;gap:5px}#bankSwatches button{width:30px;height:30px}.inlinePalettes{padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-top:16px}#namedBankEditor h2{font-size:12px;color:var(--text-dim)}#namedBankEditor input{background:var(--panel);color:var(--text);border:1px solid var(--line);padding:5px}#bankFiles option{padding:7px}#bankFiles{background:var(--bg)}`;style.textContent+=`.objectLibrary{width:160px}.bankLibrary{width:170px}#bankSwatches{display:grid;grid-template-columns:repeat(4,max-content);gap:2px 8px}.paletteGroup{display:flex;align-items:center;gap:2px;padding:3px;border:2px solid transparent;border-radius:4px}.paletteGroup span{width:20px;color:var(--text-dim)}.paletteGroup.activePalette{border-color:#36c9d6}.paletteGroup button{width:18px!important;height:18px!important;padding:0;border-radius:2px}.paletteGroup button.chosenColor{outline:2px solid white;outline-offset:-4px}.inlinePalettes{width:fit-content}.bankCanvases{gap:14px}#bankMap{width:320px;height:320px}.selectionWork{min-width:240px}.selectionScroll{max-height:450px}#emptyBank{font-size:16px;padding:50px 10px}`;
  document.head.append(style);
+ // Mirrors the Palettes workspace's small icon-only list toolbar.
+ function assetToolbarButton(id,label,path){
+  const button=document.createElement('button');button.id=id;button.title=label;button.setAttribute('aria-label',label);
+  button.innerHTML=`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
+  return button;
+ }
+ for(const [id,label,path] of [
+  ['addBankFile','New tileset','<path d="M12 4v16M4 12h16"/>'],
+  ['copyBankFile','Duplicate tileset','<rect x="8" y="8" width="13" height="13" rx="1"/><path d="M16 8V4H3v13h5"/>'],
+  ['importBankFile','Import tileset…','<path d="M12 3v10m0 0-3.5-3.5M12 13l3.5-3.5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>'],
+  ['deleteBankFile','Delete tileset','<path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v8M14 10v8"/>']
+ ]){$('bankFileActions').append(assetToolbarButton(id,label,path));}
  const palettePanel=host.querySelector('.inlinePalettes');const canvasPanel=host.querySelector('.bankCanvases');canvasPanel.before(palettePanel);
  const backgroundRow=$('previewBackground').closest('.bankActions');canvasPanel.before(backgroundRow);
  let pixelSelection=null,selectStart=null,pixelClipboard=null,colorClipboard=null,pasteAnchor=null,clipboardArea='pixels',lastPixel=[0,0];
@@ -19,6 +33,9 @@
  let shapeStart=null,shapeEnd=null,miniVisible=false;
  let erasing=false,hovering=false,objectIndex=-1,targetTile=0,zoom=8,colorEdit={bank:0,ink:1};
  let plane=0;
+ // Color 0 is a background tile’s background color and transparent for sprites.
+ // Which of the two the canvas and the swatches show is a view choice.
+ let zeroAsColor=false;
  let index=0,selection={x:0,y:0,width:1,height:1},palette=0,ink=1,tool='pencil',undo=[],redo=[],reference=null,anchor=null,stroke=null,last=null;
  const asset=()=>tilesets[index];
  // Colors live in the shared library, so history has to carry it alongside the
@@ -51,42 +68,58 @@
   $('bankUndo').disabled=!undo.length;$('bankRedo').disabled=!redo.length;
   $('pencilTool').classList.toggle('on',tool==='pencil');$('eraserTool').classList.toggle('on',tool==='eraser');$('pickerTool').classList.toggle('on',tool==='picker');$('fillTool').classList.toggle('on',tool==='fill');$('zoomLabel').textContent=zoom+'×';$('zoomOut').disabled=zoom===1;$('zoomIn').disabled=zoom===32;
   $('previewBackground').value=a.previewBackground??'#252830';
+  $('zeroMode').value=zeroAsColor?'background':'transparent';$('previewBackground').disabled=zeroAsColor;backgroundRow.style.opacity=zeroAsColor?'.45':'';
   $('bankSelectionInfo').textContent=`${selection.width} × ${selection.height} tiles · ${selection.width*8} × ${selection.height*8} pixels`;
   const map=$('bankMap'),m=map.getContext('2d');
   for(let t=0;t<256;t++)for(let y=0;y<8;y++)for(let x=0;x<8;x++){m.fillStyle=pixelColor(a,t,x,y);m.fillRect((t%16*8+x)*3,(Math.floor(t/16)*8+y)*3,3,3);}
   m.strokeStyle='#ffffff30';m.lineWidth=1;for(let n=0;n<=16;n++){m.beginPath();m.moveTo(n*24,0);m.lineTo(n*24,384);m.moveTo(0,n*24);m.lineTo(384,n*24);m.stroke();}
-  if(usagePalette!==null){for(let t=0;t<256;t++)if(a.tilePaletteBanks[t]===usagePalette){m.fillStyle='#36c9d650';m.fillRect(t%16*24,Math.floor(t/16)*24,24,24);m.strokeStyle='#fff';m.strokeRect(t%16*24+.5,Math.floor(t/16)*24+.5,23,23);}}
+  if(usagePalette!==null)for(let t=0;t<256;t++)if(a.tilePaletteBanks[t]===usagePalette){m.fillStyle='#36c9d650';m.fillRect(t%16*24,Math.floor(t/16)*24,24,24);m.strokeStyle='#fff';m.strokeRect(t%16*24+.5,Math.floor(t/16)*24+.5,23,23);}
   m.strokeStyle='#36c9d6';m.lineWidth=3;m.strokeRect(selection.x*24+1.5,selection.y*24+1.5,selection.width*24-3,selection.height*24-3);
   const canvas=$('bankSelection'),scale=zoom;canvas.width=selection.width*8*scale;canvas.height=selection.height*8*scale;const c=canvas.getContext('2d');
-  for(let cy=0;cy<selection.height;cy++)for(let cx=0;cx<selection.width;cx++){const t=(selection.y+cy)*16+selection.x+cx;for(let y=0;y<8;y++)for(let x=0;x<8;x++){c.fillStyle=pixelColor(a,t,x,y);c.fillRect((cx*8+x)*scale,(cy*8+y)*scale,scale,scale);}if($('cellGrid').checked){c.strokeStyle='#36c9d680';c.strokeRect(cx*8*scale+.5,cy*8*scale+.5,8*scale-1,8*scale-1);}}
+  for(let cy=0;cy<selection.height;cy++)for(let cx=0;cx<selection.width;cx++){const t=(selection.y+cy)*16+selection.x+cx;for(let y=0;y<8;y++)for(let x=0;x<8;x++){c.fillStyle=pixelColor(a,t,x,y);c.fillRect((cx*8+x)*scale,(cy*8+y)*scale,scale,scale);}}
+  // Past 16x a solid fill no longer shows where one pixel ends and the next begins.
+  if(scale>=16){c.strokeStyle='#ffffff30';c.lineWidth=1;c.beginPath();for(let px=1;px<selection.width*8;px++){c.moveTo(px*scale+.5,0);c.lineTo(px*scale+.5,selection.height*8*scale);}for(let py=1;py<selection.height*8;py++){c.moveTo(0,py*scale+.5);c.lineTo(selection.width*8*scale,py*scale+.5);}c.stroke();}
+  if($('cellGrid').checked)for(let cy=0;cy<selection.height;cy++)for(let cx=0;cx<selection.width;cx++){c.strokeStyle='#36c9d680';c.strokeRect(cx*8*scale+.5,cy*8*scale+.5,8*scale-1,8*scale-1);}
   refreshPalettes();
   renderList($('compositionList'),a.compositions,objectIndex,selectObject,renameObject);
   for(const id of ['line','rectangle','ellipse'])$(id+'Tool').classList.toggle('on',tool===id);
   $('drawingFlyout').style.bottom=($('paletteDock').offsetHeight+($('drawingStatus')?.offsetHeight??0))+'px';
   for(const name of ['solid','checker','stripes']){const b=$('fillPattern_'+name);if(b){b.disabled=!(tool==='fill'||(['rectangle','ellipse'].includes(tool)&&$('filledShapes').checked));b.classList.toggle('on',fillPattern===name);b.setAttribute('aria-pressed',String(fillPattern===name));}}if($('filledShapeToggle')){$('filledShapeToggle').disabled=!['rectangle','ellipse'].includes(tool);$('filledShapeToggle').classList.toggle('on',$('filledShapes').checked);$('filledShapeToggle').setAttribute('aria-pressed',String($('filledShapes').checked));}
-  drawMiniature();drawPixelOverlay();if(usagePalette!==null){const ctx=$('bankSelection').getContext('2d');for(let y=0;y<selection.height;y++)for(let x=0;x<selection.width;x++)if(a.tilePaletteBanks[(selection.y+y)*16+selection.x+x]===usagePalette){ctx.fillStyle='#36c9d630';ctx.fillRect(x*8*zoom,y*8*zoom,8*zoom,8*zoom);ctx.strokeStyle='#36c9d6';ctx.lineWidth=2;ctx.strokeRect(x*8*zoom+1,y*8*zoom+1,8*zoom-2,8*zoom-2);}}updateStatus();for(const id of ['flipHorizontal','flipVertical','rotateSelection'])$(id).disabled=!pixelSelection;$('selectionTool').classList.toggle('on',tool==='select');$('copyPixels').disabled=!pixelSelection;$('pastePixels').disabled=!pixelClipboard;
+  drawMiniature();drawPixelOverlay();drawUsageOverlay();updateStatus();for(const id of ['flipHorizontal','flipVertical','rotateSelection'])$(id).disabled=!pixelSelection;$('selectionTool').classList.toggle('on',tool==='select');$('copyPixels').disabled=!pixelSelection;$('pastePixels').disabled=!pixelClipboard;
  } 
- function pixelColor(a,t,x,y){const value=sample(a,t,x,y);return value===0?(a.previewBackground??'#252830'):css565(bankColor(a,a.tilePaletteBanks[t],value));}
+ function pixelColor(a,t,x,y){const value=sample(a,t,x,y);const bank=a.tilePaletteBanks[t];return value===0?zeroColor(a,bank):css565(bankColor(bank,value));}
+ function zeroColor(a,bank){return zeroAsColor?css565(bankColor(bank,0)):(a.previewBackground??'#252830');}
+ function drawUsageOverlay(){
+  const a=asset();if(!a||usagePalette===null)return;const ctx=$('bankSelection').getContext('2d');ctx.lineWidth=2;
+  for(let y=0;y<selection.height;y++)for(let x=0;x<selection.width;x++)if(a.tilePaletteBanks[(selection.y+y)*16+selection.x+x]===usagePalette){
+   ctx.fillStyle='#36c9d630';ctx.fillRect(x*8*zoom,y*8*zoom,8*zoom,8*zoom);ctx.strokeStyle='#36c9d6';ctx.strokeRect(x*8*zoom+1,y*8*zoom+1,8*zoom-2,8*zoom-2);}
+ }
+ // The picker is rebuilt only when the groups themselves change, so hovering a
+ // swatch cannot collapse it while it is open.
+ function syncConfigPicker(){
+  const picker=$('bankConfigPicker'),signature=paletteConfigs.map(c=>c.id+'\u0000'+c.name).join('\u0001');
+  if(picker.dataset.signature!==signature){picker.dataset.signature=signature;picker.replaceChildren(...paletteConfigs.map(c=>new Option(c.name,c.id)));}
+  picker.value=activeConfig()?.id??'';picker.disabled=paletteConfigs.length<2;
+  $('bankConfigWrap').title=paletteConfigs.length<2?'Add more bank groups in Palettes to switch between them'
+   :'Which group of palette banks every editor previews with. Preview only \u2014 it does not change what a project exports.';
+ }
  function refreshPalettes(){
   const a=asset();if(!a)return;
   ensureBankRows();
   // 1bpp tiles carry colors 0 and 1 only, whichever bank they name.
   const limit=a.bpp===1?1:7;
   if(ink>limit)ink=1;
-  for(const b of $('bankSwatches').querySelectorAll('.paletteUsage')){const p=+b.dataset.palette,n=a.tilePaletteBanks.filter(v=>v===p).length;b.textContent=n||'—';b.title=n?`${n} tiles were drawn against bank ${String(p).padStart(2,'0')}, including blank tiles. Hover to locate them.`:`Bank ${String(p).padStart(2,'0')}: no tiles drawn against it`;}
-  $('bankSwatches').querySelectorAll('button[data-ink]').forEach(button=>{const p=Number(button.dataset.palette),i=Number(button.dataset.ink);button.style.background=i===0?'linear-gradient(135deg,white 43%,#e32636 44%,#e32636 56%,white 57%)':css565(bankColor(p,i));button.classList.toggle('chosenColor',p===palette&&i===ink);button.disabled=i>limit;
-   button.title=i===0?'Color 0 — transparent for sprites and the overlay, drawn on background cells':`${bankPalette(p)?.name??'Empty bank'} · color ${i}`;button.setAttribute('aria-label',button.title);});
-  $('bankSwatches').querySelectorAll('.paletteBinding').forEach(button=>{
-   const bank=Number(button.dataset.palette),palette=bankPalette(bank);
-   button.textContent=palette?palette.name:'— empty —';
-   button.title=palette?`${palette.name} is in bank ${bank} under "${activeConfig().name}". Open Palettes to change what this config loads.`
-    :`Bank ${bank} holds nothing in "${activeConfig().name}". Open Palettes to fill it.`;
-   button.setAttribute('aria-label',button.title);
+  $('bankSwatches').querySelectorAll('button[data-ink]').forEach(button=>{const p=Number(button.dataset.palette),i=Number(button.dataset.ink);button.style.background=i===0&&!zeroAsColor?'linear-gradient(135deg,white 43%,#e32636 44%,#e32636 56%,white 57%)':css565(bankColor(p,i));button.classList.toggle('chosenColor',p===palette&&i===ink);button.disabled=i>limit;
+   button.title=i===0&&!zeroAsColor?'Color 0 — transparent for sprites and the overlay, drawn on background cells':`${bankPalette(p)?.name??'Empty bank'} · color ${i}`;button.setAttribute('aria-label',button.title);});
+  // The bank’s palette name is on the row itself now that no button carries it.
+  $('bankSwatches').querySelectorAll('.paletteGroup').forEach(row=>{
+   const bank=Number(row.dataset.palette);
+   row.classList.toggle('activePalette',hovering&&bank===a.tilePaletteBanks[targetTile]);
+   row.classList.toggle('usageSource',bank===usagePalette);
+   row.title=`Bank ${String(bank).padStart(2,'0')} · ${bankPalette(bank)?.name??'empty in "'+activeConfig().name+'"'}`;
   });
-  $('bankSwatches').querySelectorAll('.paletteGroup').forEach(row=>row.classList.toggle('activePalette',hovering&&Number(row.dataset.palette)===a.tilePaletteBanks[targetTile]));
   $('copyColor').disabled=ink===0;$('pasteColor').disabled=colorClipboard===null||ink===0;
-  $('tilePaletteInfo').textContent=hovering?`Under cursor: tile ${targetTile} · palette bank ${a.tilePaletteBanks[targetTile]} (${bankPalette(a.tilePaletteBanks[targetTile])?.name??'empty'})`
-   :'Hover a tile to inspect the bank it was drawn against. Painting records the selected color\u2019s bank.';
+  syncConfigPicker();
  }
  const historyBar=document.createElement('div');historyBar.className='bankActions';historyBar.append($('bankUndo'),$('bankRedo'));host.querySelector('.bankLibrary').append(historyBar);
  window.renderBankEditor=render;
@@ -122,12 +155,13 @@
   const label=document.createElement('span');label.textContent=String(b).padStart(2,'0');group.append(label);
   for(let i=0;i<8;i++){const button=document.createElement('button');button.dataset.palette=b;button.dataset.ink=i;
    button.onclick=()=>{clipboardArea='color';palette=b;ink=i;refreshPalettes();};
-   button.ondblclick=()=>{if(i===0)return;colorEdit={bank:b,ink:i};$('bankColor').value=css565ToInput(bankColor(b,i));$('bankColor').click();};group.append(button);
+   button.ondblclick=()=>{if(i===0&&!zeroAsColor)return;colorEdit={bank:b,ink:i};$('bankColor').value=css565ToInput(bankColor(b,i));$('bankColor').click();};group.append(button);
   }
-  const name=document.createElement('button');name.className='paletteBinding';name.dataset.palette=b;
-  name.onclick=()=>{const palette=bankPalette(b);if(!palette){setStatus('Bank '+b+' is empty in this config. Fill it in Palettes.');return;}showView('palettes');};
-  group.append(name);
-  const usage=document.createElement('button');usage.className='paletteUsage';usage.dataset.palette=b;usage.setAttribute('aria-label','Usage of palette bank '+b);usage.onmouseenter=()=>{usagePalette=b;if(activePanel!=='objects')openPanel('objects');render();};usage.onmouseleave=e=>{if(e&&group.contains(e.relatedTarget))return;usagePalette=null;render();};usage.onfocus=usage.onmouseenter;usage.onblur=usage.onmouseleave;group.onmouseenter=usage.onmouseenter;group.onmouseleave=usage.onmouseleave;group.onfocusin=usage.onmouseenter;group.onfocusout=e=>{if(!group.contains(e.relatedTarget))usage.onmouseleave();};group.append(usage);
+  // Hovering a bank marks every tile drawn against it, so it is visible what
+  // repointing the bank would recolor.
+  const mark=()=>{usagePalette=b;render();};
+  const clear=e=>{if(e&&group.contains(e.relatedTarget))return;usagePalette=null;render();};
+  group.onmouseenter=group.onfocusin=mark;group.onmouseleave=group.onfocusout=clear;
   return group;
  }
  function ensureBankRows(){
@@ -136,6 +170,7 @@
   host.replaceChildren(...Array.from({length:16},(_,b)=>bankRow(b)));
  }
  $('bankColor').onchange=()=>mutate(()=>setBankColor(colorEdit.bank,colorEdit.ink,inputTo565($('bankColor').value)));
+ $('bankConfigPicker').onchange=()=>{activeConfigId=$('bankConfigPicker').value;redrawAll();};
  $('previewBackground').onchange=()=>mutate(()=>asset().previewBackground=$('previewBackground').value);
  $('pencilTool').onclick=()=>{tool='pencil';render();};$('fillTool').onclick=()=>{tool='fill';render();};$('cellGrid').onchange=render;
  $('zoomIn').onclick=()=>{zoom=Math.min(32,zoom*2);render();};$('zoomOut').onclick=()=>{zoom=Math.max(1,Math.floor(zoom/2));render();};
@@ -187,7 +222,11 @@
  const top=document.createElement('div');top.id='canvasTop';top.innerHTML='<strong id="canvasAssetLabel"></strong><span id="canvasSize"></span>';
  top.append($('zoomOut'),$('zoomLabel'),$('zoomIn'),$('cellGrid').parentElement);
  const properties=document.createElement('details');properties.innerHTML='<summary>Display settings</summary>';
- properties.append($('bankFileMode').parentElement,$('bankFilePlaneLabel'),backgroundRow);top.append(properties);
+ const zeroRow=document.createElement('label');zeroRow.id='zeroModeRow';
+ const zeroSelect=document.createElement('select');zeroSelect.id='zeroMode';zeroSelect.setAttribute('aria-label','How color 0 is shown');
+ zeroSelect.append(new Option('Transparent','transparent'),new Option('Background color','background'));
+ zeroSelect.onchange=()=>{zeroAsColor=zeroSelect.value==='background';render();};zeroRow.append(zeroSelect);
+ properties.append($('bankFileMode').parentElement,$('bankFilePlaneLabel'),zeroRow,backgroundRow);top.append(properties);
  const stage=document.createElement('div');stage.id='canvasStage';const scroll=host.querySelector('.selectionScroll');stage.append(scroll);
  const dock=document.createElement('section');dock.id='paletteDock';
  dock.append(palettePanel);
@@ -213,8 +252,8 @@
  const centered=document.createElement('style');centered.textContent=`
  body.drawingView{padding-left:0;overflow:hidden}body.drawingView #workflowNav{position:static;width:auto;height:44px;padding:5px 12px;display:flex;gap:6px;align-items:center;border-bottom:1px solid var(--line)}body.drawingView #workflowNav .brand{font-size:12px;margin-right:18px}body.drawingView #workflowNav .brand span,body.drawingView #workflowNav .navGroup,body.drawingView #workflowNav .navNote{display:none}body.drawingView #workflowNav button{width:auto;display:inline-block;margin:0;padding:6px 12px}body.drawingView #workflowHeading{display:none}body.drawingView header{height:46px;padding:5px 12px}body.drawingView footer{left:0;height:28px;padding:6px 12px;font-size:11px}
  #namedBankEditor{position:relative;height:calc(100vh - 118px);display:grid;grid-template-columns:92px minmax(0,1fr);gap:0;padding:0;align-items:stretch}#drawingTools{background:var(--panel);border-right:1px solid var(--line);padding:10px 5px;display:flex;flex-direction:column;gap:7px}#drawingTools button{padding:10px 3px;font-size:11px}#drawingCenter{min-width:0;min-height:0;display:flex;flex-direction:column}#canvasTop{display:flex;align-items:center;gap:10px;padding:8px 18px;background:var(--panel)}#canvasAssetLabel{margin-right:auto;color:var(--ink)}#canvasTop details{position:relative}#canvasTop details[open]{position:absolute;right:12px;top:5px;padding:12px;background:var(--panel);border:1px solid var(--line);z-index:4;max-width:500px}#canvasStage{flex:1;min-height:0;display:flex;overflow:hidden;background:#101113}#canvasStage .selectionScroll{width:100%;max-width:none;max-height:none;height:100%;overflow:auto;display:flex;align-items:safe center;justify-content:safe center;padding:24px;background:radial-gradient(#22252b 1px,transparent 1px);background-size:12px 12px}#bankSelection{flex:none;box-shadow:0 8px 40px #0008;max-width:none}
- #paletteDock{background:var(--panel);border-top:1px solid var(--line);display:flex;align-items:center;gap:18px;padding:10px 18px;max-height:210px;overflow:auto;flex-shrink:0}#drawingColor{width:145px;flex-shrink:0;display:flex;align-items:center;flex-direction:column;gap:7px;font-size:11px}#activeInk{width:40px;height:40px;border:3px solid white;box-shadow:0 0 0 1px black}#activeInkLabel{font-size:11px}#paletteDock .inlinePalettes{margin:0;border:0;padding:0;width:auto;flex:1}#paletteDock h2{margin:0 0 5px;font-size:10px}#bankSwatches{grid-template-columns:repeat(4,max-content);gap:1px 10px}.paletteGroup button{width:20px!important;height:20px!important}.paletteGroup button.chosenColor{outline:none}#tilePaletteInfo{font-size:10px;margin:4px 0 0}
- #drawingFlyout{position:absolute;z-index:5;left:92px;top:0;bottom:0;width:365px;background:var(--panel);border-right:1px solid var(--line);box-shadow:8px 0 20px #0008;padding:12px;overflow:auto}#drawingFlyout>.bankLibrary{width:100%;border:0;padding:8px 0}#drawingFlyout #bankMap{width:320px;height:320px}#drawingFlyout select{min-height:180px}#emptyBank{text-align:center;margin:auto;font-size:20px;line-height:2.5}
+ #paletteDock{background:var(--panel);border-top:1px solid var(--line);display:flex;align-items:center;gap:18px;padding:10px 18px;max-height:210px;overflow:auto;flex-shrink:0}#drawingColor{width:145px;flex-shrink:0;display:flex;align-items:center;flex-direction:column;gap:7px;font-size:11px}#activeInk{width:40px;height:40px;border:3px solid white;box-shadow:0 0 0 1px black}#activeInkLabel{font-size:11px}#paletteDock .inlinePalettes{margin:0;border:0;padding:0;width:auto;flex:1}#paletteDock h2{margin:0 0 5px;font-size:10px}#bankSwatches{grid-template-columns:repeat(4,max-content);gap:1px 10px}.paletteGroup button{width:20px!important;height:20px!important}.paletteGroup button.chosenColor{outline:none}
+ #drawingFlyout{position:absolute;z-index:5;left:92px;top:0;bottom:0;width:365px;background:var(--panel);border-right:1px solid var(--line);box-shadow:8px 0 20px #0008;padding:12px;overflow:auto}#drawingFlyout>.bankLibrary{width:100%;border:0;padding:8px 0;display:flex;flex-direction:column;height:100%;min-height:0}#drawingFlyout .bankLibrary>h2,#drawingFlyout .bankLibrary>.assetToolbar{flex-shrink:0}#drawingFlyout #bankMap{width:320px;height:320px}#drawingFlyout select{min-height:180px}#emptyBank{text-align:center;margin:auto;font-size:20px;line-height:2.5}
  @media(min-width:1600px){#bankSwatches{grid-template-columns:repeat(8,max-content)}.paletteGroup button{width:17px!important;height:17px!important}}@media(max-width:1050px){#bankSwatches{grid-template-columns:repeat(2,max-content)}#paletteDock{max-height:220px}}
  `;document.head.append(centered);
 
@@ -229,7 +268,7 @@
   if(kind!=='line'&&$('filledShapes').checked){for(let y=y0;y<=y1;y++){const row=[...out.values()].filter(p=>p[1]===y).map(p=>p[0]);if(row.length)for(let x=Math.min(...row);x<=Math.max(...row);x++)add(x,y);}}
   return [...out.values()].filter(([x,y])=>kind==='line'||!$('filledShapes').checked||erasing||patternAt(x,y));
  }
- function previewShape(){render();if(!shapeStart)return;const c=$('bankSelection').getContext('2d');c.fillStyle=erasing?(asset().previewBackground??'#252830'):css565(bankColor(asset(),palette,ink));for(const [x,y] of shapePixels(tool,shapeStart,shapeEnd))c.fillRect(x*zoom,y*zoom,zoom,zoom);}
+ function previewShape(){render();if(!shapeStart)return;const c=$('bankSelection').getContext('2d');c.fillStyle=erasing?zeroColor(asset(),palette):css565(bankColor(palette,ink));for(const [x,y] of shapePixels(tool,shapeStart,shapeEnd))c.fillRect(x*zoom,y*zoom,zoom,zoom);}
  const paths={banks:'<path d="M5 2h11l5 5v17H5zM16 2v6h5"/><path d="M8 12h10v8H8zM13 12v8M8 16h10"/>',objects:'<rect x="3" y="3" width="18" height="18"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',pencil:'<path d="m4 16 12-12 4 4L8 20H4zM13 7l4 4"/>',eraser:'<path d="m3 15 9-10a2 2 0 0 1 3 0l7 6a2 2 0 0 1 0 3l-6 7H9z"/><path d="m8 10 10 8M9 21h14"/><path d="m3 15 5-5 10 8-3 3H9z" fill="currentColor" opacity=".3"/>',fill:'<path d="m4 12 8-8 9 9-8 8z"/><path d="M7 9V5a3 3 0 0 1 6 0v3M4 12h16"/><path d="M22 14c-1 2-3 4-3 6a3 3 0 0 0 6 0c0-2-2-4-3-6z" fill="currentColor"/><path d="m5 13 8 7 7-7" fill="currentColor" opacity=".3"/>',picker:'<path d="m15 4 2-2a3 3 0 0 1 4 4l-2 2 2 2-3 3-7-7 3-3z" fill="currentColor"/><path d="m12 8-9 9v4h4l9-9M3 21l-1 2"/>',line:'<path d="M4 20 20 4"/>',rectangle:'<rect x="3" y="5" width="18" height="14"/>',ellipse:'<ellipse cx="12" cy="12" rx="9" ry="7"/>',undo:'<path d="M9 5 3 11l6 6M3 11h11a7 7 0 0 1 7 7"/>',redo:'<path d="m15 5 6 6-6 6M21 11H10a7 7 0 0 0-7 7"/>',preview:'<rect x="2" y="4" width="20" height="16"/><rect x="6" y="8" width="7" height="7"/><path d="M16 8h3M16 12h3M16 16h3"/>'};
  function icon(button,name,label){button.innerHTML=`<svg viewBox="0 0 26 26" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;button.title=label;button.setAttribute('aria-label',label);}
  icon(panelButtons.banks,'banks','Banks');icon(panelButtons.objects,'objects','Objects & tile map');
@@ -247,7 +286,7 @@
   const canvas=$('bankSelection'),before=canvas.getBoundingClientRect(),px=(event.clientX-before.left)/zoom,py=(event.clientY-before.top)/zoom;
   zoom=next;render();const after=canvas.getBoundingClientRect();scroll.scrollLeft+=after.left+px*zoom-event.clientX;scroll.scrollTop+=after.top+py*zoom-event.clientY;
  },{passive:false});
- const polish=document.createElement('style');polish.textContent=`#namedBankEditor{grid-template-columns:64px minmax(0,1fr)}#drawingTools{padding:8px 5px;gap:5px;overflow-y:auto}#drawingTools button{height:46px;min-height:46px;padding:6px;display:flex;align-items:center;justify-content:center}#drawingTools svg{width:30px;height:30px}#drawingFlyout{left:64px;width:365px}#drawingFlyout #bankMap{width:300px;height:300px}#bankFiles,#compositionList{border:1px solid var(--line);background:var(--bg);max-height:220px;overflow:auto;min-height:60px}.assetRow{padding:9px;cursor:pointer;border:1px solid transparent;min-height:34px}.assetRow[aria-selected="true"]{background:#423623;border-color:var(--ink)}.assetRow input{width:100%;margin:0!important;padding:2px!important;font:inherit}.assetRow:focus{outline:1px solid var(--sel)}#drawingFlyout .bankLibrary p{font-size:10px}#drawingFlyout .objectLibrary h2{margin-top:12px}.paletteGroup.activePalette{box-shadow:0 0 0 2px var(--sel)}.paletteGroup button.chosenColor{outline:2px solid white;outline-offset:-3px;box-shadow:inset 0 0 0 2px #111,0 0 0 1px white}#drawingCenter{position:relative}#miniatureToggle{padding:3px;display:flex;align-items:center}#miniatureToggle svg{width:22px;height:22px}#miniaturePanel{position:absolute;right:14px;top:52px;z-index:3;padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:5px;box-shadow:0 6px 20px #0008;display:flex;flex-direction:column;align-items:center;gap:10px}#miniatureCanvas{image-rendering:pixelated}#miniatureSize{font-size:10px;color:var(--text-dim)}#paletteDock{gap:0}#paletteDock .inlinePalettes{width:100%}`;document.head.append(polish);
+ const polish=document.createElement('style');polish.textContent=`#namedBankEditor{grid-template-columns:64px minmax(0,1fr)}#drawingTools{padding:8px 5px;gap:5px;overflow-y:auto}#drawingTools button{height:46px;min-height:46px;padding:6px;display:flex;align-items:center;justify-content:center}#drawingTools svg{width:30px;height:30px}#drawingFlyout{left:64px;width:365px}#drawingFlyout #bankMap{width:300px;height:300px}#compositionList{border:1px solid var(--line);background:var(--bg);max-height:220px;overflow:auto;min-height:60px}#bankFiles{border:1px solid var(--line);background:var(--bg);flex:1;min-height:120px;overflow:auto}.assetRow{padding:9px;cursor:pointer;border:1px solid transparent;min-height:34px}.assetRow[aria-selected="true"]{background:#423623;border-color:var(--ink)}.assetRow input{width:100%;margin:0!important;padding:2px!important;font:inherit}.assetRow:focus{outline:1px solid var(--sel)}#drawingFlyout .objectLibrary h2{margin-top:12px}.paletteGroup.activePalette{box-shadow:0 0 0 2px var(--sel)}.paletteGroup button.chosenColor{outline:2px solid white;outline-offset:-3px;box-shadow:inset 0 0 0 2px #111,0 0 0 1px white}#drawingCenter{position:relative}#miniatureToggle{padding:3px;display:flex;align-items:center}#miniatureToggle svg{width:22px;height:22px}#miniaturePanel{position:absolute;right:14px;top:52px;z-index:3;padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:5px;box-shadow:0 6px 20px #0008;display:flex;flex-direction:column;align-items:center;gap:10px}#miniatureCanvas{image-rendering:pixelated}#miniatureSize{font-size:10px;color:var(--text-dim)}#paletteDock{gap:0}#paletteDock .inlinePalettes{width:100%}`;document.head.append(polish);
 
  function updatePixelSelection(p){pixelSelection={x:Math.min(selectStart[0],p[0]),y:Math.min(selectStart[1],p[1]),width:Math.abs(p[0]-selectStart[0])+1,height:Math.abs(p[1]-selectStart[1])+1};}
  function drawPixelOverlay(){
@@ -280,16 +319,18 @@
   try{withScratchLibrary(()=>applyPixels(structuredClone(asset()),pixelClipboard,pasteAnchor,opaque,source));}catch(e){setStatus(e.message);return;}
   mutate(()=>{applyPixels(asset(),pixelClipboard,[left,top],opaque,source);pixelSelection={x:left,y:top,width:Math.min(pixelClipboard.width,selection.width*8-left),height:Math.min(pixelClipboard.height,selection.height*8-top)};pasteAnchor=null;});}
  function patternAt(x,y){return fillPattern==='solid'||(fillPattern==='checker'?(x+y)%2===0:y%2===0);}
- function updateStatus(){if(!$('drawingStatus'))return;const r=pixelSelection,info=[];if(hovering&&asset())info.push(`Pixel ${lastPixel[0]}, ${lastPixel[1]}`,`Tile ${targetTile}`,`Palette ${asset().tilePaletteBanks[targetTile]}`);if(r)info.push(`Selection ${r.width} × ${r.height}`);info.push(`Canvas ${selection.width*8} × ${selection.height*8} px`);$('drawingStatus').textContent=info.join(' · ');}
+ function updateStatus(){if(!$('drawingStatus'))return;const r=pixelSelection,info=[];
+  if(usagePalette!==null&&asset()){const tiles=asset().tilePaletteBanks.filter(b=>b===usagePalette).length;info.push(`Bank ${String(usagePalette).padStart(2,'0')} · ${bankPalette(usagePalette)?.name??'empty'} · ${tiles} tile${tiles===1?'':'s'}`);}
+  if(hovering&&asset())info.push(`Pixel ${lastPixel[0]}, ${lastPixel[1]}`,`Tile ${targetTile}`,`Palette ${asset().tilePaletteBanks[targetTile]}`);if(r)info.push(`Selection ${r.width} × ${r.height}`);info.push(`Canvas ${selection.width*8} × ${selection.height*8} px`);$('drawingStatus').textContent=info.join(' · ');}
 
  paths.select='<rect x="3" y="3" width="19" height="19" stroke-dasharray="3 3"/>';
  paths.copy='<rect x="8" y="8" width="14" height="14"/><path d="M17 8V3H3v14h5"/>';
  paths.paste='<path d="M9 5H5v18h16V5h-4"/><rect x="9" y="2" width="8" height="5" rx="1"/>';
  for(const [id,name,label,fn] of [['selectionTool','select','Pixel selection (S)',()=>{tool='select';pasteAnchor=null;render();}],['copyPixels','copy','Copy selected pixels',copySelection],['pastePixels','paste','Paste pixels (Ctrl/Cmd+V; Shift+V uses source palettes)',startPaste]]){const button=document.createElement('button');button.id=id;icon(button,name,label);button.onclick=fn;rail.insertBefore(button,$('bankUndo'));}
  const colorActions=document.createElement('div');colorActions.className='colorClipboard';
- for(const [id,name,label,fn] of [['copyColor','copy','Copy selected color',()=>{if(!asset()||ink===0)return;colorClipboard=bankColor(asset(),palette,ink);clipboardArea='color';setStatus('Color copied. Choose another swatch, then Paste color.');refreshPalettes();}],['pasteColor','paste','Paste color into selected swatch',()=>{if(!asset()||ink===0||colorClipboard===null)return;mutate(()=>setBankColor(asset(),palette,ink,colorClipboard));clipboardArea='color';}]]){const button=document.createElement('button');button.id=id;icon(button,name,label);button.onclick=fn;colorActions.append(button);}
- const note=document.createElement('span');note.textContent='Copy / paste color';colorActions.append(note);palettePanel.prepend(colorActions);
- const clipboardStyle=document.createElement('style');clipboardStyle.textContent=`.colorClipboard{display:flex;gap:6px;align-items:center;float:right;margin:0 0 3px 12px;font-size:10px;color:var(--text-dim)}.colorClipboard button{padding:3px;display:flex}.colorClipboard svg{width:18px;height:18px}.paletteGroup.selectedPalette{border-color:transparent}.paletteGroup.activePalette{box-shadow:0 0 0 2px var(--sel)}#drawingTools{gap:3px}#drawingTools button{min-height:40px;height:40px}#drawingTools svg{width:29px;height:29px}`;document.head.append(clipboardStyle);
+ for(const [id,name,label,fn] of [['copyColor','copy','Copy selected color',()=>{if(!asset()||ink===0)return;colorClipboard=bankColor(palette,ink);clipboardArea='color';setStatus('Color copied. Choose another swatch, then Paste color.');refreshPalettes();}],['pasteColor','paste','Paste color into selected swatch',()=>{if(!asset()||ink===0||colorClipboard===null)return;mutate(()=>setBankColor(palette,ink,colorClipboard));clipboardArea='color';}]]){const button=document.createElement('button');button.id=id;icon(button,name,label);button.onclick=fn;colorActions.append(button);}
+ const note=document.createElement('span');note.textContent='Copy / paste color';colorActions.append(note);host.querySelector('.paletteDockHead').append(colorActions);
+ const clipboardStyle=document.createElement('style');clipboardStyle.textContent=`.colorClipboard{display:flex;gap:6px;align-items:center;margin-left:auto;font-size:10px;color:var(--text-dim)}.colorClipboard button{padding:3px;display:flex}.colorClipboard svg{width:18px;height:18px}.paletteGroup.selectedPalette{border-color:transparent}.paletteGroup.activePalette{box-shadow:0 0 0 2px var(--sel)}#drawingTools{gap:3px}#drawingTools button{min-height:40px;height:40px}#drawingTools svg{width:29px;height:29px}`;document.head.append(clipboardStyle);
 
  const options=document.createElement('div');options.id='drawingOptions';options.innerHTML='<label><input id="filledShapes" type="checkbox">Filled shapes</label><button id="flipHorizontal" title="Flip selection horizontally">Flip ↔</button><button id="flipVertical" title="Flip selection vertically">Flip ↕</button><button id="rotateSelection" title="Rotate selection clockwise 90 degrees">Rotate 90°</button><details><summary>Paste options</summary><label><input id="pasteOpaque" type="checkbox">Opaque (include zero pixels)</label><label><input id="pasteSource" type="checkbox">Use source palettes (Ctrl/Cmd+Shift+V)</label><p>Missing source palettes are copied into unused slots. Each touched tile uses the first pasted pixel’s palette, affecting the whole tile. The preview shows this before placement.</p></details>';
  top.after(options);for(const [id,kind] of [['flipHorizontal','horizontal'],['flipVertical','vertical'],['rotateSelection','rotate']])$(id).onclick=()=>transformSelection(kind);
@@ -307,7 +348,7 @@
  function selectionHandle(e){if(!pixelSelection||zoom<4)return null;const r=pixelSelection,c=$('bankSelection').getBoundingClientRect(),x=(e.clientX-c.left)/zoom,y=(e.clientY-c.top)/zoom;for(const [hx,hy,ox,oy] of [[r.x,r.y,r.x+r.width-1,r.y+r.height-1],[r.x+r.width,r.y,r.x,r.y+r.height-1],[r.x,r.y+r.height,r.x+r.width-1,r.y],[r.x+r.width,r.y+r.height,r.x,r.y]])if(Math.abs(x-hx)*zoom<=3&&Math.abs(y-hy)*zoom<=3)return [ox,oy];return null;}
  function resizeSelection(p){pixelSelection={x:Math.min(p[0],resizeDrag[0]),y:Math.min(p[1],resizeDrag[1]),width:Math.abs(p[0]-resizeDrag[0])+1,height:Math.abs(p[1]-resizeDrag[1])+1};}
  const help=document.createElement('dialog');help.id='shortcutHelp';help.innerHTML='<h2>Drawing shortcuts</h2><p>B Pencil · E Eraser · G Fill · I Pick color · S Select</p><p>Ctrl/Cmd+A Select all · Ctrl/Cmd+C Copy</p><p>Ctrl/Cmd+V Paste · Ctrl/Cmd+Shift+V Paste source palettes</p><p>Ctrl/Cmd+Z Undo · Ctrl/Cmd+Shift+Z Redo</p><p>Arrow keys Move selection · Escape Cancel selection/paste</p><p>Space-drag or middle-drag Pan · Scroll Zoom</p><p>Shift Constrain square/circle · ? This help</p><form method="dialog"><button>Close</button></form>';host.append(help);const helpButton=document.createElement('button');helpButton.textContent='?';helpButton.title='Keyboard shortcuts';helpButton.onclick=()=>help.showModal();top.append(helpButton);
- const finishStyle=document.createElement('style');finishStyle.textContent='.paletteGroup button.paletteUsage{width:30px!important;font-size:9px;background:transparent;color:var(--text-dim);border:0}#shortcutHelp{background:var(--panel);color:var(--text);border:1px solid var(--line);padding:24px}#shortcutHelp::backdrop{background:#0009}';document.head.append(finishStyle);
+ const finishStyle=document.createElement('style');finishStyle.textContent='#shortcutHelp{background:var(--panel);color:var(--text);border:1px solid var(--line);padding:24px}#shortcutHelp::backdrop{background:#0009}';document.head.append(finishStyle);
 
  // Project actions share the same icon vocabulary in every workspace.
  Object.assign(paths,{
@@ -354,9 +395,10 @@
  for(const id of ['pasteOpaque','pasteSource']){const input=$(id),label=input.parentElement;const text=document.createElement('span');text.textContent=id==='pasteOpaque'?'Opaque (include zero pixels)':'Use source palettes';label.replaceChildren(input,text);if(id==='pasteSource')label.title='Paste source palettes: Ctrl/Cmd+Shift+V';}
  backgroundRow.querySelector('span')?.remove();
  const bgLabel=$('previewBackground').parentElement;for(const n of [...bgLabel.childNodes])if(n.nodeType===Node.TEXT_NODE)n.textContent='Background';
- for(const id of ['bankFileMode','bankFilePlane','previewBackground']){const input=$(id),label=input.parentElement;const caption=document.createElement('span');caption.textContent=id==='bankFileMode'?'Color mode':id==='bankFilePlane'?'Plane':'Background';label.replaceChildren(caption,input);}
+ const captions={bankFileMode:'Color mode',bankFilePlane:'Plane',zeroMode:'Color 0',previewBackground:'Background'};
+ for(const [id,text] of Object.entries(captions)){const input=$(id),label=input.parentElement;const caption=document.createElement('span');caption.textContent=text;label.replaceChildren(caption,input);}
  const polishPanels=document.createElement('style');polishPanels.textContent=`
- #bankSwatches{grid-template-columns:repeat(4,minmax(268px,1fr));gap:4px 6px;width:100%}.paletteGroup{min-width:0;padding:2px;gap:1px}.paletteGroup button[data-ink]{width:0!important;min-width:10px;height:18px!important;flex:1}.paletteGroup span{width:17px;flex-shrink:0;font-size:10px}.paletteGroup button.paletteUsage{width:25px!important;flex-shrink:0}.paletteBinding{width:106px;flex-shrink:0;margin-left:5px;font-size:10px;padding:1px;background:var(--bg);color:var(--text);border:1px solid var(--line);text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#paletteDock{max-height:none;overflow:auto}#paletteDock .inlinePalettes{min-width:1120px}
+ #bankSwatches{grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:7px 16px;width:100%;justify-items:start}.paletteGroup{min-width:0;padding:3px;gap:2px;border-radius:5px}.paletteGroup button[data-ink]{width:24px!important;min-width:0;height:24px!important;flex:none;border-radius:3px}.paletteGroup span{width:18px;flex-shrink:0;margin-right:3px;font-size:10px;text-align:right}#paletteDock{max-height:none;overflow:auto}#paletteDock .inlinePalettes{min-width:0}.paletteGroup.usageSource{box-shadow:0 0 0 2px var(--sel)}.paletteDockHead{display:flex;align-items:center;gap:12px;margin-bottom:7px}#bankConfigWrap{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--text-dim)}#bankConfigPicker{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:3px 6px;font-size:11px;max-width:190px}
  #viewTools .viewPopover{width:290px;padding:14px;border-radius:7px;box-shadow:0 10px 30px #0009}#viewTools .viewPopover label{display:flex;align-items:center;gap:12px;margin:0;padding:9px 0;font-size:12px;line-height:1.4}#viewTools .viewPopover input[type=checkbox]{margin:0;flex:0 0 auto;width:16px;height:16px}#displaySettings .viewPopover label{justify-content:space-between}#displaySettings .viewPopover label span{white-space:nowrap}#displaySettings select{min-width:165px;padding:7px}#displaySettings .bankActions{display:block;margin:0}#displaySettings input[type=color]{width:54px;height:32px;padding:3px}#transformTools{overflow-y:auto}#transformTools hr{border:0;border-top:1px solid var(--line);margin:6px auto}
  #studioTooltip{position:fixed;z-index:10000;pointer-events:none;background:#080a0e;color:#f5f5f5;border:1px solid #626772;border-radius:5px;padding:6px 9px;font:12px system-ui;max-width:280px;box-shadow:0 3px 10px #0008}
  `;document.head.append(polishPanels);
