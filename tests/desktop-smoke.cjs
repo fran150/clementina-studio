@@ -25,7 +25,7 @@ app.whenReady().then(async()=>{
     keys:Object.keys(studioProject()).sort().join(',')};`);
   assert.equal(start.title,'Clementina Studio');
   assert.equal(start.bridge,'function');
-  assert.equal(start.palettes,16);
+  assert.equal(start.palettes,2);
   assert.equal(start.configs,1);
   assert.ok(start.active);
   assert.equal(start.tilesets,0);
@@ -60,8 +60,9 @@ app.whenReady().then(async()=>{
    $('bankFilePlane').value='2';ev($('bankFilePlane'),'change');
    setTilePixel(t,1,0,0,1,2);
    const enabled=[...$('bankSwatches').querySelectorAll('button[data-ink]')].filter(b=>!b.disabled).length;
+   const plane2=tilePixel(t,1,0,0,2),plane0=tilePixel(t,1,0,0,0);
    $('bankFileMode').value='3';ev($('bankFileMode'),'change');
-   return {bpp:t.bpp,planeVisible,plane2:tilePixel(t,1,0,0,2),plane0:tilePixel(t,1,0,0,0),enabled};`);
+   return {bpp:t.bpp,planeVisible,plane2,plane0,enabled};`);
   assert.ok(mono.planeVisible,'1bpp exposes its three planes');
   assert.equal(mono.plane2,1);
   assert.equal(mono.plane0,0,'planes of a 1bpp tileset are independent');
@@ -79,8 +80,8 @@ app.whenReady().then(async()=>{
    const copied=rows();
    const bankRows=$('palBankGrid').children.length;
    const select=$('palBankGrid').children[3].querySelector('select');
-   select.value=paletteLibrary[2].id;select.dispatchEvent(new Event('change',{bubbles:true}));
-   const placed=activeConfig().banks[3]===paletteLibrary[2].id;
+   select.value=paletteLibrary[1].id;select.dispatchEvent(new Event('change',{bubbles:true}));
+   const placed=activeConfig().banks[3]===paletteLibrary[1].id;
    return {before,added,copied,bankRows,placed,picker:$('configPicker').options.length,
     configs:paletteConfigs.length};`);
   assert.equal(configs.added,configs.before+1);
@@ -92,9 +93,9 @@ app.whenReady().then(async()=>{
   // Deleting a palette moves the banks holding it onto another palette.
   const deleted=await run(`
    showView('palettes');
-   const victim=paletteLibrary[2],replacement=paletteLibrary[0];
+   const victim=paletteLibrary[1],replacement=paletteLibrary[0];
    const banksBefore=paletteConfigs.flatMap(c=>c.banks).filter(b=>b===victim.id).length;
-   $('palList').children[2].click();
+   $('palList').children[1].click();
    const originalConfirm=window.confirm;window.confirm=()=>true;
    $('palDelete').click();
    $('palReplacement').value=replacement.id;
@@ -153,17 +154,17 @@ app.whenReady().then(async()=>{
   // An animation sequences shapes it does not own, and can nudge one per frame.
   const animation=await run(`
    const ev=(el,t)=>el.dispatchEvent(new Event(t,{bubbles:true}));
-   showView('animations');$('addAnimation').click();
+   showView('animations');$('anNew').click();
    const a=animations[0];
    const first=a.frames[0].shapeId===shapes[0].id;
-   const rows=$('spriteParts').children.length;
-   $('addFrame').click();
-   const appended=$('spriteParts').children.length;
-   const dx=$('spriteParts').querySelector('input[aria-label$="dx"]');
+   const rows=$('anFrames').children.length;
+   $('anAppend').click();
+   const appended=$('anFrames').children.length;
+   const dx=$('anFrames').querySelector('input[aria-label$="dx"]');
    dx.value='-3';ev(dx,'change');
    return {first,rows,appended,dx:a.frames[0].dx,
     ownsNothing:!('parts' in a.frames[0])&&!('sprites' in a.frames[0]),
-    picker:$('addFrameShape').options.length};`);
+    picker:$('anShapeList').children.length};`);
   assert.ok(animation.first,'a new animation opens on the first shape');
   assert.ok(animation.ownsNothing,'a frame references a shape rather than owning sprites');
   assert.equal(animation.rows,1);
@@ -175,7 +176,7 @@ app.whenReady().then(async()=>{
    showView('shapes');$('scNew').click();
    shapes[1].tilesetId=tilesets[1]?.id??tilesets[0].id;
    showView('animations');
-   return {options:$('addFrameShape').options.length,shapes:shapes.length};`);
+   return {options:$('anShapeList').children.length,shapes:shapes.length};`);
   assert.equal(pinned.shapes,2);
   if(pinned.shapes>1&&pinned.options===1)assert.equal(pinned.options,1,'only shapes on the animation\'s tileset are offered');
 

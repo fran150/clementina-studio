@@ -83,11 +83,6 @@
     border: 1px solid var(--line); border-radius: 4px; z-index: 20; min-width: 200px; }
   .dropdown.open .dropdown-menu { display: block; }
   .dropdown-menu button { display: block; width: 100%; text-align: left; border: 0; border-radius: 0; }
-#spritePanel .toolbtns { display:flex;flex-wrap:wrap;align-items:center; }
-#spritePanel .toolbtns button { padding:6px 10px; }
-#spritePanel input { background:var(--bg);color:var(--text);border:1px solid var(--line);padding:5px;border-radius:3px; }
-#spritePanel td { padding:4px; }
-
 [hidden] { display:none !important; }
 body { padding-left:210px; }
 #workflowNav { position:fixed;inset:0 auto 0 0;width:210px;background:#181510;border-right:1px solid var(--line);padding:26px 16px; }
@@ -99,6 +94,7 @@ body { padding-left:210px; }
 header h1, header .sep, header .lbl, header #bankSel, header #mode1, header #mode3,header #planeWrap,header #undoBtn,header #redoBtn {display:none;}
 #tilesEditor {max-width:100%;}#ovWrap {max-height:56vh;}footer {left:210px;}
 </style>
+<link rel="stylesheet" href="studio-shell.css">
 </head>
 <body>
 <aside id="workflowNav"><div class="brand">CLEMENTINA STUDIO</div><div class="navGroup">GRAPHICS</div>
@@ -116,27 +112,7 @@ header h1, header .sep, header .lbl, header #bankSel, header #mode1, header #mod
   <div class="spacer"></div>
 </header>
 
-<section class="panel" id="spritePanel" style="margin:12px;flex:none">
- <h2 id="spriteSectionTitle">Animation</h2>
- <div class="toolbtns">
-  <select id="animationSelect" aria-label="Animation"></select>
-  <button id="addAnimation">New animation</button><button id="deleteAnimation">Delete animation</button>
-  <label>Name <input id="animationName" maxlength="32"></label>
- </div>
-<div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:12px">
-  <div><canvas id="spritePreview" width="256" height="256" style="image-rendering:pixelated;border:1px solid #444"></canvas><div id="playbackStatus" class="hint"></div></div>
-  <div style="flex:1;min-width:450px">
-   <div class="toolbtns" id="timelineControls">
-    <label>Add shape <select id="addFrameShape" aria-label="Shape to append"></select></label>
-    <button id="addFrame">Append frame</button><button id="duplicateFrame">Duplicate frame</button>
-    <button id="playAnimation">Play</button><button id="spriteUndo">Undo</button>
-   </div>
-   <p class="hint" id="partsHelp">An animation is a sequence of shapes. It references them, so editing a shape updates every frame showing it. Offsets nudge the whole shape, for a bob that does not need its own shape.</p>
-   <table id="partsTable"><thead><tr><th>#</th><th>Shape</th><th>Ticks</th><th>dX</th><th>dY</th><th></th><th></th></tr></thead><tbody id="spriteParts"></tbody></table>
-   <p class="hint">Every shape in one animation draws from the same tileset: they play in sequence out of Clementina's single sprite CHR bank.</p>
-  </div>
- </div>
-</section>
+<div id="spritePanel" hidden></div>
 <footer><span id="status">Ready.</span><span id="dirty"></span></footer>
 </div>
 <script>
@@ -208,11 +184,6 @@ function createConfig(name, banks) {
 }
 
 const BACKDROP_BLUE_565 = 0x1A1F;
-const TEXT_INKS_565 = [
-  0xFFFF, 0xF800, 0xFC60, 0xFEC0, 0x07E0, 0x075F, 0x6AFF, 0xA81F,
-  0xFA7F, 0x0000, 0x8410, 0xC618, 0x7920, 0x03E0, BACKDROP_BLUE_565, 0xFFFF,
-];
-const PALETTE_DETAIL_565 = [0xFFFF, 0xF800, 0xFC60, 0xFEC0, 0x07E0, 0x075F];
 // A fresh palette starts as a rainbow so its colors are distinguishable while
 // drawing; color 0 keeps the backdrop, being the key rather than an ink.
 const RAINBOW_565 = [
@@ -220,11 +191,22 @@ const RAINBOW_565 = [
   to565(255, 0, 0), to565(255, 127, 0), to565(255, 255, 0),
   to565(0, 255, 0), to565(0, 255, 255), to565(0, 0, 255), to565(139, 0, 255),
 ];
-/** Sixteen starter palettes and one config placing them, enough to draw with. */
+// Clementina's 16 startup colors: the text ink each of palette RAM's sixteen
+// banks holds by default at boot (clementina-text.palette.bin, loaded by
+// video.c video_load_default_palette / video.go videoLoadDefaultPalette),
+// in bank order 0-15 - white, red, orange, yellow, green, cyan, backdrop
+// blue, violet, magenta, black, gray, light gray, dark red/brown, dark
+// green, a brighter blue, bright white (docs/phase5-charset-keyboard.md
+// SS2.4, the startup text-ink table).
+const CLEMENTINA_16_565 = [
+  0xFFFF, 0xF800, 0xFC60, 0xFEC0, 0x07E0, 0x075F, BACKDROP_BLUE_565, 0xA81F,
+  0xFA7F, 0x0000, 0x8410, 0xC618, 0x7920, 0x03E0, 0x6AFF, 0xFFFF,
+];
+/** The sixteen colors above, eight to a palette, in palette banks 0 and 1. */
 function loadDefaultPalettes() {
   paletteLibrary = []; paletteConfigs = [];
-  for (let b = 0; b < PAL_BANKS; b++)
-    createPalette([BACKDROP_BLUE_565, TEXT_INKS_565[b], ...PALETTE_DETAIL_565], 'Palette ' + b);
+  createPalette(CLEMENTINA_16_565.slice(0, 8), 'Bank 0');
+  createPalette(CLEMENTINA_16_565.slice(8, 16), 'Bank 1');
   activeConfigId = createConfig('Default').id;
 }
 
@@ -277,103 +259,6 @@ function renderConfigPicker() {
 }
 $('configPicker').onchange = () => { activeConfigId = $('configPicker').value; redrawAll(); };
 
-// ===== sprite groups and animations =====
-// An animation is a sequence of shapes with durations. It names them rather
-// than owning sprites, so a shape edit reaches every frame showing it.
-function currentAnimation(){return animations[animationIndex];}
-function currentFrame(){return currentAnimation()?.frames[frameIndex];}
-function shapeById(id){return shapes.find(s=>s.id===id);}
-function animationEdit(fn){
- shapeHistory.push(JSON.stringify({animations,shapes}));if(shapeHistory.length>50)shapeHistory.shift();
- fn();playing=false;markDirty();renderAnimations();
-}
-/** The tileset an animation is pinned to: the one its existing frames use. */
-function animationTileset(a){return shapeById(a?.frames[0]?.shapeId)?.tilesetId;}
-function renderAnimations(){
- const a=currentAnimation();
- const options=(select,items,index)=>{select.replaceChildren(...items.map((label,i)=>new Option(label,String(i),false,i===index)));};
- options($('animationSelect'),animations.map(a=>a.name),animationIndex);
- for(const id of ['deleteAnimation','animationName','playAnimation'])$(id).disabled=!a;
- $('animationName').value=a?.name??'';
- $('playAnimation').textContent=playing?'Stop':'Play';$('spriteUndo').disabled=!shapeHistory.length;
- // Only shapes on the animation's tileset can join it: the frames play out of
- // one sprite CHR bank.
- const pinned=a&&animationTileset(a);
- const usable=shapes.filter(s=>!pinned||s.tilesetId===pinned);
- $('addFrameShape').replaceChildren(...usable.map(s=>new Option(s.name,s.id)));
- $('addFrameShape').disabled=$('addFrame').disabled=!a||!usable.length;
- $('duplicateFrame').disabled=!currentFrame();
- $('spriteParts').replaceChildren();
- a?.frames.forEach((frame,i)=>{
-  const row=document.createElement('tr');
-  row.classList.toggle('on',i===frameIndex);
-  const index=document.createElement('td');index.textContent=String(i);row.append(index);
-  const pick=document.createElement('td'),select=document.createElement('select');
-  select.setAttribute('aria-label',`Frame ${i} shape`);
-  select.replaceChildren(...usable.map(s=>new Option(s.name,s.id,false,s.id===frame.shapeId)));
-  select.onchange=()=>animationEdit(()=>frame.shapeId=select.value);
-  pick.append(select);row.append(pick);
-  for(const key of ['ticks','dx','dy']){
-   const td=document.createElement('td'),input=document.createElement('input');
-   input.type='number';input.style.width='70px';
-   input.setAttribute('aria-label',`Frame ${i} ${key}`);
-   const limits=key==='ticks'?[1,255]:[-512,511];
-   input.min=limits[0];input.max=limits[1];
-   input.value=key==='ticks'?frame.ticks:(frame[key]??0);
-   input.onchange=()=>{
-    const value=Number(input.value);
-    if(!Number.isInteger(value)||value<Number(input.min)||value>Number(input.max)){renderAnimations();return;}
-    animationEdit(()=>{if(key==='ticks')frame.ticks=value;else if(value)frame[key]=value;else delete frame[key];});
-   };
-   td.append(input);row.append(td);
-  }
-  const show=document.createElement('td'),select2=document.createElement('button');
-  select2.textContent='Show';select2.onclick=()=>{frameIndex=i;playing=false;renderAnimations();};
-  show.append(select2);row.append(show);
-  const kill=document.createElement('td'),remove=document.createElement('button');
-  remove.textContent='Remove';remove.disabled=a.frames.length===1;
-  remove.onclick=()=>animationEdit(()=>{a.frames.splice(i,1);frameIndex=Math.max(0,Math.min(frameIndex,a.frames.length-1));});
-  kill.append(remove);row.append(kill);
-  $('spriteParts').append(row);
- });
- drawAnimationPreview();
-}
-function drawAnimationPreview(){
- const canvas=$('spritePreview'),ctx=canvas.getContext('2d'),a=currentAnimation();
- const frame=a?.frames[playing?playFrame:Math.min(frameIndex,a.frames.length-1)];
- for(let y=0;y<256;y+=16)for(let x=0;x<256;x+=16){ctx.fillStyle=((x+y)/16)%2?'#292d35':'#22262e';ctx.fillRect(x,y,16,16);}
- ctx.fillStyle='#586174';ctx.fillRect(128,0,1,256);ctx.fillRect(0,128,256,1);
- const shape=shapeById(frame?.shapeId),source=tilesetById(shape?.tilesetId);
- // Sprites are drawn in list order, which is OAM order: later covers earlier.
- if(shape&&source)for(const sprite of shape.sprites)for(let y=0;y<8;y++)for(let x=0;x<8;x++){
-  const sx=sprite.flipX?7-x:x,sy=sprite.flipY?7-y:y;
-  const ink=tilePixel(source,sprite.tile,sx,sy,0);
-  // Color 0 is transparent for sprites, so nothing is drawn for it.
-  if(ink){ctx.fillStyle=css565(bankColor(sprite.paletteBank,ink));
-   ctx.fillRect(128+(sprite.x+(frame.dx??0)+x)*4,128+(sprite.y+(frame.dy??0)+y)*4,4,4);}
- }
- $('playbackStatus').textContent=!a?'Create an animation to sequence your shapes.'
-  :`${a.name} · frame ${(playing?playFrame:frameIndex)+1}/${a.frames.length} · ${shape?.name??'missing shape'} · 4× preview`;
-}
-$('addAnimation').onclick=()=>{
- if(animations.length>=255||!shapes.length){setStatus(shapes.length?'':'Create a shape first.');return;}
- let n=animations.length+1;while(animations.some(a=>a.name.toLowerCase()==='animation_'+n))n++;
- animationEdit(()=>{animations.push({name:'animation_'+n,frames:[{shapeId:shapes[0].id,ticks:6}]});animationIndex=animations.length-1;frameIndex=0;});
-};
-$('animationSelect').onchange=()=>{animationIndex=Number($('animationSelect').value);frameIndex=0;playing=false;renderAnimations();};
-$('animationName').onchange=()=>{const name=$('animationName').value;if(!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(name)||animations.some((a,i)=>i!==animationIndex&&a.name.toLowerCase()===name.toLowerCase())){setStatus('Use a unique name: letters, digits, underscores; start with a letter.');renderAnimations();return;}animationEdit(()=>currentAnimation().name=name);};
-$('addFrame').onclick=()=>{const a=currentAnimation(),id=$('addFrameShape').value;if(!a||!shapeById(id)||a.frames.length>=255)return;animationEdit(()=>{a.frames.push({shapeId:id,ticks:6});frameIndex=a.frames.length-1;});};
-$('duplicateFrame').onclick=()=>{const a=currentAnimation();if(!a||a.frames.length>=255||!currentFrame())return;animationEdit(()=>{a.frames.splice(frameIndex+1,0,structuredClone(currentFrame()));frameIndex++;});};
-$('deleteAnimation').onclick=()=>{if(!currentAnimation()||!confirm('Delete this animation?'))return;animationEdit(()=>{animations.splice(animationIndex,1);animationIndex=Math.max(0,animationIndex-1);frameIndex=0;});};
-$('spriteUndo').onclick=()=>{if(!shapeHistory.length)return;({animations,shapes}=JSON.parse(shapeHistory.pop()));animationIndex=Math.min(animationIndex,Math.max(0,animations.length-1));frameIndex=0;playing=false;markDirty();redrawAll();};
-$('playAnimation').onclick=()=>{playing=!playing;playFrame=0;playStart=performance.now();renderAnimations();};
-function animateShape(now){
- const a=currentAnimation();
- if(playing&&a&&currentView==='animations'){const total=a.frames.reduce((sum,f)=>sum+f.ticks,0);let tick=Math.floor((now-playStart)*60/1000)%total;playFrame=0;while(tick>=a.frames[playFrame].ticks){tick-=a.frames[playFrame].ticks;playFrame++;}}
- drawAnimationPreview();requestAnimationFrame(animateShape);
-}
-requestAnimationFrame(animateShape);
-
 // ===== project =====
 function newProject() {
   if (dirty && !confirm('Discard unsaved changes?')) return;
@@ -416,9 +301,9 @@ const descriptions={
  animations:['Animations','Sequence shapes and set their timing. Editing a shape updates every frame showing it.'],
 };
 function showView(view){
+ StudioShell.selectView(view);
  currentView=view;playing=false;frameIndex=0;window.scrollTo(0,0);
  $('viewTitle').textContent=descriptions[view][0];$('viewHelp').textContent=descriptions[view][1];
- $('spritePanel').hidden=view!=='animations';
  renderConfigPicker();renderAnimations();window.renderBankEditor?.();
 }
 document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>showView(button.dataset.view));
@@ -427,7 +312,8 @@ document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>show
 // The editors below attach to the shell and wrap showView, so boot after them.
 window.bootStudio=()=>{newProject();showView('tiles');};
 </script>
-<script src="image-import-ui.js"></script><script src="bank-editor.js"></script><script src="palette-library.js"></script><script src="sprite-composer.js"></script>
+<script src="studio-shell.js"></script>
+<script src="image-import-ui.js"></script><script src="bank-editor.js"></script><script src="palette-library.js"></script><script src="animation-editor.js"></script><script src="sprite-composer.js"></script>
 <script>bootStudio();</script>
 </body>
 </html>

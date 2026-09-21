@@ -22,13 +22,13 @@
  // stays at the bottom of the page instead of landing above this section.
  $('spritePanel').after(host);
  const style=document.createElement('style');style.textContent=`
- body.paletteWorkspaceView{padding-left:0;overflow:hidden}
- body.paletteWorkspaceView #workflowNav{position:static;width:auto;height:44px;display:flex;align-items:center;gap:6px;padding:5px 12px;border-bottom:1px solid var(--line)}
- body.paletteWorkspaceView #workflowNav .brand{font-size:12px;margin-right:18px}
- body.paletteWorkspaceView #workflowNav .brand span,body.paletteWorkspaceView #workflowNav .navGroup,body.paletteWorkspaceView #workflowNav .navNote,body.paletteWorkspaceView #workflowHeading{display:none}
- body.paletteWorkspaceView #workflowNav button{width:auto;margin:0;padding:6px 12px}
- body.paletteWorkspaceView header{height:46px;padding:5px 12px}
- body.paletteWorkspaceView footer{left:0;height:28px;padding:6px 12px;font-size:11px}
+
+
+
+
+
+
+
  #paletteWorkspace{position:relative;height:calc(100vh - 118px);display:grid;grid-template-columns:64px auto auto minmax(0,1fr)}
  #palRail{grid-column:1;display:flex;flex-direction:column;gap:5px;padding:8px 5px;background:var(--panel);border-right:1px solid var(--line)}
  #palRail button{height:46px;padding:6px;display:flex;align-items:center;justify-content:center}
@@ -53,8 +53,6 @@
  #palList .rowChips{display:flex;gap:1px;margin-left:auto;flex-shrink:0}
  #palList .rowChips i{width:8px;height:14px;border-radius:1px}
  #palList .assetRow.unusedPalette{opacity:.6}
- .panelClose{position:absolute;top:5px;right:5px;padding:3px;height:auto!important}
- .panelClose svg{width:18px;height:18px}
  #palStatus{padding:6px 18px;font-size:10px;color:var(--text-dim)}
  #palConfigs{position:relative;grid-column:3;padding:12px;padding-top:38px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column}
  #palConfigs h2,#palConfigs h3{font-size:12px;color:var(--text-dim);margin:0 0 8px;flex-shrink:0}
@@ -73,11 +71,7 @@
 
  let index=0,editing=0;
  const palette=()=>paletteLibrary[index];
- function iconButton(id,label,path,size=30){
-  const button=document.createElement('button');button.id=id;button.title=label;button.setAttribute('aria-label',label);
-  button.innerHTML=`<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
-  return button;
- }
+ const iconButton=(id,label,path,size=30)=>StudioShell.iconButton(id,label,path,{size});
  // A palette is used by the configs that place it in a bank. Nothing else binds
  // one: a tile records a bank number, and a sprite part names a bank outright.
  function usage(id){
@@ -85,19 +79,11 @@
  }
  const library=$('palLibrary'),configsPanel=$('palConfigs');
  const toggle=iconButton('palLibraryToggle','Palettes','<path d="M12 3a9 9 0 0 0 0 18h2a2 2 0 0 0 2-2 2 2 0 0 1 2-2h1a3 3 0 0 0 3-3 8 8 0 0 0-8-8z"/><circle cx="7.5" cy="12" r="1.2" fill="currentColor"/><circle cx="9.5" cy="7.5" r="1.2" fill="currentColor"/><circle cx="14.5" cy="7" r="1.2" fill="currentColor"/><circle cx="17.5" cy="11" r="1.2" fill="currentColor"/>');
- toggle.setAttribute('aria-expanded','true');
- toggle.onclick=()=>{library.hidden=!library.hidden;toggle.setAttribute('aria-expanded',String(!library.hidden));};
- const close=iconButton('palClose','Close panel','<path d="m6 6 12 12M18 6 6 18"/>');close.classList.add('panelClose');
- close.onclick=()=>{library.hidden=true;toggle.setAttribute('aria-expanded','false');};
- library.prepend(close);
+ StudioShell.bindPanel({panel:library,button:toggle,closeId:'palClose'});
  $('palRail').append(toggle);
 
  const configsToggle=iconButton('palConfigsToggle','Bank configs','<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>');
- configsToggle.setAttribute('aria-expanded','true');
- configsToggle.onclick=()=>{configsPanel.hidden=!configsPanel.hidden;configsToggle.setAttribute('aria-expanded',String(!configsPanel.hidden));};
- const configsClose=iconButton('palConfigsClose','Close panel','<path d="m6 6 12 12M18 6 6 18"/>');configsClose.classList.add('panelClose');
- configsClose.onclick=()=>{configsPanel.hidden=true;configsToggle.setAttribute('aria-expanded','false');};
- configsPanel.prepend(configsClose);
+ StudioShell.bindPanel({panel:configsPanel,button:configsToggle,closeId:'palConfigsClose'});
  $('palRail').append(configsToggle);
 
  for(const [id,label,path,fn] of [

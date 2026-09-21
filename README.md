@@ -49,10 +49,11 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
 ## Layout
 
 - `apps/desktop`: the asset studio. `editor.html` is the shell — model, state,
-  helpers, the animation editor and view switching. Each other editor is a
+  helpers and view switching. `studio-shell.js` / `studio-shell.css` supply shared
+  navigation, project buttons, tool rails, drawers, tooltips and status styling. Each other editor is a
   self-attaching script: `bank-editor.js` (tilesets), `palette-library.js`
   (palettes and bank configs), `sprite-composer.js` (shapes),
-  `image-import-ui.js` (artwork import). They load after the shell and wrap its
+  `animation-editor.js` (animations), `image-import-ui.js` (artwork import). They load after the shell and wrap its
   `showView`/`redrawAll`, so the shell boots them via `bootStudio()`.
 - `packages/assets`: the project format, its validators, and the attribute
   encoders.
@@ -134,3 +135,5 @@ runtime routine library. `docs/model.md` records what each will need and which
 hardware constraints they have to respect — notably that backgrounds read two
 CHR banks chosen per cell, and that a scene is where co-residency and
 sprite-versus-background priority get decided.
+
+Shared UI conventions and extension points: **[docs/editor-shell.md](docs/editor-shell.md)**.
