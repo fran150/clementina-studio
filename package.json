@@ -14,5 +14,9 @@
     "@types/node": "^22.0.0",
     "electron": "^44.3.0",
     "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "@clementina/assets": "file:../clementina-sdk/packages/assets",
+    "@clementina/project": "file:../clementina-sdk/packages/project"
   }
 }

@@ -1,3 +1,6 @@
+import type {ShapeSprite, AnimationFrame as SDKAnimationFrame, PaletteAsset, PaletteConfigAsset} from '@clementina/assets';
+import type {StudioProjectV2, StudioTileset, StudioShape} from '@clementina/project';
+export {fromStudioProjectV2, toStudioProjectV2} from '@clementina/project';
 import {PALETTE_BANKS, PALETTE_COLORS, createConfig} from './palettes.js';
 export const BANK_BYTES = 6144, TILES_PER_BANK = 256, PROJECT_VERSION = 2;
 /**
@@ -7,29 +10,16 @@ export const BANK_BYTES = 6144, TILES_PER_BANK = 256, PROJECT_VERSION = 2;
  * Tiles carry no color, so a sprite part chooses its palette bank where it is
  * placed, exactly as the OAM attribute byte does.
  */
-export interface ProjectPalette { id:string; name:string; colors:number[] }
-/** A named palette RAM layout: the palette in each of the sixteen banks. */
-export interface PaletteBankConfig { id:string; name:string; banks:(string|null)[] }
-export interface Tileset {
- id?:string; name:string; bpp:number; chr:number[]; previewBackground?:string;
- /** Per tile, the palette bank it was drawn against. Authoring only, never exported. */
- tilePaletteBanks:number[];
- compositions:{name:string;x:number;y:number;width:number;height:number}[];
-}
-/** One OAM entry. X is 10-bit signed and Y 9-bit signed; the high bits live in ext. */
-export interface Sprite { tile:number; x:number; y:number; paletteBank:number; flipX:boolean; flipY:boolean }
-/**
- * One static arrangement of sprites, drawn from a single tileset because all
- * sprites share one CHR bank. List order is OAM order, so a later sprite draws
- * on top; there is no separate id, the array position being the offset from
- * whatever index the shape is loaded at.
- */
-export interface Shape { id:string; name:string; tilesetId?:string; canvasPixelWidth?:number; canvasPixelHeight?:number; originAnchor?:string; canvasWidth?:number; canvasHeight?:number; originX?:number; originY?:number; sprites:Sprite[] }
-/** One entry of an animation: a shape to show, for how long, nudged by dx/dy. */
-export interface AnimationFrame { shapeId:string; ticks:number; dx?:number; dy?:number }
-/** A sequence of shapes. It references them, so editing a shape updates every animation using it. */
-export interface Animation { name:string; frames:AnimationFrame[] }
-export interface StudioProject { paletteLibrary:ProjectPalette[]; paletteConfigs:PaletteBankConfig[]; activeConfigId?:string; tilesets:Tileset[]; shapes:Shape[]; animations:Animation[] }
+// Portable fields and legacy Studio models now come from the SDK. Session-only
+// data and legacy validation remain supported by Studio during migration.
+export type ProjectPalette = Omit<PaletteAsset, 'format' | 'version'>;
+export type PaletteBankConfig = Omit<PaletteConfigAsset, 'format' | 'version'>;
+export type Tileset = StudioTileset;
+export type Sprite = ShapeSprite;
+export type Shape = StudioShape;
+export type AnimationFrame = SDKAnimationFrame;
+export type Animation = StudioProjectV2['animations'][number];
+export type StudioProject = StudioProjectV2;
 
 function integers(a: unknown, length: number, max: number): a is number[] {
  return Array.isArray(a) && a.length === length && a.every(v => Number.isInteger(v) && v >= 0 && v <= max);
