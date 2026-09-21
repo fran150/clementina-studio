@@ -108,7 +108,7 @@ the one its tile was drawn against and overridable per sprite. List order is
 OAM order, so a later sprite draws on top, matching the renderer.
 
 **Animations.** A sequence of shapes with 60 Hz tick durations, an optional
-per-frame offset, and a 4× preview. An animation references its shapes rather
+per-frame offset, and a native 320×200 preview that scales to the workspace. An animation references its shapes rather
 than copying them, so editing a shape updates every frame showing it. All of
 an animation's shapes must draw from the same tileset. Sprite-versus-background
 priority is not editable yet; it belongs to the future scene editor.
@@ -137,3 +137,20 @@ CHR banks chosen per cell, and that a scene is where co-residency and
 sprite-versus-background priority get decided.
 
 Shared UI conventions and extension points: **[docs/editor-shell.md](docs/editor-shell.md)**.
+
+### Animation workspace
+
+The animation libraries dock beside the canvas so opening them does not cover the
+preview, frame properties, or timeline. Select poses with Ctrl/Cmd-click or
+Shift-click, then append them as successive frames in library order. Only shapes
+from the animation's tileset are offered.
+
+The thumbnail strip supports selection, drag reordering, and Alt+Left/Right keyboard
+reordering. Previous/next and play/pause controls navigate the sequence; pausing
+selects the displayed frame. Edit ticks and offsets in the selected-frame row, or
+drag on the preview to offset the pose. These edits preserve source shapes and
+participate in undo/redo. Each frame still references one shape; simultaneous
+independent actors belong to scene composition.
+
+Run `npm run test:desktop:animation` for animation interaction and docked layout
+checks at 1440- and 1024-pixel window widths.

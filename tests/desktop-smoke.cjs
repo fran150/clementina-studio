@@ -157,9 +157,10 @@ app.whenReady().then(async()=>{
    showView('animations');$('anNew').click();
    const a=animations[0];
    const first=a.frames[0].shapeId===shapes[0].id;
-   const rows=$('anFrames').children.length;
+   const rows=$('anTimeline').children.length;
    $('anAppend').click();
-   const appended=$('anFrames').children.length;
+   const appended=$('anTimeline').children.length;
+   $('anTimeline').children[0].click();
    const dx=$('anFrames').querySelector('input[aria-label$="dx"]');
    dx.value='-3';ev(dx,'change');
    return {first,rows,appended,dx:a.frames[0].dx,
