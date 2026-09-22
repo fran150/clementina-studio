@@ -1,8 +1,9 @@
 import type {ShapeSprite, AnimationFrame as SDKAnimationFrame, PaletteAsset, PaletteConfigAsset} from '@clementina/assets';
-import type {StudioProjectV2, StudioTileset, StudioShape} from '@clementina/project';
+import type {StudioProjectV2, StudioTileset, StudioShape, StudioBackground} from '@clementina/project';
 export {fromStudioProjectV2, toStudioProjectV2} from '@clementina/project';
 import {PALETTE_BANKS, PALETTE_COLORS, createConfig} from './palettes.js';
 export const BANK_BYTES = 6144, TILES_PER_BANK = 256, PROJECT_VERSION = 2;
+export const MAX_BACKGROUND_DIMENSION = 1024, MAX_BACKGROUND_CELLS = 200000;
 /**
  * Studio's project model, in the hardware's vocabulary — see docs/model.md.
  * A tileset is one CHR bank's worth of graphics; a palette bank is one of the
@@ -15,6 +16,8 @@ export const BANK_BYTES = 6144, TILES_PER_BANK = 256, PROJECT_VERSION = 2;
 export type ProjectPalette = Omit<PaletteAsset, 'format' | 'version'>;
 export type PaletteBankConfig = Omit<PaletteConfigAsset, 'format' | 'version'>;
 export type Tileset = StudioTileset;
+export type Background = StudioBackground;
+export type BackgroundCell = StudioBackground['cells'][number];
 export type Sprite = ShapeSprite;
 export type Shape = StudioShape;
 export type AnimationFrame = SDKAnimationFrame;
@@ -32,6 +35,7 @@ export function validateProject(p: StudioProject): void {
  validatePaletteConfigs(p.paletteConfigs,p.paletteLibrary);
  if(p.activeConfigId!==undefined&&!p.paletteConfigs.some(c=>c.id===p.activeConfigId))throw Error('The active config is not in the project');
  validateTilesets(p.tilesets);
+ validateBackgrounds(p.backgrounds??[],p.tilesets);
  validateShapes(p.shapes??[],p.tilesets);
  validateAnimations(p.animations??[],p.shapes??[]);
 }
@@ -78,6 +82,29 @@ export function validateTilesets(tilesets:Tileset[]):void {
   if(!integers(t.chr,BANK_BYTES,255)||!integers(t.tilePaletteBanks,TILES_PER_BANK,PALETTE_BANKS-1)||!Array.isArray(t.compositions))throw Error('Invalid tileset data');
   const cn=new Set<string>();
   for(const c of t.compositions){if(!c||typeof c.name!=='string'||!c.name.trim()||cn.has(c.name)||!range(c.x,0,15)||!range(c.y,0,15)||!range(c.width,1,16-c.x)||!range(c.height,1,16-c.y))throw Error('Invalid composition');cn.add(c.name);}
+ }
+}
+
+export function validateBackgrounds(backgrounds:Background[],tilesets:Tileset[]=[]):void {
+ if(!Array.isArray(backgrounds)||backgrounds.length>255)throw Error('At most 255 backgrounds are supported');
+ const tilesetIds=new Set(tilesets.map(t=>t.id).filter(Boolean) as string[]);
+ const names=new Set<string>(),ids=new Set<string>();
+ for(const background of backgrounds){
+  if(!background||typeof background.name!=='string'||!/^[A-Za-z][A-Za-z0-9_-]{0,47}$/.test(background.name)||names.has(background.name.toLowerCase()))throw Error('Background names must be unique file names: letters, digits, underscores, hyphens');
+  names.add(background.name.toLowerCase());
+  if(typeof background.id!=='string'||!background.id.length||ids.has(background.id))throw Error('Background identities must be unique');
+  ids.add(background.id);
+  if(!range(background.width,1,MAX_BACKGROUND_DIMENSION)||!range(background.height,1,MAX_BACKGROUND_DIMENSION))throw Error(`A background is 1 to ${MAX_BACKGROUND_DIMENSION} tiles per side`);
+  if(background.width*background.height>MAX_BACKGROUND_CELLS)throw Error(`A background holds at most ${MAX_BACKGROUND_CELLS} cells`);
+  // A background reads two CHR banks at once, chosen per cell by the CHR_ALT
+  // attribute bit — see docs/model.md.
+  if(!tilesetIds.has(background.tilesetId))throw Error('A background names a primary tileset in the project');
+  if(!tilesetIds.has(background.altTilesetId))throw Error('A background names an alternate tileset in the project');
+  if(!Array.isArray(background.cells)||background.cells.length!==background.width*background.height)throw Error('A background holds exactly width × height cells');
+  for(const cell of background.cells){
+   if(!cell||!range(cell.tile,0,TILES_PER_BANK-1)||!range(cell.paletteBank,0,PALETTE_BANKS-1))throw Error('Invalid background cell');
+   if(typeof cell.flipX!=='boolean'||typeof cell.flipY!=='boolean'||typeof cell.priority!=='boolean'||typeof cell.chrAlt!=='boolean')throw Error('Invalid background cell');
+  }
  }
 }
 
@@ -130,7 +157,7 @@ export function encodeProject(p:StudioProject):string {
  validateProject(p);
  return JSON.stringify({format:'clementina-studio',version:PROJECT_VERSION,
   paletteLibrary:p.paletteLibrary,paletteConfigs:p.paletteConfigs,activeConfigId:p.activeConfigId,
-  tilesets:p.tilesets,shapes:p.shapes,animations:p.animations})+'\n';
+  tilesets:p.tilesets,backgrounds:p.backgrounds,shapes:p.shapes,animations:p.animations})+'\n';
 }
 export function decodeProject(text:string):StudioProject {
  const p=JSON.parse(text);
@@ -148,7 +175,7 @@ export function decodeProject(text:string):StudioProject {
 export function emptyProject():StudioProject {
  const paletteLibrary:ProjectPalette[]=[],paletteConfigs:PaletteBankConfig[]=[];
  const config=createConfig(paletteConfigs,paletteLibrary,'Default');
- return {paletteLibrary,paletteConfigs,activeConfigId:config.id,tilesets:[],shapes:[],animations:[]};
+ return {paletteLibrary,paletteConfigs,activeConfigId:config.id,tilesets:[],backgrounds:[],shapes:[],animations:[]};
 }
 
 /** A PRG wraps CHR data in a CPU load header; its address is not a CHR bank. */

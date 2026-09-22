@@ -29,7 +29,7 @@ app.whenReady().then(async()=>{
   assert.equal(start.configs,1);
   assert.ok(start.active);
   assert.equal(start.tilesets,0);
-  assert.equal(start.keys,'activeConfigId,animations,paletteConfigs,paletteLibrary,shapes,tilesets');
+  assert.equal(start.keys,'activeConfigId,animations,backgrounds,paletteConfigs,paletteLibrary,shapes,tilesets');
 
   // A tile records the palette bank it was drawn against, and nothing more:
   // loading another config recolors it without touching what it stores.

@@ -100,6 +100,18 @@ the selected color's bank number on the tile. A tileset is 1bpp or 3bpp; at
 1bpp it is three independent 256-tile pages and the plane selector picks which
 is on screen, with the color picker limited to indices 0 and 1.
 
+**Backgrounds.** A free-sized, pannable and zoomable canvas of cells, drawing
+from a primary and an alternate tileset — a cell's `CHR_ALT` bit picks which
+one it reads. Painting stamps a tile, a palette bank (defaulting to the tile's
+authored bank, overridable), flip X/Y and priority into each cell. Two nested
+rectangles preview the hardware: the outer one is any of the six `BGMODE`
+viewport sizes (what would be loaded into the active `BGSET`'s tables), the
+inner one is the fixed 320×200 physical screen positioned by scroll within it
+(what is actually visible), wrapping at the mode's edges. A camera panel
+reads out the mode, `BGSET`, scroll position, and which physical tables the
+visible screen currently touches. None of this is exported. Resizing
+preserves existing cells anchored at the top-left.
+
 **Shapes.** One arrangement of sprites, free-positioned around an origin,
 drawing from one tileset — Clementina has a single sprite CHR bank, so
 everything on screen at once comes from the same one. The tileset is locked
@@ -114,13 +126,13 @@ an animation's shapes must draw from the same tileset. Sprite-versus-background
 priority is not editable yet; it belongs to the future scene editor.
 
 Shape and animation edits share a 50-step undo history, separate from tileset
-and palette edits.
+and palette edits. Backgrounds keep their own independent 50-step history.
 
 ## Tests
 
 `npm test` compiles the TypeScript and runs the model tests: the project
-format, its validators, palette and config behavior, the two attribute bit
-layouts, and image import.
+format, its validators, palette and config behavior, background validation,
+the two attribute bit layouts, and image import.
 
 `npm run test:desktop` drives the real renderer in Electron and covers the
 model end to end — that a tile records a bank and recolors with the config,
@@ -130,13 +142,42 @@ project round trips through save and restore.
 
 ## Not yet built
 
-Background and scene editors, music and sound effects, the build step, and the
-runtime routine library. `docs/model.md` records what each will need and which
-hardware constraints they have to respect — notably that backgrounds read two
-CHR banks chosen per cell, and that a scene is where co-residency and
-sprite-versus-background priority get decided.
+A scene editor, music and sound effects, the build step, and the runtime
+routine library. `docs/model.md` records what each will need and which
+hardware constraints they have to respect — notably that a scene is where
+co-residency and sprite-versus-background priority get decided, and where an
+authored background's mapping onto physical hardware tables and runtime
+streaming will eventually be handled.
 
 Shared UI conventions and extension points: **[docs/editor-shell.md](docs/editor-shell.md)**.
+
+### Background workspace
+
+The tileset picker docks beside the canvas: a primary and an alternate list,
+and a 16×16 tile map showing whichever one the "Show" selector points at.
+Clicking a tile sets both the stamp's tile and which tileset it reads
+(`CHR_ALT`) in one action. Pencil, rectangle fill, flood fill, eraser and
+eyedropper tools paint cells; a stroke or a rectangle drag is one undo step.
+
+The canvas is native pixel size (`width × height × 8`), scrollable, and
+zoomable in discrete steps. Two nested rectangles preview the hardware, each
+dragged by its own small handle that sits on top of the canvas without
+blocking painting underneath it — both rectangles are click-through. The
+outer one shows any of the six `BGMODE` sizes against the canvas: what would
+be loaded into the active `BGSET`'s physical tables. The inner one is always
+the fixed 320×200 physical screen, positioned within the outer one by
+`SCROLL_X`/`SCROLL_Y`: what is actually visible. Scroll wraps at the mode's
+own pixel size, so the inner rectangle can render as up to four pieces when
+it straddles both edges of the loaded window at once. A camera panel next to
+the canvas reads out the mode, `BGSET`, the loaded window's origin, scroll
+position, tileset names, and which physical table indices the visible screen
+currently touches, computed the same way the real renderer resolves them —
+useful for planning camera movement through a level before any runtime
+streaming code exists to move it.
+
+Run `npm run test:desktop:background` for background interaction, undo,
+camera/scroll preview math, and docked layout checks at 1440- and
+1024-pixel window widths.
 
 ### Animation workspace
 
@@ -155,7 +196,7 @@ independent actors belong to scene composition.
 Run `npm run test:desktop:animation` for animation interaction and docked layout
 checks at 1440- and 1024-pixel window widths.
 
-Run `npm run test:ui` for all four Electron renderer suites, or `npm run test:all`
+Run `npm run test:ui` for all five Electron renderer suites, or `npm run test:all`
 for unit tests plus UI tests. The workflow suite starts with an empty project and
 uses native mouse input on visible, enabled, unobscured controls. It checks the
 missing-shape guidance, tileset and shape creation, animation creation, frame

@@ -116,6 +116,53 @@ Because a tileset fills a whole bank and tile positions are fixed when the
 author draws them, tiles never collide and there is no packing step. A
 tileset maps one-to-one onto a CHR bank.
 
+## Backgrounds
+
+A **background** is a named grid of cells — a **width** and **height** in
+tiles, freely chosen rather than fixed to a hardware `BGMODE` size, and a flat
+array of cells the same length as `width × height`. Painting it works like the
+tileset editor but for nametable and attribute data, and the canvas can be
+panned and zoomed like any large map.
+
+A background draws from exactly **two** tilesets, named **primary** and
+**alternate**, matching the hardware: a background reads a primary and an
+alternate CHR bank at once, and each cell's `CHR_ALT` attribute bit picks
+which one it reads. `tilesetId` and `altTilesetId` are both required; naming
+the same tileset for both is a valid way to use only one.
+
+Each cell is `{tile, paletteBank, flipX, flipY, priority, chrAlt}` — the same
+six fields `cellAttr()` already packed for background and overlay cells.
+`paletteBank` defaults to the tile's authored bank at paint time, the same way
+a shape's sprite does, and can be overridden per cell.
+
+Resizing a background preserves existing cells anchored at the top-left:
+growing pads new cells with the blank default, shrinking crops whatever no
+longer fits.
+
+The hardware's six `BGMODE` viewport sizes are a **preview aid**, not a canvas
+limit, shown as two nested rectangles that model two different hardware
+facts. The outer one is the `BGMODE`-sized window that would be resident in
+the active `BGSET`'s four physical tables — what is loaded. The inner one is
+the fixed 320×200 physical screen, positioned within it by `SCROLL_X`/
+`SCROLL_Y` — what is actually visible. `SCROLL_X`/`SCROLL_Y` wrap at the
+mode's own pixel size (`clementina-rom/docs/basic-video.md`), so the inner
+rectangle wraps too, drawn as up to four pieces when it straddles both edges
+of the loaded window at once. A camera panel alongside the canvas reads out
+the mode, `BGSET`, the loaded window's origin, `SCROLL_X`/`SCROLL_Y`, the
+tileset names, and which physical table indices the visible rectangle
+currently touches — computed the same way
+`clementina-video-client/internal/render/renderer.go`'s `bgTableAndLocal`
+does, so the numbers match what the real renderer would show. All of this is
+editor state, not exported, the same way the active bank config is a preview
+choice; the one exception is that CHR bank *numbers* can never be shown here
+regardless, since a tileset is not assigned to a physical CHR bank until the
+build step exists — the panel names tilesets, not banks.
+
+Turning an authored background into something that streams onto real hardware
+— chunked across the eight physical nametable/attribute tables, with runtime
+loading and scrolling — is a **build step** concern, not modeled by the
+background asset itself. See "Build step" and "Deferred" below.
+
 ## Shapes and animations
 
 A **shape** is one static arrangement of sprites — a four-by-four hero, an
@@ -157,11 +204,13 @@ scene decisions.
 ## Authoring versus output
 
 Exported: palettes, bank configs, tileset CHR bytes, each sprite's tile,
-offsets, flips and palette bank, the order of sprites within a shape, and an
-animation's shape sequence with its durations and offsets.
+offsets, flips and palette bank, the order of sprites within a shape, an
+animation's shape sequence with its durations and offsets, and a background's
+width, height, two tileset references, and its cells.
 
-Not exported: a tile's recorded palette bank, which config is active, and
-preview backgrounds.
+Not exported: a tile's recorded palette bank, which config is active, preview
+backgrounds, and a background's viewport preview mode, `BGSET`, and scroll
+position.
 
 Never stored on an asset: `CHRMODE`, `CHRPLANE`, `BGBANK`/`BGALT`,
 `SPRBANK`, `OVLBANK`/`OVLALT`. These are global render state and belong to
@@ -214,12 +263,6 @@ a background the machine cannot produce. The sprite and scene editors should
 composite against the real layers.
 
 ## Deferred
-
-A **background editor** works like the sprite editor but for nametable and
-attribute data. It draws from up to two tilesets, since a background reads a
-primary and an alternate CHR bank with `CHR_ALT` choosing per cell. Cells are
-arranged by `BGMODE` across up to eight 40 by 25 tables rather than placed
-freely.
 
 A **scene editor** combines backgrounds, shapes, and a bank config into
 one screen, and is where the remaining validations belong: that every shape in

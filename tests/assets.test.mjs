@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {spriteAttr,spriteExt,cellAttr,validateTilesets,BANK_BYTES,TILES_PER_BANK} from '../dist/packages/assets/index.js';
+import {spriteAttr,spriteExt,cellAttr,validateTilesets,validateBackgrounds,BANK_BYTES,TILES_PER_BANK} from '../dist/packages/assets/index.js';
 
 const tileset=(name,bpp=3)=>({id:name,name,bpp,chr:Array(BANK_BYTES).fill(0),tilePaletteBanks:Array(TILES_PER_BANK).fill(0),compositions:[]});
+const bgCell=()=>({tile:0,paletteBank:0,flipX:false,flipY:false,priority:false,chrAlt:false});
+const background=(name,tilesetId='Art')=>({id:name,name,width:2,height:1,tilesetId,altTilesetId:tilesetId,cells:[bgCell(),bgCell()]});
 
 
 test('a tileset is 1bpp or 3bpp and its tiles name banks 0-15',()=>{
@@ -15,6 +17,29 @@ test('a tileset is 1bpp or 3bpp and its tiles name banks 0-15',()=>{
   t=>t.name='not a file name',
  ]){const t=tileset('Art');mutate(t);assert.throws(()=>validateTilesets([t]));}
  assert.throws(()=>validateTilesets([tileset('Same'),tileset('same')]),/unique/);
+});
+
+test('a background is width × height cells drawing from two tilesets in the project',()=>{
+ const art=tileset('Art');
+ validateBackgrounds([background('Level1')],[art]);
+ for(const mutate of [
+  b=>b.tilesetId='missing',
+  b=>b.altTilesetId='missing',
+  b=>b.cells.pop(),
+  b=>b.width=0,
+  b=>b.height=1025,
+  b=>b.cells[0].tile=256,
+  b=>b.cells[0].paletteBank=16,
+  b=>delete b.cells[0].flipX,
+  b=>b.name='not a file name',
+ ]){const b=background('Level2');mutate(b);assert.throws(()=>validateBackgrounds([b],[art]));}
+ assert.throws(()=>validateBackgrounds([background('Same'),background('same')],[art]),/unique/);
+ assert.throws(()=>validateBackgrounds(Array.from({length:256},(_,i)=>background('Level_'+i)),[art]),/255/);
+});
+
+test('a background cell reuses the background/overlay attribute layout',()=>{
+ const cell={paletteBank:5,flipX:true,flipY:false,priority:true,chrAlt:true};
+ assert.equal(cellAttr(cell),0xd5);
 });
 
 // Background and sprite attribute bytes carry the same fields at different bit
