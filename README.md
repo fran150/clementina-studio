@@ -154,3 +154,20 @@ independent actors belong to scene composition.
 
 Run `npm run test:desktop:animation` for animation interaction and docked layout
 checks at 1440- and 1024-pixel window widths.
+
+Run `npm run test:ui` for all four Electron renderer suites, or `npm run test:all`
+for unit tests plus UI tests. The workflow suite starts with an empty project and
+uses native mouse input on visible, enabled, unobscured controls. It checks the
+missing-shape guidance, tileset and shape creation, animation creation, frame
+duplication, undo/redo, and play/pause without injecting project assets. The other
+suites cover broader editor behavior and layouts with renderer-level fixtures.
+
+Animations need a shape for their first frame. The empty animation workspace
+explains this and offers **Go to Shapes**, which opens the shape creation controls.
+
+GitHub Actions runs the combined suite on macOS for pushes and pull requests,
+building the sibling `fran150/clementina-sdk` dependency first. UI screenshots are
+uploaded as `ui-test-results`; the workflow test also writes a screenshot and error
+report on failure. Locally these go in `test-results/` (override with
+`STUDIO_CAPTURE_DIR`). Native file dialogs and full main-process save/open flows
+are not covered by these renderer tests.

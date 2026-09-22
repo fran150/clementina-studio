@@ -10,7 +10,9 @@
     "test": "npm run build && node --test tests/*.test.mjs",
     "test:desktop": "npm run build && electron tests/desktop-smoke.cjs",
     "test:desktop:shell": "npm run build && electron tests/desktop-shell.cjs",
-    "test:desktop:animation": "npm run build && electron tests/desktop-animation.cjs"
+    "test:desktop:animation": "npm run build && electron tests/desktop-animation.cjs",
+    "test:ui": "npm run build && electron tests/desktop-workflow.cjs && electron tests/desktop-shell.cjs && electron tests/desktop-animation.cjs && electron tests/desktop-smoke.cjs",
+    "test:all": "npm test && npm run test:ui"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

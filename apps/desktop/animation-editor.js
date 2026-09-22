@@ -7,6 +7,7 @@
  host.innerHTML=`<aside class="anLibrary"><h2>Animations</h2><div id="anAnimActions" class="assetToolbar"></div><div id="anAnimList" role="listbox" aria-label="Animations"></div><p>Double-click an animation to rename it.</p></aside>
  <aside class="anShapeLibrary"><h2>Shapes</h2><div id="anShapeList" role="listbox" aria-multiselectable="true" aria-label="Shapes to append"></div><p id="anShapeNote"></p><button id="anAppend">Append selected frames</button><p>Ctrl/Cmd-click to select poses; Shift-click for a range. They append in library order.</p></aside>
  <main><div class="anTop"><strong id="anGroupTitle"></strong><button id="anPrevious" aria-label="Previous frame">◀</button><button id="anPlay">Play</button><button id="anNext" aria-label="Next frame">▶</button><span id="anFrameCounter"></span><label id="anConfigWrap">Group <select id="anConfigPicker" aria-label="Palette bank group"></select></label></div>
+ <div id="anEmpty" role="status"><p id="anEmptyMessage"></p><button id="anCreateShape">Go to Shapes</button></div>
  <div id="anBody"><div id="anPreviewCol"><canvas id="anCanvas" width="320" height="200" aria-label="Animation preview at native 320 by 200 resolution"></canvas><span id="anPreviewHint">Drag the pose to adjust this frame’s offset.</span></div>
   <div id="anFramesCol"><div class="anFramesHead"><h2>Selected frame</h2><button id="anMoveEarlier">Move earlier</button><button id="anMoveLater">Move later</button><button id="anDuplicateFrame">Duplicate frame</button></div>
    <table id="anFramesTable"><thead><tr><th>#</th><th>Shape</th><th>Ticks</th><th>dX</th><th>dY</th><th></th><th></th></tr></thead><tbody id="anFrames"></tbody></table>
@@ -22,6 +23,7 @@
  
  
  #animationEditor main{grid-column:2;display:flex;flex-direction:column;min-width:0;min-height:0}
+ #anEmpty{padding:12px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
  .anTop{display:flex;align-items:center;gap:14px;padding:8px 18px;background:var(--panel)}
  #anGroupTitle{color:var(--ink);font-size:13px;margin-right:auto}
  #anConfigWrap{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--text-dim);margin-left:auto}
@@ -81,9 +83,12 @@
  function usableShapes(a){const pinned=a&&animationTileset(a);return shapes.filter(s=>!a||s.tilesetId===pinned);}
 
  function freshName(){let n=1;while(animations.some(a=>a.name.toLowerCase()==='animation_'+n))n++;return 'animation_'+n;}
+ $('anCreateShape').onclick=()=>{showView('shapes');if($('scLibraryToggle').getAttribute('aria-expanded')!=='true')$('scLibraryToggle').click();$('scNew').focus();};
  $('anNew').onclick=()=>{
-  if(animations.length>=255||!shapes.length){setStatus(shapes.length?'':'Create a shape first.');return;}
+  if(animations.length>=255){setStatus('A project holds at most 255 animations.');return;}
+  if(!shapes.length){$('anCreateShape').focus();setStatus('Create a shape first. Use Go to Shapes to get started.');return;}
   edit(()=>{animations.push({name:freshName(),frames:[{shapeId:shapes[0].id,ticks:6}]});animationIndex=animations.length-1;frameIndex=0;selectedShapeId=null;selectedShapeIds.clear();shapeAnchor=null;});
+  setStatus('Created '+currentAnimation().name+'.');
  };
  $('anDuplicateAnim').onclick=()=>{
   if(!currentAnimation()||animations.length>=255)return;
@@ -277,6 +282,10 @@
   document.body.classList.toggle('animationView',!host.hidden);
   if(host.hidden)return;
   const a=currentAnimation();frameIndex=Math.max(0,Math.min(frameIndex,(a?.frames.length??1)-1));
+  $('anEmpty').hidden=!!a;
+  $('anEmptyMessage').textContent=!shapes.length?'Create a shape first. Animations sequence shapes as frames.':'Choose New animation in the Animations library to start sequencing your shapes.';
+  $('anCreateShape').hidden=!!shapes.length;
+  $('anNew').disabled=animations.length>=255;
   $('anPrevious').disabled=!a;$('anNext').disabled=!a;
   $('anMoveEarlier').disabled=!a||frameIndex===0;$('anMoveLater').disabled=!a||frameIndex===a.frames.length-1;
   $('anGroupTitle').textContent=a?.name??'No animations';

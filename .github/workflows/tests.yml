@@ -1,0 +1,41 @@
+name: Tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: clementina-studio
+      - uses: actions/checkout@v4
+        with:
+          repository: fran150/clementina-sdk
+          path: clementina-sdk
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build SDK dependencies
+        working-directory: clementina-sdk
+        run: |
+          npm ci
+          npm run build -w @clementina/core
+          npm run build -w @clementina/assets
+          npm run build -w @clementina/project
+      - name: Install Studio
+        working-directory: clementina-studio
+        run: npm ci
+      - name: Unit and UI tests
+        working-directory: clementina-studio
+        env:
+          STUDIO_CAPTURE_DIR: test-results
+        run: npm run test:all
+      - name: Upload UI screenshots and failure details
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-results
+          path: clementina-studio/test-results
+          if-no-files-found: ignore

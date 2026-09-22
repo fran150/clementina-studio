@@ -12,7 +12,7 @@ app.whenReady().then(async()=>{
  ipcMain.handle('tileset:import',()=>({name:'Imported',bpp:3,chr:Array(6144).fill(42)}));
  const window=new BrowserWindow({show:false,width:1440,height:1000,webPreferences:{preload:path.resolve(__dirname,'../dist/apps/desktop/preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
  const errors=[];
- window.webContents.on('console-message',(_event,level,message)=>{if(level>=2)errors.push(message);});
+ window.webContents.on('console-message',event=>{if(event.level==='error')errors.push(event.message);});
  const run=source=>window.webContents.executeJavaScript(`(()=>{${source}})()`);
  try {
   await window.loadFile(path.resolve(__dirname,'../apps/desktop/editor.html'));
