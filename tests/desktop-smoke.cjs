@@ -29,7 +29,7 @@ app.whenReady().then(async()=>{
   assert.equal(start.configs,1);
   assert.ok(start.active);
   assert.equal(start.tilesets,0);
-  assert.equal(start.keys,'activeConfigId,animations,backgrounds,paletteConfigs,paletteLibrary,shapes,tilesets');
+  assert.equal(start.keys,'activeConfigId,animations,backgrounds,overlays,paletteConfigs,paletteLibrary,shapes,tilesets');
 
   // A tile records the palette bank it was drawn against, and nothing more:
   // loading another config recolors it without touching what it stores.
@@ -151,6 +151,26 @@ app.whenReady().then(async()=>{
   assert.equal(shape.up,'2,1,3','move up steps a sprite one OAM index forward');
   assert.equal(shape.down,'1,2,3','move down steps it back');
 
+  // A 1bpp tileset reveals the tile-picker's plane selector (hidden for the
+  // 3bpp one), and switching planes changes which page the picker renders.
+  const plane=await run(`
+   tilesets[1].bpp=1;
+   for(let y=0;y<8;y++)for(let x=0;x<8;x++)setTilePixel(tilesets[1],5,x,y,1,1);
+   $('scBank').children[1].click();
+   const shown=!$('scPlaneLabel').hidden;
+   $('scBank').children[0].click();
+   const hidden3bpp=$('scPlaneLabel').hidden;
+   $('scBank').children[1].click();
+   const ctx=$('scBankMap').getContext('2d');
+   const plane0=ctx.getImageData(5*16+8,8,1,1).data.join(',');
+   $('scPlane').value='1';$('scPlane').dispatchEvent(new Event('change',{bubbles:true}));
+   const plane1=ctx.getImageData(5*16+8,8,1,1).data.join(',');
+   $('scPlane').value='0';$('scPlane').dispatchEvent(new Event('change',{bubbles:true}));
+   $('scBank').children[0].click();
+   return {shown,hidden3bpp,changed:plane0!==plane1};
+  `);
+  assert.deepEqual(plane,{shown:true,hidden3bpp:true,changed:true});
+
   // An animation sequences shapes it does not own, and can nudge one per frame.
   const animation=await run(`
    const ev=(el,t)=>el.dispatchEvent(new Event(t,{bubbles:true}));
@@ -193,6 +213,19 @@ app.whenReady().then(async()=>{
   assert.equal(imported.byte,42);
   assert.equal(imported.bpp,3);
   assert.ok(imported.banks,'an imported tileset starts every tile on bank 0');
+
+  // The Pan tool scrolls the canvas on drag instead of drawing — dragging
+  // over painted pixels with it active must not erase or restamp them.
+  await run(`showView('tiles');const t=tilesets[0];for(let y=0;y<8;y++)for(let x=0;x<8;x++)setTilePixel(t,0,x,y,2);$('panTool').click();`);
+  const beforePixels=await run(`return tilesets[0].chr.slice(0,8).join(',');`);
+  const canvasRect=await run(`const r=$('bankSelection').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2,panOn:$('panTool').classList.contains('on')};`);
+  assert.equal(canvasRect.panOn,true,'the Pan tool button must show as active once selected');
+  window.webContents.sendInputEvent({type:'mouseDown',x:canvasRect.x,y:canvasRect.y,button:'left',clickCount:1});
+  window.webContents.sendInputEvent({type:'mouseMove',x:canvasRect.x-20,y:canvasRect.y-15,button:'left'});
+  window.webContents.sendInputEvent({type:'mouseUp',x:canvasRect.x-20,y:canvasRect.y-15,button:'left',clickCount:1});
+  await new Promise(r=>setTimeout(r,60));
+  assert.equal(await run(`return tilesets[0].chr.slice(0,8).join(',');`),beforePixels,'dragging with the Pan tool active must not draw');
+  await run(`$('pencilTool').click();`);
 
   // The whole project survives a save and reload through the real validator.
   const roundTrip=await run(`

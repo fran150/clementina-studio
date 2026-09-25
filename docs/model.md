@@ -147,10 +147,12 @@ the fixed 320×200 physical screen, positioned within it by `SCROLL_X`/
 `SCROLL_Y` — what is actually visible. `SCROLL_X`/`SCROLL_Y` wrap at the
 mode's own pixel size (`clementina-rom/docs/basic-video.md`), so the inner
 rectangle wraps too, drawn as up to four pieces when it straddles both edges
-of the loaded window at once. A camera panel alongside the canvas reads out
-the mode, `BGSET`, the loaded window's origin, `SCROLL_X`/`SCROLL_Y`, the
-tileset names, and which physical table indices the visible rectangle
-currently touches — computed the same way
+of the loaded window at once. Each rectangle has its own color (white for the
+loaded window, yellow for the screen) carried through to its drag handle, and
+a togglable Status panel explains the legend and reads out the register-level
+detail behind it: the mode, `BGSET`, the loaded window's origin, `SCROLL_X`/
+`SCROLL_Y`, the tileset names, and which physical table indices the visible
+rectangle currently touches — computed the same way
 `clementina-video-client/internal/render/renderer.go`'s `bgTableAndLocal`
 does, so the numbers match what the real renderer would show. All of this is
 editor state, not exported, the same way the active bank config is a preview
@@ -162,6 +164,35 @@ Turning an authored background into something that streams onto real hardware
 — chunked across the eight physical nametable/attribute tables, with runtime
 loading and scrolling — is a **build step** concern, not modeled by the
 background asset itself. See "Build step" and "Deferred" below.
+
+The background editor can also **toggle an overlay preview**: pick an overlay
+asset and it composites over the inner (currently visible) rectangle, since
+the overlay always sits on the physical screen 1:1 regardless of background
+scroll — see "Overlays" below. This is preview-only, like everything else in
+this section.
+
+## Overlays
+
+An **overlay** is the fixed hardware text/HUD layer: 40×25 cells, always —
+there is no `BGMODE` equivalent and it never scrolls. Otherwise its cell
+shape and editing model are identical to a background's: it draws from a
+**primary** and **alternate** tileset via `CHR_ALT`, each cell is the same
+`{tile, paletteBank, flipX, flipY, priority, chrAlt}` `cellAttr()` packs, and
+it has its own bank pair, `OVLBANK`/`OVLALT`, matching `BGBANK`/`BGALT`'s
+shape. Priority has no visible effect here — the overlay always draws last,
+on top of everything (see "What the hardware actually constrains") — but the
+bit is still stored, the same way every cell field is.
+
+A **placeholder** is a named rectangular region on the grid —
+`{id, name, col, row, width, height}` — and nothing else. It carries no
+content of its own: whatever is painted in its cells with the normal tools
+*is* the overlay's real initial data, not a discardable mockup. Placeholders
+may not overlap and must lie within the 40×25 grid. Their purpose is for a
+future build step to generate a primitive per placeholder — something like
+`SetPlaceholder_<Name>(tileIds)` — that overwrites just the tile-ID bytes in
+that region, left to right then top to bottom, leaving every other attribute
+(palette, flips, priority, `CHR_ALT`) as authored. Mapping a value — a score,
+a string — to a tile-ID stream is the programmer's problem, not Studio's.
 
 ## Shapes and animations
 
@@ -205,19 +236,21 @@ scene decisions.
 
 Exported: palettes, bank configs, tileset CHR bytes, each sprite's tile,
 offsets, flips and palette bank, the order of sprites within a shape, an
-animation's shape sequence with its durations and offsets, and a background's
-width, height, two tileset references, and its cells.
+animation's shape sequence with its durations and offsets, a background's
+width, height, two tileset references, and its cells, and an overlay's two
+tileset references, its cells, and its placeholders' geometry.
 
 Not exported: a tile's recorded palette bank, which config is active, preview
-backgrounds, and a background's viewport preview mode, `BGSET`, and scroll
-position.
+backgrounds, a background's viewport preview mode, `BGSET`, scroll position,
+and overlay-preview toggle, and every editor's 1bpp plane choice.
 
 Never stored on an asset: `CHRMODE`, `CHRPLANE`, `BGBANK`/`BGALT`,
 `SPRBANK`, `OVLBANK`/`OVLALT`. These are global render state and belong to
 the build step. The one exception is `bpp`, which is generated *from* the
 tileset rather than set independently, because it describes the tileset's own
-encoding. The 1bpp plane on screen is editor state too, held by the tileset
-editor rather than the tileset.
+encoding. The 1bpp plane on screen is editor state too — the tileset editor
+and every editor that reads a tileset (background, overlay, shapes) each
+hold their own plane choice independently, none of it stored on the tileset.
 
 ## Build step
 

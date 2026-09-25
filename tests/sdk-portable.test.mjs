@@ -6,14 +6,18 @@ test('Studio shares SDK portable conversion without altering session persistence
  const studio=emptyProject();
  studio.tilesets.push({id:'tileset:test',name:'Test',bpp:3,chr:Array(6144).fill(0),tilePaletteBanks:Array(256).fill(0),compositions:[],previewBackground:'#123456'});
  studio.backgrounds.push({id:'background:test',name:'Level1',width:2,height:1,tilesetId:'tileset:test',altTilesetId:'tileset:test',cells:[{tile:0,paletteBank:0,flipX:false,flipY:false,priority:false,chrAlt:false},{tile:1,paletteBank:2,flipX:true,flipY:false,priority:false,chrAlt:true}]});
+ studio.overlays.push({id:'overlay:test',name:'Hud',tilesetId:'tileset:test',altTilesetId:'tileset:test',cells:Array.from({length:1000},()=>({tile:0,paletteBank:0,flipX:false,flipY:false,priority:false,chrAlt:false})),placeholders:[{id:'placeholder:score',name:'Score',col:0,row:0,width:2,height:1}]});
  const saved=encodeProject(studio);
  const portable=fromStudioProjectV2(studio);
  assert.equal(checkAssetSet(portable).ok,true);
  assert.equal('previewBackground' in portable.tilesets[0],false);
  assert.equal(portable.backgrounds[0].id,'background:test');
+ assert.equal(portable.overlays[0].id,'overlay:test');
+ assert.equal(portable.overlays[0].placeholders[0].name,'Score');
  assert.deepEqual(decodeProject(saved),studio);
  const restored=toStudioProjectV2(portable);
  assert.equal(restored.tilesets[0].id,studio.tilesets[0].id);
  assert.equal(studio.tilesets[0].previewBackground,'#123456');
  assert.deepEqual(restored.backgrounds[0],studio.backgrounds[0]);
+ assert.deepEqual(restored.overlays[0],studio.overlays[0]);
 });

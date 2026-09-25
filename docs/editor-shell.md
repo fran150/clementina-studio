@@ -21,6 +21,20 @@ stay in each editor. This extraction preserves their current arrangements.
   remain mutually exclusive. Tilesets retain their content-switching flyout.
 - Project-action icon styling, tooltips, navigation/header sizing, and global status
   presentation belong to the shell. Status messages are announced politely.
+- `renderList(container, items, {selected, choose, rename, render, content, maxLength})`
+  is the selectable, optionally renameable list every asset library uses: palettes,
+  bank configs, tilesets, tileset objects, backgrounds, overlays, overlay
+  placeholders, animations and shapes. It reuses row elements in place rather than
+  recreating them, so a render triggered mid-double-click does not swap the node out
+  from under the pointer — recreating rows resets the browser's dblclick count and
+  was the root cause of an earlier bug. `content(row, item)` overrides the default
+  `row.textContent = item.name` for rows that carry more than a name, such as a
+  palette's color chips. `startRename(container, i, name, rename, render, maxLength)`
+  is `renderList`'s own rename path, exposed separately for the one case that starts
+  a rename programmatically right after creating an item (the tileset editor's
+  Object list). Both call `render()` unconditionally once a rename commits, is
+  cancelled, or is rejected by `rename` — that call is what clears the input back to
+  text; skipping it is what leaves a rename stuck as a textbox.
 
 Future scene and music editors should compose these primitives and own their
 canvas/timeline/inspector content. Keep selection and panel visibility out of portable

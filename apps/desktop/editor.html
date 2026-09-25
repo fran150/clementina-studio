@@ -98,8 +98,8 @@ header h1, header .sep, header .lbl, header #bankSel, header #mode1, header #mod
 </head>
 <body>
 <aside id="workflowNav"><div class="brand">CLEMENTINA STUDIO</div><div class="navGroup">GRAPHICS</div>
-<button data-view="palettes">Palettes</button><button data-view="tiles">Tilesets</button><button data-view="backgrounds">Backgrounds</button><button data-view="shapes">Shapes</button><button data-view="animations">Animations</button>
-<div class="navNote">Define palettes and bank configs, draw tilesets, paint backgrounds, build shapes from their tiles, then sequence shapes into animations.</div></aside>
+<button data-view="palettes">Palettes</button><button data-view="tiles">Tilesets</button><button data-view="overlays">Overlays</button><button data-view="backgrounds">Backgrounds</button><button data-view="shapes">Shapes</button><button data-view="animations">Animations</button>
+<div class="navNote">Define palettes and bank configs, draw tilesets, design the overlay, paint backgrounds, build shapes from their tiles, then sequence shapes into animations.</div></aside>
 <div id="workspace"><div id="workflowHeading"><h1 id="viewTitle">Tilesets</h1><p id="viewHelp"></p></div>
 <header>
   <h1>Clementina Studio <small>· 8×8 tiles · 1/3 bpp · 16 palette banks</small></h1>
@@ -131,7 +131,7 @@ const $ = id => document.getElementById(id);
 const statusEl = $('status'), dirtyEl = $('dirty'), nameInput = $('nameInput');
 
 // ===== state =====
-let paletteLibrary = [], paletteConfigs = [], activeConfigId = null, tilesets = [], backgrounds = [];
+let paletteLibrary = [], paletteConfigs = [], activeConfigId = null, tilesets = [], backgrounds = [], overlays = [];
 let currentView = 'tiles', shapes = [], animations = [];
 let shapeIndex = 0, animationIndex = 0, frameIndex = 0, shapeHistory = [], playing = false, playFrame = 0, playStart = 0;
 let dirty = false;
@@ -263,7 +263,7 @@ $('configPicker').onchange = () => { activeConfigId = $('configPicker').value; r
 function newProject() {
   if (dirty && !confirm('Discard unsaved changes?')) return;
   window.studio?.newProject();
-  tilesets = []; backgrounds = []; animations = []; shapes = []; shapeIndex = 0; animationIndex = 0; frameIndex = 0;
+  tilesets = []; backgrounds = []; overlays = []; animations = []; shapes = []; shapeIndex = 0; animationIndex = 0; frameIndex = 0;
   shapeHistory = []; playing = false;
   loadDefaultPalettes();
   nameInput.value = 'tiles';
@@ -272,13 +272,13 @@ function newProject() {
 }
 function studioProject() {
   return {paletteLibrary:structuredClone(paletteLibrary),paletteConfigs:structuredClone(paletteConfigs),
-   activeConfigId,tilesets:structuredClone(tilesets),backgrounds:structuredClone(backgrounds),
+   activeConfigId,tilesets:structuredClone(tilesets),backgrounds:structuredClone(backgrounds),overlays:structuredClone(overlays),
    shapes:structuredClone(shapes),animations:structuredClone(animations)};
 }
 function restoreStudioProject(p,name='Recovered project') {
   paletteLibrary=structuredClone(p.paletteLibrary??[]);paletteConfigs=structuredClone(p.paletteConfigs??[]);
   activeConfigId=p.activeConfigId??paletteConfigs[0]?.id??null;tilesets=structuredClone(p.tilesets??[]);
-  backgrounds=structuredClone(p.backgrounds??[]);
+  backgrounds=structuredClone(p.backgrounds??[]);overlays=structuredClone(p.overlays??[]);
   animations=structuredClone(p.animations??[]);shapes=structuredClone(p.shapes??[]);
   shapeIndex=0;animationIndex=0;frameIndex=0;playing=false;shapeHistory=[];
   setNameFromFile(name);dirty=false;setDirtyLabel();redrawAll();
@@ -299,6 +299,7 @@ if(!window.studio)for(const id of ['nativeOpen','nativeSave','nativeSaveAs'])$(i
 const descriptions={
  palettes:['Palettes','Palettes hold eight colors. A bank config places sixteen of them in palette RAM; a game loads one config at a time.'],
  tiles:['Tilesets','Each tileset fills one CHR bank. Draw tiles and record which palette bank each was drawn against.'],
+ overlays:['Overlays','Paint the fixed 40 × 25 text/HUD layer. Placeholders mark regions the build step can fill at runtime; whatever you paint there is the default content.'],
  backgrounds:['Backgrounds','Paint a background from two tilesets. A cell reads the primary or alternate tileset, chosen by its CHR_ALT bit.'],
  shapes:['Shapes','One arrangement of sprites from a single tileset. Later sprites draw on top.'],
  animations:['Animations','Sequence shapes and set their timing. Editing a shape updates every frame showing it.'],
@@ -316,7 +317,7 @@ document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>show
 window.bootStudio=()=>{newProject();showView('tiles');};
 </script>
 <script src="studio-shell.js"></script>
-<script src="image-import-ui.js"></script><script src="bank-editor.js"></script><script src="background-editor.js"></script><script src="palette-library.js"></script><script src="animation-editor.js"></script><script src="sprite-composer.js"></script>
+<script src="image-import-ui.js"></script><script src="bank-editor.js"></script><script src="overlay-editor.js"></script><script src="background-editor.js"></script><script src="palette-library.js"></script><script src="animation-editor.js"></script><script src="sprite-composer.js"></script>
 <script>bootStudio();</script>
 </body>
 </html>

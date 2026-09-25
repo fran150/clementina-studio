@@ -97,33 +97,12 @@
  $('anDelete').onclick=()=>{if(!currentAnimation()||!confirm('Delete this animation?'))return;edit(()=>{animations.splice(animationIndex,1);animationIndex=Math.max(0,animationIndex-1);frameIndex=0;});};
 
  function chooseAnimation(i){animationIndex=i;frameIndex=0;playing=false;selectedShapeId=null;selectedShapeIds.clear();shapeAnchor=null;renderAnimations();}
- function renameAnimation(row,i){
-  if(row.querySelector('input'))return;
-  const input=document.createElement('input');input.value=animations[i].name;input.maxLength=32;input.setAttribute('aria-label','Rename animation');
-  row.replaceChildren(input);let done=false;
-  const finish=save=>{
-   if(done)return;done=true;const value=input.value.trim();
-   if(save&&value!==animations[i].name){
-    if(!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(value)||animations.some((x,j)=>j!==i&&x.name.toLowerCase()===value.toLowerCase()))setStatus('Use a unique name: letters, digits, underscores; start with a letter.');
-    else edit(()=>animations[i].name=value);
-   }
-   render();
-  };
-  input.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();finish(true);}if(e.key==='Escape'){e.preventDefault();finish(false);}};
-  input.onblur=()=>finish(true);input.focus();input.select();
+ function renameAnimation(i,name){
+  if(!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(name)||animations.some((x,j)=>j!==i&&x.name.toLowerCase()===name.toLowerCase())){setStatus('Use a unique name: letters, digits, underscores; start with a letter.');return false;}
+  edit(()=>animations[i].name=name);return true;
  }
  function renderAnimList(){
-  const list=$('anAnimList');
-  while(list.children.length>animations.length)list.lastElementChild.remove();
-  animations.forEach((a,i)=>{
-   let row=list.children[i];
-   if(!row){row=document.createElement('div');row.className='assetRow';row.tabIndex=0;row.setAttribute('role','option');list.append(row);}
-   row.setAttribute('aria-selected',String(i===animationIndex));
-   if(!row.querySelector('input'))row.textContent=a.name;
-   row.onclick=e=>{if(e.target.tagName!=='INPUT')chooseAnimation(i);};
-   row.ondblclick=e=>{if(e.target.tagName!=='INPUT')renameAnimation(row,i);};
-   row.onkeydown=e=>{if(e.target.tagName==='INPUT')return;if(e.key==='Enter'){e.preventDefault();chooseAnimation(i);}if(e.key==='F2'){e.preventDefault();renameAnimation(row,i);}};
-  });
+  StudioShell.renderList($('anAnimList'),animations,{selected:(a,i)=>i===animationIndex,choose:(a,i)=>chooseAnimation(i),rename:renameAnimation,render,maxLength:32});
  }
 
  // A shape row here selects it; Append frame is the explicit action, matching

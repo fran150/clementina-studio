@@ -12,7 +12,8 @@
     "test:desktop:shell": "npm run build && electron tests/desktop-shell.cjs",
     "test:desktop:animation": "npm run build && electron tests/desktop-animation.cjs",
     "test:desktop:background": "npm run build && electron tests/desktop-background.cjs",
-    "test:ui": "npm run build && electron tests/desktop-workflow.cjs && electron tests/desktop-shell.cjs && electron tests/desktop-animation.cjs && electron tests/desktop-background.cjs && electron tests/desktop-smoke.cjs",
+    "test:desktop:overlay": "npm run build && electron tests/desktop-overlay.cjs",
+    "test:ui": "npm run build && electron tests/desktop-workflow.cjs && electron tests/desktop-shell.cjs && electron tests/desktop-animation.cjs && electron tests/desktop-background.cjs && electron tests/desktop-overlay.cjs && electron tests/desktop-smoke.cjs",
     "test:all": "npm test && npm run test:ui"
   },
   "devDependencies": {

@@ -2,7 +2,7 @@
 // are pixels relative to the shape's origin; list order is OAM order.
 (() => {
  const host=document.createElement('section');host.id='spriteComposer';host.hidden=true;
- host.innerHTML=`<aside class="scLibrary"><h2>Shapes</h2><div id="scShapeActions" class="assetToolbar"></div><div id="scSprites" role="listbox" aria-label="Shapes"></div><p>Double-click a shape to rename it.</p></aside><aside class="scTileLibrary"><h2>Tileset</h2><div id="scBank" role="listbox" aria-label="Source tileset"></div><p id="scTilesetNote">A shape draws from one tileset: Clementina has a single sprite CHR bank.</p><h2>Tile selector</h2><canvas id="scBankMap" width="256" height="256"></canvas><label>Object <select id="scObjects"></select></label><p>Left-drag to select tiles. Right-click to pick them up, then click the canvas. Or right-drag directly onto it.</p><button id="scPlace">Place selection</button></aside>
+ host.innerHTML=`<aside class="scLibrary"><h2>Shapes</h2><div id="scShapeActions" class="assetToolbar"></div><div id="scSprites" role="listbox" aria-label="Shapes"></div><p>Double-click a shape to rename it.</p></aside><aside class="scTileLibrary"><h2>Tileset</h2><div id="scBank" role="listbox" aria-label="Source tileset"></div><p id="scTilesetNote">A shape draws from one tileset: Clementina has a single sprite CHR bank.</p><h2>Tile selector</h2><label id="scPlaneLabel">Plane <select id="scPlane" aria-label="Which 1bpp page the tile selector shows"><option>0</option><option>1</option><option>2</option></select></label><canvas id="scBankMap" width="256" height="256"></canvas><label>Object <select id="scObjects"></select></label><p>Left-drag to select tiles. Right-click to pick them up, then click the canvas. Or right-drag directly onto it.</p><button id="scPlace">Place selection</button></aside>
  <main><div class="scTop"><div id="scZoomGroup"><button id="scFit">Fit</button><button id="scActualSize">100%</button><button id="scZoomOut" title="Zoom out" aria-label="Zoom out">−</button><span id="scZoomLabel"></span><button id="scZoomIn" title="Zoom in" aria-label="Zoom in">+</button></div><label>Canvas <input id="scWidth" type="number" min="1" max="128" value="4" aria-label="Editing width in tiles"> × <input id="scHeight" type="number" min="1" max="128" value="4" aria-label="Editing height in tiles"> <select id="scUnits" aria-label="Canvas units"><option value="tiles">tiles</option><option value="pixels">pixels</option></select></label></div>
  <div class="scOrigin">Origin <button data-origin="top-left">Top-left</button><button data-origin="center">Center</button><button data-origin="bottom-center">Bottom-center</button><button id="scOriginTool">Place origin</button><label id="scSnapRow" hidden><input id="scSnap" type="checkbox">Snap</label><details id="scDisplaySettings"><summary></summary><div><label id="scGridRow"><span>Grid</span><input id="scGrid" type="checkbox" checked></label><label id="scBackgroundRow"><span>Background</span><input type="color" id="scBackground" value="#252830"></label></div></details></div>
  <div id="scViewport"><canvas id="scCanvas" tabindex="0" aria-label="Sprite composition canvas"></canvas><canvas id="scMini" width="144" height="112" title="Sprite miniature"></canvas></div><div id="scStatus"></div><section id="scPaletteDock"><div class="paletteDockHead"><label id="scConfigWrap">Group <select id="scConfigPicker" aria-label="Palette bank group"></select></label><span id="scPaletteHint">Click a bank to set it on the selected sprites.</span></div><div id="scPalettes"></div></section></main>
@@ -21,7 +21,7 @@
  // Box select likewise moves into the left rail once it exists.
  host.append(iconButton('scBoxSelect','Box select — drag to select every sprite the box touches, even starting on top of one','<rect x="3" y="3" width="19" height="19" stroke-dasharray="3 3"/>'));
  let units='tiles',sourceDrag=null,ghostPoint=null;
- let selected=new Set(),sourceRect={x:0,y:0,width:1,height:1},sourceAnchor=null,zoom=8,camera={x:16,y:16},drag=null,placing=false,originTool=false,boxSelect=false,space=false,redo=[],lastSprite=null;
+ let selected=new Set(),sourceRect={x:0,y:0,width:1,height:1},sourceAnchor=null,zoom=8,camera={x:16,y:16},drag=null,placing=false,originTool=false,boxSelect=false,space=false,redo=[],lastSprite=null,scPlane=0;
  const shape=()=>shapes[shapeIndex],spritesOf=()=>shape()?.sprites??[],source=()=>shapeTileset();
  const byId=id=>tilesets.find(t=>t.id===id);
  // Every sprite in a shape comes from the shape's one tileset.
@@ -50,9 +50,8 @@
   drawBank();draw();
  }
  // A 1bpp tileset's three pages are independent; sprites read whichever plane
- // CHRPLANE selects, so the picker previews page 0.
- function pixel(tileset,t,x,y){if(tileset.bpp===1)return (tileset.chr[t*8+y]>>x)&1;let v=0;for(let p=0;p<3;p++)v|=((tileset.chr[p*2048+t*8+y]>>x)&1)<<p;return v;}
- function tile(ctx,tileset,p,x,y,scale){if(!tileset){ctx.strokeStyle='#f66';ctx.strokeRect(x,y,8*scale,8*scale);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+8*scale,y+8*scale);ctx.stroke();return;}for(let py=0;py<8;py++)for(let px=0;px<8;px++){const v=pixel(tileset,p.tile,p.flipX?7-px:px,p.flipY?7-py:py);if(v){ctx.fillStyle=css565(bankColor(p.paletteBank,v));ctx.fillRect(x+px*scale,y+py*scale,scale,scale);}}}
+ // CHRPLANE selects at runtime — scPlane is Studio's preview choice.
+ function tile(ctx,tileset,p,x,y,scale){if(!tileset){ctx.strokeStyle='#f66';ctx.strokeRect(x,y,8*scale,8*scale);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+8*scale,y+8*scale);ctx.stroke();return;}for(let py=0;py<8;py++)for(let px=0;px<8;px++){const v=tilePixel(tileset,p.tile,p.flipX?7-px:px,p.flipY?7-py:py,scPlane);if(v){ctx.fillStyle=css565(bankColor(p.paletteBank,v));ctx.fillRect(x+px*scale,y+py*scale,scale,scale);}}}
  function drawBank(){const b=source(),c=$('scBankMap'),ctx=c.getContext('2d');ctx.fillStyle='#252830';ctx.fillRect(0,0,256,256);if(!b)return;for(let t=0;t<256;t++)tile(ctx,b,{tile:t,paletteBank:b.tilePaletteBanks[t]},t%16*16,Math.floor(t/16)*16,2);ctx.strokeStyle='#ffffff20';ctx.lineWidth=1;ctx.beginPath();for(let n=0;n<=16;n++){ctx.moveTo(n*16,0);ctx.lineTo(n*16,256);ctx.moveTo(0,n*16);ctx.lineTo(256,n*16);}ctx.stroke();ctx.strokeStyle='#36c9d6';ctx.lineWidth=2;ctx.strokeRect(sourceRect.x*16+1,sourceRect.y*16+1,sourceRect.width*16-2,sourceRect.height*16-2);}
 
  const canvas=$('scCanvas');
@@ -180,9 +179,9 @@
  const oldRestore=restoreStudioProject;restoreStudioProject=function(...args){redo=[];selected.clear();placing=false;originTool=false;oldRestore(...args);};const oldNew=newProject;newProject=function(...args){redo=[];selected.clear();placing=false;originTool=false;oldNew(...args);};
  const oldRender=renderAnimations;renderAnimations=function(){oldRender();render();};const oldShow=showView;showView=function(v){oldShow(v);render();if(v==='shapes')fit();};const oldRedraw=redrawAll;redrawAll=function(){oldRedraw();render();};
 
- function chooseShape(i){shapeIndex=i;sourceRect={x:0,y:0,width:1,height:1};redo=[];renderAnimations();fit();}
- function renderShapeList(){const list=$('scSprites');while(list.children.length>shapes.length)list.lastElementChild.remove();shapes.forEach((a,i)=>{let row=list.children[i];if(!row){row=document.createElement('div');row.className='assetRow';row.tabIndex=0;row.setAttribute('role','option');list.append(row);}row.dataset.index=i;row.setAttribute('aria-selected',String(i===shapeIndex));if(!row.querySelector('input'))row.textContent=a.name;row.onclick=e=>{if(e.target.tagName!=='INPUT')chooseShape(i);};row.ondblclick=e=>{if(e.target.tagName!=='INPUT')renameShape(row,i);};row.onkeydown=e=>{if(e.target.tagName==='INPUT')return;if(e.key==='Enter')chooseShape(i);if(e.key==='F2'){e.preventDefault();renameShape(row,i);}};});}
- function renameShape(row,i){if(row.querySelector('input'))return;const input=document.createElement('input');input.value=shapes[i].name;input.maxLength=32;input.setAttribute('aria-label','Rename group');row.replaceChildren(input);input.focus();input.select();let done=false;const finish=save=>{if(done)return;done=true;const value=input.value.trim();input.remove();if(save&&value!==shapes[i].name){if(!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(value)||shapes.some((s,j)=>j!==i&&s.name.toLowerCase()===value.toLowerCase()))setStatus('Use a unique group name: letters, digits and underscores, starting with a letter.');else edit(()=>shapes[i].name=value);}render();};input.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter')finish(true);if(e.key==='Escape')finish(false);};input.onblur=()=>finish(true);}
+ function chooseShape(i){shapeIndex=i;sourceRect={x:0,y:0,width:1,height:1};scPlane=0;redo=[];renderAnimations();fit();}
+ function renderShapeList(){StudioShell.renderList($('scSprites'),shapes,{selected:(s,i)=>i===shapeIndex,choose:(s,i)=>chooseShape(i),rename:renameShape,render,maxLength:32});}
+ function renameShape(i,name){if(!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(name)||shapes.some((s,j)=>j!==i&&s.name.toLowerCase()===name.toLowerCase())){setStatus('Use a unique group name: letters, digits and underscores, starting with a letter.');return false;}edit(()=>shapes[i].name=name);return true;}
  // Switching tileset repoints every sprite's tile index at whatever graphics sit
  // at that index in the new tileset. Sprites carry no other reference to the
  // tileset, so nothing needs migrating, and switching back restores this shape
@@ -195,14 +194,16 @@
    if(!row){row=document.createElement('div');row.className='assetRow';row.tabIndex=0;row.setAttribute('role','option');list.append(row);}
    row.textContent=t.name;
    row.setAttribute('aria-selected',String(t.id===a?.tilesetId));
-   row.onclick=()=>{if(!a||t.id===a.tilesetId)return;edit(()=>{shape().tilesetId=t.id;sourceRect={x:0,y:0,width:1,height:1};});};
+   row.onclick=()=>{if(!a||t.id===a.tilesetId)return;scPlane=0;edit(()=>{shape().tilesetId=t.id;sourceRect={x:0,y:0,width:1,height:1};});};
    row.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();row.onclick();}};
   });
   $('scTilesetNote').textContent=!a?'Create a shape to choose its tileset.'
    :!tilesets.length?'Create a tileset first.'
    :spritesOf().length?`Drawing from ${current?.name??'a missing tileset'}. Switching repoints every sprite's tile at the new tileset — switch back and this shape looks right again.`
    :'A shape draws from one tileset: Clementina has a single sprite CHR bank.';
+  $('scPlaneLabel').hidden=current?.bpp!==1;$('scPlane').value=scPlane;
  }
+ $('scPlane').onchange=()=>{scPlane=Number($('scPlane').value);drawBank();draw();};
  // A tile's palette bank comes along for free when it is placed (see `place`),
  // so the dock below just needs to show and let the user override it. Built
  // from the same .paletteGroup markup the tileset editor uses for its own

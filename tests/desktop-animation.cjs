@@ -9,6 +9,15 @@ app.whenReady().then(async()=>{
  await window.loadFile(path.resolve(__dirname,'../apps/desktop/editor.html'));
  await run(`showView('tiles');$('addBankFile').click();const t=tilesets[0];t.name='Characters';for(let y=0;y<8;y++)for(let x=0;x<8;x++)setTilePixel(t,0,x,y,x===0||y===0?2:4);shapes=['Idle','Walk_A','Walk_B'].map((name,i)=>({id:'shape:'+i,name,tilesetId:t.id,sprites:[{tile:0,x:-8+i,y:-8,paletteBank:0,flipX:false,flipY:false},{tile:0,x:i,y:-8,paletteBank:0,flipX:false,flipY:false},{tile:0,x:-8+i,y:0,paletteBank:0,flipX:false,flipY:false},{tile:0,x:i,y:0,paletteBank:0,flipX:false,flipY:false}]}));tilesets.push({...structuredClone(t),id:'other-bank',name:'OtherBank'});shapes.push({id:'other',name:'Other',tilesetId:'other-bank',sprites:[]});showView('animations');$('anNew').click();`);
  assert.deepEqual(await run(`return {width:$('anCanvas').width,height:$('anCanvas').height,usable:$('anShapeList').children.length};`),{width:320,height:200,usable:3});
+
+ // Double-clicking a list row turns it into a rename textbox; committing must
+ // replace it with the new name rather than leaving the textbox stuck in place.
+ await run(`$('anAnimList').children[0].dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));`);
+ assert.equal(await run(`return !!$('anAnimList').children[0].querySelector('input');`),true,'double-click must turn the row into a rename textbox');
+ await run(`const input=$('anAnimList').children[0].querySelector('input');input.value='Walk_Cycle';input.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));`);
+ assert.deepEqual(await run(`return {name:animations[0].name,hasInput:!!$('anAnimList').children[0].querySelector('input'),text:$('anAnimList').children[0].textContent};`),
+  {name:'Walk_Cycle',hasInput:false,text:'Walk_Cycle'},'committing a rename must swap the textbox back for text, not leave it stuck');
+
  const batch=await run(`$('anShapeLibraryToggle').click();const rows=$('anShapeList').children;rows[1].click();$('anShapeList').children[2].dispatchEvent(new MouseEvent('click',{bubbles:true,ctrlKey:true}));$('anAppend').click();return animations[0].frames.map(f=>f.shapeId);`);
  assert.deepEqual(batch,['shape:0','shape:1','shape:2']);
  assert.equal(await run(`return $('anTimeline').children.length;`),3);

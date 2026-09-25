@@ -51,9 +51,12 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
 - `apps/desktop`: the asset studio. `editor.html` is the shell — model, state,
   helpers and view switching. `studio-shell.js` / `studio-shell.css` supply shared
   navigation, project buttons, tool rails, drawers, tooltips and status styling. Each other editor is a
-  self-attaching script: `bank-editor.js` (tilesets), `palette-library.js`
-  (palettes and bank configs), `sprite-composer.js` (shapes),
-  `animation-editor.js` (animations), `image-import-ui.js` (artwork import). They load after the shell and wrap its
+  self-attaching script: `bank-editor.js` (tilesets), `overlay-editor.js`
+  (the fixed HUD/text layer, loaded before `background-editor.js` since the
+  latter reads its assets for a preview toggle), `background-editor.js`
+  (backgrounds), `palette-library.js` (palettes and bank configs),
+  `sprite-composer.js` (shapes), `animation-editor.js` (animations),
+  `image-import-ui.js` (artwork import). They load after the shell and wrap its
   `showView`/`redrawAll`, so the shell boots them via `bootStudio()`.
 - `packages/assets`: the project format, its validators, and the attribute
   encoders.
@@ -98,18 +101,35 @@ instead, or offers to empty them.
 rectangle, and palette RAM as the active config arranges it. Painting records
 the selected color's bank number on the tile. A tileset is 1bpp or 3bpp; at
 1bpp it is three independent 256-tile pages and the plane selector picks which
-is on screen, with the color picker limited to indices 0 and 1.
+is on screen, with the color picker limited to indices 0 and 1. A Pan tool
+(also Space-drag or the middle button, with any other tool active) scrolls
+the zoomed pixel canvas instead of drawing.
+
+**Overlays.** The fixed 40×25 hardware text/HUD layer — no `BGMODE`, no
+scroll, its own `OVLBANK`/`OVLALT` primary and alternate tileset pair. Same
+cell shape and paint tools as backgrounds. A **placeholder** is a named
+rectangular region, nothing more; whatever is painted inside it is the
+overlay's real initial content, not a mockup — a future build step generates
+a primitive per placeholder that overwrites its tile IDs at runtime. Where
+either assigned tileset is 1bpp, a plane selector picks which of its three
+pages the picker and canvas render from — preview state, never exported.
 
 **Backgrounds.** A free-sized, pannable and zoomable canvas of cells, drawing
 from a primary and an alternate tileset — a cell's `CHR_ALT` bit picks which
 one it reads. Painting stamps a tile, a palette bank (defaulting to the tile's
 authored bank, overridable), flip X/Y and priority into each cell. Two nested
-rectangles preview the hardware: the outer one is any of the six `BGMODE`
-viewport sizes (what would be loaded into the active `BGSET`'s tables), the
-inner one is the fixed 320×200 physical screen positioned by scroll within it
-(what is actually visible), wrapping at the mode's edges. A camera panel
-reads out the mode, `BGSET`, scroll position, and which physical tables the
-visible screen currently touches. None of this is exported. Resizing
+rectangles preview the hardware: the outer one (white) is any of the six
+`BGMODE` viewport sizes (what would be loaded into the active `BGSET`'s
+tables), the inner one (yellow) is the fixed 320×200 physical screen
+positioned by scroll within it (what is actually visible), wrapping at the
+mode's edges. Each has its own draggable handle, colored to match its
+rectangle. A togglable Status panel explains what the two colors mean and
+reads out the register-level detail behind them: `BGMODE`, `BGSET`, the
+loaded window's origin, `SCROLL_X`/`SCROLL_Y`, and which physical tables the
+visible screen currently touches. A "toggle overlay" control composites a
+chosen overlay asset over the inner rectangle, so a level and its HUD can be
+checked together. Where either tileset is 1bpp, a plane selector picks which
+page renders, same as the overlay editor. None of this is exported. Resizing
 preserves existing cells anchored at the top-left.
 
 **Shapes.** One arrangement of sprites, free-positioned around an origin,
@@ -117,7 +137,8 @@ drawing from one tileset — Clementina has a single sprite CHR bank, so
 everything on screen at once comes from the same one. The tileset is locked
 once a shape holds sprites. Each sprite carries a palette bank, defaulting to
 the one its tile was drawn against and overridable per sprite. List order is
-OAM order, so a later sprite draws on top, matching the renderer.
+OAM order, so a later sprite draws on top, matching the renderer. Where the
+tileset is 1bpp, a plane selector picks which page the tile picker shows.
 
 **Animations.** A sequence of shapes with 60 Hz tick durations, an optional
 per-frame offset, and a native 320×200 preview that scales to the workspace. An animation references its shapes rather
@@ -126,13 +147,14 @@ an animation's shapes must draw from the same tileset. Sprite-versus-background
 priority is not editable yet; it belongs to the future scene editor.
 
 Shape and animation edits share a 50-step undo history, separate from tileset
-and palette edits. Backgrounds keep their own independent 50-step history.
+and palette edits. Backgrounds and overlays each keep their own independent
+50-step history.
 
 ## Tests
 
 `npm test` compiles the TypeScript and runs the model tests: the project
-format, its validators, palette and config behavior, background validation,
-the two attribute bit layouts, and image import.
+format, its validators, palette and config behavior, background and overlay
+validation, the two attribute bit layouts, and image import.
 
 `npm run test:desktop` drives the real renderer in Electron and covers the
 model end to end — that a tile records a bank and recolors with the config,
@@ -151,29 +173,84 @@ streaming will eventually be handled.
 
 Shared UI conventions and extension points: **[docs/editor-shell.md](docs/editor-shell.md)**.
 
+### Overlay workspace
+
+Structured like the background workspace, but fixed to 40×25 — no resize, no
+`BGMODE`, no scroll, no camera panel. A Placeholders panel lists each
+region's name and `col`/`row`/`width`/`height`; a dedicated Placeholder tool
+drags out a new one directly on the canvas, rejecting drags or field edits
+that would overlap an existing placeholder or leave the 40×25 grid. Existing
+placeholders render as labeled, click-through dashed outlines so they stay
+visible without blocking painting. A tileset that is 1bpp gets its own plane
+selector next to its picker list, independent for primary and alternate. The
+same Pan tool as the background workspace scrolls the canvas at high zoom.
+
+Run `npm run test:desktop:overlay` for overlay interaction, undo, placeholder
+creation/edit/overlap rejection, plane preview, and docked layout checks at
+1440- and 1024-pixel window widths.
+
 ### Background workspace
 
 The tileset picker docks beside the canvas: a primary and an alternate list,
 and a 16×16 tile map showing whichever one the "Show" selector points at.
 Clicking a tile sets both the stamp's tile and which tileset it reads
-(`CHR_ALT`) in one action. Pencil, rectangle fill, flood fill, eraser and
+(`CHR_ALT`) in one action; dragging picks a rectangular group instead, shown
+in the stamp bar as "Group *w* × *h*". An Objects list below the picker
+mirrors the tileset's own named selections (managed in the Tilesets editor)
+as one-click shortcuts to re-pick a saved group. The pencil tool stamps a
+picked group as a unit, each tile keeping its own authored palette bank
+rather than one bank forced across the whole group — the palette dock is
+disabled while a group is picked, since there's no single bank to override.
+Rectangle fill, flood fill and the eraser stay single-tile regardless of
+what's picked, using just its top-left tile: stamping a whole group at every
+cell a flood or a rectangle drag touches would paint it densely rather than
+placing it once. The palette dock itself shows every bank's full 8 colors,
+not one representative swatch, so two banks that only differ past color 1
+don't look identical. Pencil, rectangle fill, flood fill, eraser and
 eyedropper tools paint cells; a stroke or a rectangle drag is one undo step.
+A Select tool marks a range of already-painted cells instead — dragging it
+shows "Selected *w* × *h*" in the stamp bar, and clicking Flip X/Y, Priority
+or a palette bank then edits every marked cell's attribute in place as one
+undo step, never touching its tile or `CHR_ALT`. It's how to recolor or
+reflip a placed shape after the fact without repainting it tile by tile.
+Escape or the "Clear selection" button drops the range.
+A Pan tool scrolls the canvas on drag instead of painting — needed once a
+background is bigger than the window, since the canvas area scrolls
+independently of the toolbar above it rather than growing past the window
+and taking the toolbar's zoom controls with it. Space-drag or the middle
+button pan too, whatever tool is active, matching the tileset editor.
+A tileset that is 1bpp gets its own plane selector next to its picker list,
+independent for primary and alternate — the picker and canvas re-render from
+whichever page is chosen. A "toggle overlay" control in the Status panel
+composites a chosen overlay asset over the inner (visible-screen) rectangle,
+defaulting to plane 0 for any 1bpp overlay tileset.
 
 The canvas is native pixel size (`width × height × 8`), scrollable, and
-zoomable in discrete steps. Two nested rectangles preview the hardware, each
-dragged by its own small handle that sits on top of the canvas without
-blocking painting underneath it — both rectangles are click-through. The
-outer one shows any of the six `BGMODE` sizes against the canvas: what would
-be loaded into the active `BGSET`'s physical tables. The inner one is always
-the fixed 320×200 physical screen, positioned within the outer one by
-`SCROLL_X`/`SCROLL_Y`: what is actually visible. Scroll wraps at the mode's
-own pixel size, so the inner rectangle can render as up to four pieces when
-it straddles both edges of the loaded window at once. A camera panel next to
-the canvas reads out the mode, `BGSET`, the loaded window's origin, scroll
-position, tileset names, and which physical table indices the visible screen
-currently touches, computed the same way the real renderer resolves them —
-useful for planning camera movement through a level before any runtime
-streaming code exists to move it.
+zoomable in discrete steps, with a light grid at every tile boundary so an
+empty cell reads as a place a tile goes rather than as featureless
+background. Two nested rectangles preview the hardware, each dragged by its
+own small handle that sits on top of the canvas without blocking painting
+underneath it — both rectangles are click-through. The outer one (white)
+shows any of the six `BGMODE` sizes against the canvas: what would be loaded
+into the active `BGSET`'s physical tables; its handle sits at its top-left
+corner rather than centered, so it stays reachable even when the outer and
+inner rectangles are the same size and would otherwise stack both handles on
+the same point. The inner one (yellow) is always the fixed 320×200 physical
+screen, positioned within the outer one by `SCROLL_X`/`SCROLL_Y`: what is
+actually visible. Scroll wraps at the mode's own pixel size, so the inner
+rectangle can render as up to four pieces when it straddles both edges of
+the loaded window at once.
+
+A Status panel, opened from the rail like the Backgrounds and Tilesets
+panels, is independent of dragging or of either rectangle's current
+position — open it any time to read a color legend explaining what white
+and yellow mean, then the register-level detail behind them: `BGMODE`,
+`BGSET`, the loaded window's origin (in tiles, offset from the background's
+top-left corner), `SCROLL_X`/`SCROLL_Y` (in pixels, updating live while
+either handle is dragged), tileset names, and which physical table indices
+the visible screen currently touches, computed the same way the real
+renderer resolves them — useful for planning camera movement through a
+level before any runtime streaming code exists to move it.
 
 Run `npm run test:desktop:background` for background interaction, undo,
 camera/scroll preview math, and docked layout checks at 1440- and
@@ -196,7 +273,7 @@ independent actors belong to scene composition.
 Run `npm run test:desktop:animation` for animation interaction and docked layout
 checks at 1440- and 1024-pixel window widths.
 
-Run `npm run test:ui` for all five Electron renderer suites, or `npm run test:all`
+Run `npm run test:ui` for all six Electron renderer suites, or `npm run test:all`
 for unit tests plus UI tests. The workflow suite starts with an empty project and
 uses native mouse input on visible, enabled, unobscured controls. It checks the
 missing-shape guidance, tileset and shape creation, animation creation, frame

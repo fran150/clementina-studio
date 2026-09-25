@@ -50,5 +50,59 @@
  function hideTip(){clearTimeout(tipTimer);tooltip.hidden=true;tipTarget=null;}
  function showTip(target){hideTip();const text=target.title||target.getAttribute('aria-label')||target.textContent.trim();if(!text)return;tipTarget=target;tipTimer=setTimeout(()=>{if(!target.isConnected)return;tooltip.textContent=text;tooltip.hidden=false;const r=target.getBoundingClientRect(),w=tooltip.offsetWidth,h=tooltip.offsetHeight;tooltip.style.left=Math.max(6,Math.min(innerWidth-w-6,r.left+r.width/2-w/2))+'px';tooltip.style.top=(r.bottom+h+12<innerHeight?r.bottom+7:Math.max(6,r.top-h-7))+'px';},300);}
  document.addEventListener('pointerover',e=>{const b=e.target.closest?.('button,summary');if(b&&b!==tipTarget)showTip(b);});document.addEventListener('pointerout',e=>{if(tipTarget&&!tipTarget.contains(e.relatedTarget))hideTip();});document.addEventListener('focusin',e=>{const b=e.target.closest?.('button,summary');if(b)showTip(b);});document.addEventListener('focusout',hideTip);document.addEventListener('pointerdown',hideTip);window.addEventListener('blur',hideTip);document.addEventListener('keydown',hideTip);document.addEventListener('scroll',hideTip,true);
- window.StudioShell=Object.freeze({iconButton,setIcon,toolRail,bindPanel,selectView});
+
+ // A selectable, optionally renameable list of named items — the palette,
+ // tileset, composition, background, overlay, placeholder, animation and
+ // shape libraries are all one of these. Rows are reused in place rather
+ // than recreated so a render triggered mid-double-click does not swap the
+ // node out from under the pointer, which would reset the browser's
+ // dblclick count.
+ //
+ // options: {
+ //   selected(item,i) -> boolean   which row shows as selected
+ //   choose(item,i)                click / Enter
+ //   rename(i,newName) -> any      optional; enables dblclick / F2 rename
+ //   render()                      re-render, called once a rename commits, is
+ //                                 cancelled or is rejected — required when
+ //                                 `rename` is given
+ //   content(row,item)             optional custom row body; defaults to
+ //                                 `row.textContent = item.name`
+ //   maxLength                     rename input's maxlength, default 48
+ // }
+ function renderList(container,items,options){
+  const {selected,choose,rename,render,content,maxLength=48}=options;
+  while(container.children.length>items.length)container.lastElementChild.remove();
+  items.forEach((item,i)=>{
+   let row=container.children[i];
+   if(!row){row=document.createElement('div');row.className='assetRow';row.tabIndex=0;row.setAttribute('role','option');container.append(row);}
+   row.dataset.index=i;row.setAttribute('aria-selected',String(selected(item,i)));
+   if(!row.querySelector('input')){if(content)content(row,item);else row.textContent=item.name;}
+   row.onclick=e=>{if(e.target.tagName!=='INPUT')choose(item,i);};
+   row.ondblclick=rename?(e=>{if(e.target.tagName!=='INPUT')startRename(container,i,item.name,rename,render,maxLength);}):null;
+   row.onkeydown=e=>{
+    if(e.target.tagName==='INPUT')return;
+    if(e.key==='Enter'){e.preventDefault();choose(item,i);}
+    if(rename&&e.key==='F2'){e.preventDefault();startRename(container,i,item.name,rename,render,maxLength);}
+   };
+  });
+ }
+ // The one piece every rename form needs to get right: the input this
+ // creates must be gone from the row — via the unconditional `render()` at
+ // the end of `finish` — whether the rename is saved, cancelled, or
+ // rejected by `rename` itself. Leaving it in place is what let a rename
+ // get permanently stuck as a textbox.
+ function startRename(container,i,name,rename,render,maxLength=48){
+  const row=container.children[i];if(!row||row.querySelector('input'))return;
+  const input=document.createElement('input');input.value=name;input.maxLength=maxLength;input.setAttribute('aria-label','Rename '+name);
+  row.replaceChildren(input);let done=false;
+  const finish=save=>{
+   if(done)return;done=true;const value=input.value.trim();row.textContent=name;
+   if(save&&value!==name)rename(i,value);
+   render();
+  };
+  input.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();finish(true);}if(e.key==='Escape'){e.preventDefault();finish(false);}};
+  input.onblur=()=>finish(true);input.focus();input.select();
+ }
+
+ window.StudioShell=Object.freeze({iconButton,setIcon,toolRail,bindPanel,selectView,renderList,startRename});
 })();

@@ -29,7 +29,7 @@
  let pixelSelection=null,selectStart=null,pixelClipboard=null,colorClipboard=null,pasteAnchor=null,clipboardArea='pixels',lastPixel=[0,0];
  let fillPattern='solid';
  let usagePalette=null,resizeDrag=null;
- let moveDrag=null,spaceHeld=false,panDrag=null;
+ let moveDrag=null,spaceHeld=false,panDrag=null,panToolActive=false;
  let shapeStart=null,shapeEnd=null,miniVisible=false;
  let erasing=false,hovering=false,objectIndex=-1,targetTile=0,zoom=8,colorEdit={bank:0,ink:1};
  let plane=0;
@@ -63,10 +63,11 @@
   $('bankUndo').disabled=!undo.length;$('bankRedo').disabled=!redo.length;
   if(!a){$('canvasStage').hidden=true;$('paletteDock').hidden=true;$('canvasTop').hidden=true;$('bankFiles').replaceChildren();$('compositionList').replaceChildren();return;}
   $('canvasStage').hidden=false;$('paletteDock').hidden=false;$('canvasTop').hidden=false;$('canvasAssetLabel').textContent=a.name+(objectIndex>=0?' / '+a.compositions[objectIndex].name:'');
-  renderList($('bankFiles'),list,index,selectBank,renameBank);
+  StudioShell.renderList($('bankFiles'),list,{selected:(t,i)=>i===index,choose:(t,i)=>selectBank(i),rename:renameBank,render,maxLength:48});
   $('bankFileMode').value=a.bpp;$('bankFilePlane').value=plane;$('bankFilePlaneLabel').hidden=a.bpp!==1;
   $('bankUndo').disabled=!undo.length;$('bankRedo').disabled=!redo.length;
   $('pencilTool').classList.toggle('on',tool==='pencil');$('eraserTool').classList.toggle('on',tool==='eraser');$('pickerTool').classList.toggle('on',tool==='picker');$('fillTool').classList.toggle('on',tool==='fill');$('zoomLabel').textContent=zoom+'×';$('zoomOut').disabled=zoom===1;$('zoomIn').disabled=zoom===32;
+  $('panTool').classList.toggle('on',panToolActive);scroll.style.cursor=panToolActive?'grab':'';
   $('previewBackground').value=a.previewBackground??'#252830';
   $('zeroMode').value=zeroAsColor?'background':'transparent';$('previewBackground').disabled=zeroAsColor;backgroundRow.style.opacity=zeroAsColor?'.45':'';
   $('bankSelectionInfo').textContent=`${selection.width} × ${selection.height} tiles · ${selection.width*8} × ${selection.height*8} pixels`;
@@ -81,7 +82,7 @@
   if(scale>=16){c.strokeStyle='#ffffff30';c.lineWidth=1;c.beginPath();for(let px=1;px<selection.width*8;px++){c.moveTo(px*scale+.5,0);c.lineTo(px*scale+.5,selection.height*8*scale);}for(let py=1;py<selection.height*8;py++){c.moveTo(0,py*scale+.5);c.lineTo(selection.width*8*scale,py*scale+.5);}c.stroke();}
   if($('cellGrid').checked)for(let cy=0;cy<selection.height;cy++)for(let cx=0;cx<selection.width;cx++){c.strokeStyle='#36c9d680';c.strokeRect(cx*8*scale+.5,cy*8*scale+.5,8*scale-1,8*scale-1);}
   refreshPalettes();
-  renderList($('compositionList'),a.compositions,objectIndex,selectObject,renameObject);
+  StudioShell.renderList($('compositionList'),a.compositions,{selected:(c,i)=>i===objectIndex,choose:(c,i)=>selectObject(i),rename:renameObject,render,maxLength:64});
   for(const id of ['line','rectangle','ellipse'])$(id+'Tool').classList.toggle('on',tool===id);
   $('drawingFlyout').style.bottom=($('paletteDock').offsetHeight+($('drawingStatus')?.offsetHeight??0))+'px';
   for(const name of ['solid','checker','stripes']){const b=$('fillPattern_'+name);if(b){b.disabled=!(tool==='fill'||(['rectangle','ellipse'].includes(tool)&&$('filledShapes').checked));b.classList.toggle('on',fillPattern===name);b.setAttribute('aria-pressed',String(fillPattern===name));}}if($('filledShapeToggle')){$('filledShapeToggle').disabled=!['rectangle','ellipse'].includes(tool);$('filledShapeToggle').classList.toggle('on',$('filledShapes').checked);$('filledShapeToggle').setAttribute('aria-pressed',String($('filledShapes').checked));}
@@ -181,22 +182,8 @@
  $('deleteBankFile').onclick=()=>{if(!asset()||!confirm('Delete tileset "'+asset().name+'" and its objects?'))return;mutate(()=>{tilesets.splice(index,1);index=Math.max(0,index-1);objectIndex=-1;targetTile=0;});};
  $('copyBankFile').onclick=()=>mutate(()=>{const copy=structuredClone(asset());copy.id=crypto.randomUUID();copy.name=freshName();tilesets.push(copy);index=tilesets.length-1;objectIndex=-1;targetTile=0;palette=0;});
  function renameBank(i,name){if(!/^[A-Za-z][A-Za-z0-9_-]{0,47}$/.test(name)||tilesets.some((a,j)=>j!==i&&a.name.toLowerCase()===name.toLowerCase())){setStatus('Use a unique filename: letters, digits, underscore or hyphen.');return false;}mutate(()=>tilesets[i].name=name);return true;}
- function renameObject(i,name){if(!name.trim()||asset().compositions.some((a,j)=>j!==i&&a.name===name.trim())){setStatus('Use a unique object name.');return false;}mutate(()=>asset().compositions[i].name=name.trim());return true;}
+ function renameObject(i,name){if(!name||asset().compositions.some((a,j)=>j!==i&&a.name===name)){setStatus('Use a unique object name.');return false;}mutate(()=>asset().compositions[i].name=name);return true;}
  function selectObject(i){pixelSelection=null;pasteAnchor=null;objectIndex=i;const c=asset().compositions[i];selection={x:c.x,y:c.y,width:c.width,height:c.height};render();}
- function renderList(container,items,selected,choose,rename){
-  while(container.children.length>items.length)container.lastElementChild.remove();
-  items.forEach((item,i)=>{let row=container.children[i];if(!row){row=document.createElement('div');row.className='assetRow';row.tabIndex=0;row.setAttribute('role','option');container.append(row);}
-   row.dataset.index=i;row.setAttribute('aria-selected',String(i===selected));if(!row.querySelector('input'))row.textContent=item.name;
-   row.onclick=e=>{if(e.target.tagName!=='INPUT')choose(i);};row.ondblclick=e=>{if(e.target.tagName!=='INPUT')startRename(container,i,item.name,rename);};
-   row.onkeydown=e=>{if(e.target.tagName==='INPUT')return;if(e.key==='Enter'){e.preventDefault();choose(i);}if(e.key==='F2'){e.preventDefault();startRename(container,i,item.name,rename);}};
-  });
- }
- function startRename(container,i,name,rename){
-  const row=container.children[i];if(!row||row.querySelector('input'))return;
-  const input=document.createElement('input');input.value=name;input.maxLength=container.id==='bankFiles'?48:64;input.setAttribute('aria-label','Rename '+name);row.replaceChildren(input);let done=false;
-  function finish(save){if(done)return;const value=input.value;done=true;row.textContent=name;if(save&&value!==name)rename(i,value);render();}
-  input.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();finish(true);}if(e.key==='Escape'){e.preventDefault();finish(false);}};input.onblur=()=>finish(true);input.focus();input.select();
- }
  $('bankFileMode').onchange=()=>mutate(()=>{asset().bpp=Number($('bankFileMode').value);ink=1;});
  // The plane is which of a 1bpp tileset's three pages is on screen, not a
  // property of the tileset, so switching it is not a project edit.
@@ -204,7 +191,7 @@
  function step(from,to){if(!from.length)return;const state=JSON.parse(from.pop());to.push(snapshot('shapes' in state));restore(state);changed();if(window.renderPaletteLibrary)window.renderPaletteLibrary();}
  $('bankUndo').onclick=()=>step(undo,redo);
  $('bankRedo').onclick=()=>step(redo,undo);
- $('saveComposition').onclick=()=>{let n=1;while(asset().compositions.some(c=>c.name==='Object_'+n))n++;const name='Object_'+n;mutate(()=>{asset().compositions.push({name,...selection});objectIndex=asset().compositions.length-1;});startRename($('compositionList'),objectIndex,name,renameObject);};
+ $('saveComposition').onclick=()=>{let n=1;while(asset().compositions.some(c=>c.name==='Object_'+n))n++;const name='Object_'+n;mutate(()=>{asset().compositions.push({name,...selection});objectIndex=asset().compositions.length-1;});StudioShell.startRename($('compositionList'),objectIndex,name,renameObject,render,64);};
  $('deleteComposition').onclick=()=>{if(objectIndex<0||!confirm('Delete this object? Its pixels will be kept.'))return;mutate(()=>{asset().compositions.splice(objectIndex,1);objectIndex=-1;});};
 
  const rail=document.createElement('nav');rail.id='drawingTools';rail.setAttribute('aria-label','Drawing tools');
@@ -216,7 +203,11 @@
  for(const [key,label] of [['banks','▤ Banks'],['objects','▧ Objects & tile map']]){const button=document.createElement('button');button.textContent=label;button.title=label.slice(2);button.setAttribute('aria-label',label.slice(2));button.onclick=()=>openPanel(key);panelButtons[key]=button;rail.append(button);}
  const eraser=document.createElement('button');eraser.id='eraserTool';eraser.textContent='▱ Eraser';eraser.onclick=()=>{tool='eraser';render();};
  const picker=document.createElement('button');picker.id='pickerTool';picker.textContent='⌖ Pick color';picker.onclick=()=>{tool='picker';render();};
- $('pencilTool').textContent='✎ Pencil';$('fillTool').textContent='▨ Fill';rail.append($('pencilTool'),eraser,$('fillTool'),picker,$('bankUndo'),$('bankRedo'));
+ // A sticky toggle layered over the tool system, not a tool of its own — it
+ // works no matter which drawing tool was active before, the same way
+ // Space-drag and middle-drag already do.
+ const panButton=document.createElement('button');panButton.id='panTool';panButton.onclick=()=>{panToolActive=!panToolActive;render();};
+ $('pencilTool').textContent='✎ Pencil';$('fillTool').textContent='▨ Fill';rail.append($('pencilTool'),eraser,$('fillTool'),picker,panButton,$('bankUndo'),$('bankRedo'));
  objects.prepend(mapPanel);flyout.append(banks,objects);banks.hidden=objects.hidden=true;
  const center=document.createElement('div');center.id='drawingCenter';
  const top=document.createElement('div');top.id='canvasTop';top.innerHTML='<strong id="canvasAssetLabel"></strong><span id="canvasSize"></span>';
@@ -247,7 +238,7 @@
   if(key==='escape'){event.preventDefault();event.stopImmediatePropagation();resizeDrag=null;moveDrag=null;pasteAnchor=null;pixelSelection=null;selectStart=null;render();return;}
   if(event.metaKey||event.ctrlKey)return;
   if(key.startsWith('arrow')&&pixelSelection&&!pasteAnchor){event.preventDefault();event.stopImmediatePropagation();const d={arrowleft:[-1,0],arrowright:[1,0],arrowup:[0,-1],arrowdown:[0,1]}[key];if(d)movePixels(pixelSelection,capturePixels(pixelSelection),movePosition(...d,pixelSelection));return;}
-  const tools={s:'selectionTool',b:'pencilTool',e:'eraserTool',g:'fillTool',i:'pickerTool'};if(tools[key]){event.preventDefault();event.stopImmediatePropagation();$(tools[key]).click();}
+  const tools={s:'selectionTool',b:'pencilTool',e:'eraserTool',g:'fillTool',i:'pickerTool',h:'panTool'};if(tools[key]){event.preventDefault();event.stopImmediatePropagation();$(tools[key]).click();}
  },true);
  const centered=document.createElement('style');centered.textContent=`
 
@@ -269,10 +260,10 @@
   return [...out.values()].filter(([x,y])=>kind==='line'||!$('filledShapes').checked||erasing||patternAt(x,y));
  }
  function previewShape(){render();if(!shapeStart)return;const c=$('bankSelection').getContext('2d');c.fillStyle=erasing?zeroColor(asset(),palette):css565(bankColor(palette,ink));for(const [x,y] of shapePixels(tool,shapeStart,shapeEnd))c.fillRect(x*zoom,y*zoom,zoom,zoom);}
- const paths={banks:'<path d="M5 2h11l5 5v17H5zM16 2v6h5"/><path d="M8 12h10v8H8zM13 12v8M8 16h10"/>',objects:'<rect x="3" y="3" width="18" height="18"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',pencil:'<path d="m4 16 12-12 4 4L8 20H4zM13 7l4 4"/>',eraser:'<path d="m3 15 9-10a2 2 0 0 1 3 0l7 6a2 2 0 0 1 0 3l-6 7H9z"/><path d="m8 10 10 8M9 21h14"/><path d="m3 15 5-5 10 8-3 3H9z" fill="currentColor" opacity=".3"/>',fill:'<path d="m4 12 8-8 9 9-8 8z"/><path d="M7 9V5a3 3 0 0 1 6 0v3M4 12h16"/><path d="M22 14c-1 2-3 4-3 6a3 3 0 0 0 6 0c0-2-2-4-3-6z" fill="currentColor"/><path d="m5 13 8 7 7-7" fill="currentColor" opacity=".3"/>',picker:'<path d="m15 4 2-2a3 3 0 0 1 4 4l-2 2 2 2-3 3-7-7 3-3z" fill="currentColor"/><path d="m12 8-9 9v4h4l9-9M3 21l-1 2"/>',line:'<path d="M4 20 20 4"/>',rectangle:'<rect x="3" y="5" width="18" height="14"/>',ellipse:'<ellipse cx="12" cy="12" rx="9" ry="7"/>',undo:'<path d="M9 5 3 11l6 6M3 11h11a7 7 0 0 1 7 7"/>',redo:'<path d="m15 5 6 6-6 6M21 11H10a7 7 0 0 0-7 7"/>',preview:'<rect x="2" y="4" width="20" height="16"/><rect x="6" y="8" width="7" height="7"/><path d="M16 8h3M16 12h3M16 16h3"/>'};
+ const paths={banks:'<path d="M5 2h11l5 5v17H5zM16 2v6h5"/><path d="M8 12h10v8H8zM13 12v8M8 16h10"/>',objects:'<rect x="3" y="3" width="18" height="18"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/>',pencil:'<path d="m4 16 12-12 4 4L8 20H4zM13 7l4 4"/>',eraser:'<path d="m3 15 9-10a2 2 0 0 1 3 0l7 6a2 2 0 0 1 0 3l-6 7H9z"/><path d="m8 10 10 8M9 21h14"/><path d="m3 15 5-5 10 8-3 3H9z" fill="currentColor" opacity=".3"/>',fill:'<path d="m4 12 8-8 9 9-8 8z"/><path d="M7 9V5a3 3 0 0 1 6 0v3M4 12h16"/><path d="M22 14c-1 2-3 4-3 6a3 3 0 0 0 6 0c0-2-2-4-3-6z" fill="currentColor"/><path d="m5 13 8 7 7-7" fill="currentColor" opacity=".3"/>',picker:'<path d="m15 4 2-2a3 3 0 0 1 4 4l-2 2 2 2-3 3-7-7 3-3z" fill="currentColor"/><path d="m12 8-9 9v4h4l9-9M3 21l-1 2"/>',pan:'<path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10V6a2 2 0 0 0-4 0v8c0 4 2 7 7 7s7-3 7-7v-4a2 2 0 0 0-4 0v1"/>',line:'<path d="M4 20 20 4"/>',rectangle:'<rect x="3" y="5" width="18" height="14"/>',ellipse:'<ellipse cx="12" cy="12" rx="9" ry="7"/>',undo:'<path d="M9 5 3 11l6 6M3 11h11a7 7 0 0 1 7 7"/>',redo:'<path d="m15 5 6 6-6 6M21 11H10a7 7 0 0 0-7 7"/>',preview:'<rect x="2" y="4" width="20" height="16"/><rect x="6" y="8" width="7" height="7"/><path d="M16 8h3M16 12h3M16 16h3"/>'};
  function icon(button,name,label){StudioShell.setIcon(button,paths[name],label,{size:30,viewBox:'0 0 26 26'});}
  icon(panelButtons.banks,'banks','Banks');icon(panelButtons.objects,'objects','Objects & tile map');
- for(const [id,name,label] of [['pencilTool','pencil','Pencil (B)'],['eraserTool','eraser','Eraser (E)'],['fillTool','fill','Fill (G)'],['pickerTool','picker','Pick color (I)'],['bankUndo','undo','Undo'],['bankRedo','redo','Redo']])icon($(id),name,label);
+ for(const [id,name,label] of [['pencilTool','pencil','Pencil (B)'],['eraserTool','eraser','Eraser (E)'],['fillTool','fill','Fill (G)'],['pickerTool','picker','Pick color (I)'],['panTool','pan','Pan (H) — drag to scroll; Space or the middle button pan with any other tool active'],['bankUndo','undo','Undo'],['bankRedo','redo','Redo']])icon($(id),name,label);
  for(const [kind,label] of [['line','Line'],['rectangle','Rectangle (Shift: square)'],['ellipse','Ellipse (Shift: circle)']]){const button=document.createElement('button');button.id=kind+'Tool';icon(button,kind,label);button.onclick=()=>{shapeStart=null;tool=kind;render();};rail.insertBefore(button,$('bankUndo'));}
  const miniButton=document.createElement('button');miniButton.id='miniatureToggle';miniButton.setAttribute('aria-expanded','false');icon(miniButton,'preview','Object miniature');top.insertBefore(miniButton,properties);
  const mini=document.createElement('aside');mini.id='miniaturePanel';mini.hidden=true;mini.innerHTML='<strong>Object preview</strong><canvas id="miniatureCanvas"></canvas><span id="miniatureSize"></span>';center.append(mini);
@@ -338,16 +329,16 @@
  const status=document.createElement('div');status.id='drawingStatus';dock.before(status);
  for(const [id,label,fn] of [['fitDrawing','Fit',()=>{zoom=Math.max(1,Math.min(32,Math.floor(Math.min((scroll.clientWidth-48)/(selection.width*8),(scroll.clientHeight-48)/(selection.height*8)))));render();scroll.scrollLeft=scroll.scrollTop=0;}],['actualSize','100%',()=>{zoom=1;render();scroll.scrollLeft=scroll.scrollTop=0;}]]){const b=document.createElement('button');b.id=id;b.textContent=label;b.onclick=fn;top.insertBefore(b,$('zoomOut'));}
  window.addEventListener('keydown',e=>{if(currentView==='tiles'&&e.code==='Space'&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)){spaceHeld=true;e.preventDefault();scroll.style.cursor='grab';}},true);
- window.addEventListener('keyup',e=>{if(e.code==='Space'){spaceHeld=false;scroll.style.cursor='';}});
- window.addEventListener('blur',()=>{spaceHeld=false;panDrag=null;scroll.style.cursor='';});
- scroll.addEventListener('pointerdown',e=>{if(!spaceHeld&&e.button!==1)return;e.preventDefault();e.stopImmediatePropagation();panDrag={x:e.clientX,y:e.clientY,left:scroll.scrollLeft,top:scroll.scrollTop};scroll.setPointerCapture(e.pointerId);scroll.style.cursor='grabbing';},true);
+ window.addEventListener('keyup',e=>{if(e.code==='Space'){spaceHeld=false;scroll.style.cursor=panToolActive?'grab':'';}});
+ window.addEventListener('blur',()=>{spaceHeld=false;panDrag=null;scroll.style.cursor=panToolActive?'grab':'';});
+ scroll.addEventListener('pointerdown',e=>{if(!spaceHeld&&e.button!==1&&!panToolActive)return;e.preventDefault();e.stopImmediatePropagation();panDrag={x:e.clientX,y:e.clientY,left:scroll.scrollLeft,top:scroll.scrollTop};scroll.setPointerCapture(e.pointerId);scroll.style.cursor='grabbing';},true);
  scroll.addEventListener('pointermove',e=>{if(!panDrag)return;e.preventDefault();e.stopImmediatePropagation();scroll.scrollLeft=panDrag.left+panDrag.x-e.clientX;scroll.scrollTop=panDrag.top+panDrag.y-e.clientY;},true);
- for(const type of ['pointerup','pointercancel'])scroll.addEventListener(type,e=>{if(!panDrag)return;panDrag=null;e.stopImmediatePropagation();scroll.style.cursor=spaceHeld?'grab':'';},true);
+ for(const type of ['pointerup','pointercancel'])scroll.addEventListener(type,e=>{if(!panDrag)return;panDrag=null;e.stopImmediatePropagation();scroll.style.cursor=spaceHeld||panToolActive?'grab':'';},true);
  const phaseStyle=document.createElement('style');phaseStyle.textContent='#drawingOptions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 18px;background:var(--panel);font-size:11px}#drawingOptions details{position:relative}#drawingOptions details[open]{z-index:6}#drawingOptions details label,#drawingOptions details p{display:block;max-width:380px}#drawingOptions details[open]{background:var(--panel);padding:8px;border:1px solid var(--line)}#drawingStatus{padding:5px 18px;font-size:11px;color:var(--text-dim)}#canvasTop{flex-wrap:wrap}';document.head.append(phaseStyle);
 
  function selectionHandle(e){if(!pixelSelection||zoom<4)return null;const r=pixelSelection,c=$('bankSelection').getBoundingClientRect(),x=(e.clientX-c.left)/zoom,y=(e.clientY-c.top)/zoom;for(const [hx,hy,ox,oy] of [[r.x,r.y,r.x+r.width-1,r.y+r.height-1],[r.x+r.width,r.y,r.x,r.y+r.height-1],[r.x,r.y+r.height,r.x+r.width-1,r.y],[r.x+r.width,r.y+r.height,r.x,r.y]])if(Math.abs(x-hx)*zoom<=3&&Math.abs(y-hy)*zoom<=3)return [ox,oy];return null;}
  function resizeSelection(p){pixelSelection={x:Math.min(p[0],resizeDrag[0]),y:Math.min(p[1],resizeDrag[1]),width:Math.abs(p[0]-resizeDrag[0])+1,height:Math.abs(p[1]-resizeDrag[1])+1};}
- const help=document.createElement('dialog');help.id='shortcutHelp';help.innerHTML='<h2>Drawing shortcuts</h2><p>B Pencil · E Eraser · G Fill · I Pick color · S Select</p><p>Ctrl/Cmd+A Select all · Ctrl/Cmd+C Copy</p><p>Ctrl/Cmd+V Paste · Ctrl/Cmd+Shift+V Paste source palettes</p><p>Ctrl/Cmd+Z Undo · Ctrl/Cmd+Shift+Z Redo</p><p>Arrow keys Move selection · Escape Cancel selection/paste</p><p>Space-drag or middle-drag Pan · Scroll Zoom</p><p>Shift Constrain square/circle · ? This help</p><form method="dialog"><button>Close</button></form>';host.append(help);const helpButton=document.createElement('button');helpButton.textContent='?';helpButton.title='Keyboard shortcuts';helpButton.onclick=()=>help.showModal();top.append(helpButton);
+ const help=document.createElement('dialog');help.id='shortcutHelp';help.innerHTML='<h2>Drawing shortcuts</h2><p>B Pencil · E Eraser · G Fill · I Pick color · S Select · H Pan</p><p>Ctrl/Cmd+A Select all · Ctrl/Cmd+C Copy</p><p>Ctrl/Cmd+V Paste · Ctrl/Cmd+Shift+V Paste source palettes</p><p>Ctrl/Cmd+Z Undo · Ctrl/Cmd+Shift+Z Redo</p><p>Arrow keys Move selection · Escape Cancel selection/paste</p><p>Pan tool, Space-drag or middle-drag Pan · Scroll Zoom</p><p>Shift Constrain square/circle · ? This help</p><form method="dialog"><button>Close</button></form>';host.append(help);const helpButton=document.createElement('button');helpButton.textContent='?';helpButton.title='Keyboard shortcuts';helpButton.onclick=()=>help.showModal();top.append(helpButton);
  const finishStyle=document.createElement('style');finishStyle.textContent='#shortcutHelp{background:var(--panel);color:var(--text);border:1px solid var(--line);padding:24px}#shortcutHelp::backdrop{background:#0009}';document.head.append(finishStyle);
 
  // Project actions share the same icon vocabulary in every workspace.

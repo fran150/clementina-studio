@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {spriteAttr,spriteExt,cellAttr,validateTilesets,validateBackgrounds,BANK_BYTES,TILES_PER_BANK} from '../dist/packages/assets/index.js';
+import {spriteAttr,spriteExt,cellAttr,validateTilesets,validateBackgrounds,validateOverlays,BANK_BYTES,TILES_PER_BANK} from '../dist/packages/assets/index.js';
 
 const tileset=(name,bpp=3)=>({id:name,name,bpp,chr:Array(BANK_BYTES).fill(0),tilePaletteBanks:Array(TILES_PER_BANK).fill(0),compositions:[]});
 const bgCell=()=>({tile:0,paletteBank:0,flipX:false,flipY:false,priority:false,chrAlt:false});
 const background=(name,tilesetId='Art')=>({id:name,name,width:2,height:1,tilesetId,altTilesetId:tilesetId,cells:[bgCell(),bgCell()]});
+const placeholder=(name='Score',col=0,row=0,width=2,height=1)=>({id:name,name,col,row,width,height});
+const overlay=(name,tilesetId='Art',placeholders=[placeholder()])=>({id:name,name,tilesetId,altTilesetId:tilesetId,cells:Array.from({length:1000},bgCell),placeholders});
 
 
 test('a tileset is 1bpp or 3bpp and its tiles name banks 0-15',()=>{
@@ -35,6 +37,26 @@ test('a background is width × height cells drawing from two tilesets in the pro
  ]){const b=background('Level2');mutate(b);assert.throws(()=>validateBackgrounds([b],[art]));}
  assert.throws(()=>validateBackgrounds([background('Same'),background('same')],[art]),/unique/);
  assert.throws(()=>validateBackgrounds(Array.from({length:256},(_,i)=>background('Level_'+i)),[art]),/255/);
+});
+
+test('an overlay is the fixed 1000-cell (40 x 25) layer, drawing from two tilesets, with geometry-only placeholders',()=>{
+ const art=tileset('Art');
+ validateOverlays([overlay('Hud1')],[art]);
+ for(const mutate of [
+  o=>o.tilesetId='missing',
+  o=>o.altTilesetId='missing',
+  o=>o.cells.pop(),
+  o=>o.cells[0].tile=256,
+  o=>o.cells[0].paletteBank=16,
+  o=>delete o.cells[0].flipX,
+  o=>o.name='not a file name',
+  o=>o.placeholders[0].width=41,
+  o=>o.placeholders[0].col=39,
+  o=>o.placeholders.push(placeholder('Score')),
+  o=>o.placeholders.push(placeholder('Lives',0,0,2,1)),
+ ]){const o=overlay('Hud2');mutate(o);assert.throws(()=>validateOverlays([o],[art]));}
+ assert.throws(()=>validateOverlays([overlay('Same'),overlay('same')],[art]),/unique/);
+ assert.throws(()=>validateOverlays(Array.from({length:256},(_,i)=>overlay('Hud_'+i)),[art]),/255/);
 });
 
 test('a background cell reuses the background/overlay attribute layout',()=>{

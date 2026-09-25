@@ -1,9 +1,10 @@
 import type {ShapeSprite, AnimationFrame as SDKAnimationFrame, PaletteAsset, PaletteConfigAsset} from '@clementina/assets';
-import type {StudioProjectV2, StudioTileset, StudioShape, StudioBackground} from '@clementina/project';
+import type {StudioProjectV2, StudioTileset, StudioShape, StudioBackground, StudioOverlay, StudioOverlayPlaceholder} from '@clementina/project';
 export {fromStudioProjectV2, toStudioProjectV2} from '@clementina/project';
 import {PALETTE_BANKS, PALETTE_COLORS, createConfig} from './palettes.js';
 export const BANK_BYTES = 6144, TILES_PER_BANK = 256, PROJECT_VERSION = 2;
 export const MAX_BACKGROUND_DIMENSION = 1024, MAX_BACKGROUND_CELLS = 200000;
+export const OVERLAY_COLUMNS = 40, OVERLAY_ROWS = 25, OVERLAY_CELLS = 1000;
 /**
  * Studio's project model, in the hardware's vocabulary — see docs/model.md.
  * A tileset is one CHR bank's worth of graphics; a palette bank is one of the
@@ -18,6 +19,9 @@ export type PaletteBankConfig = Omit<PaletteConfigAsset, 'format' | 'version'>;
 export type Tileset = StudioTileset;
 export type Background = StudioBackground;
 export type BackgroundCell = StudioBackground['cells'][number];
+export type Overlay = StudioOverlay;
+export type OverlayCell = StudioOverlay['cells'][number];
+export type OverlayPlaceholder = StudioOverlayPlaceholder;
 export type Sprite = ShapeSprite;
 export type Shape = StudioShape;
 export type AnimationFrame = SDKAnimationFrame;
@@ -36,6 +40,7 @@ export function validateProject(p: StudioProject): void {
  if(p.activeConfigId!==undefined&&!p.paletteConfigs.some(c=>c.id===p.activeConfigId))throw Error('The active config is not in the project');
  validateTilesets(p.tilesets);
  validateBackgrounds(p.backgrounds??[],p.tilesets);
+ validateOverlays(p.overlays??[],p.tilesets);
  validateShapes(p.shapes??[],p.tilesets);
  validateAnimations(p.animations??[],p.shapes??[]);
 }
@@ -108,6 +113,39 @@ export function validateBackgrounds(backgrounds:Background[],tilesets:Tileset[]=
  }
 }
 
+export function validateOverlays(overlays:Overlay[],tilesets:Tileset[]=[]):void {
+ if(!Array.isArray(overlays)||overlays.length>255)throw Error('At most 255 overlays are supported');
+ const tilesetIds=new Set(tilesets.map(t=>t.id).filter(Boolean) as string[]);
+ const names=new Set<string>(),ids=new Set<string>();
+ for(const overlay of overlays){
+  if(!overlay||typeof overlay.name!=='string'||!/^[A-Za-z][A-Za-z0-9_-]{0,47}$/.test(overlay.name)||names.has(overlay.name.toLowerCase()))throw Error('Overlay names must be unique file names: letters, digits, underscores, hyphens');
+  names.add(overlay.name.toLowerCase());
+  if(typeof overlay.id!=='string'||!overlay.id.length||ids.has(overlay.id))throw Error('Overlay identities must be unique');
+  ids.add(overlay.id);
+  // The overlay is the fixed 40 x 25 hardware layer — see docs/model.md.
+  if(!tilesetIds.has(overlay.tilesetId))throw Error('An overlay names a primary tileset in the project');
+  if(!tilesetIds.has(overlay.altTilesetId))throw Error('An overlay names an alternate tileset in the project');
+  if(!Array.isArray(overlay.cells)||overlay.cells.length!==OVERLAY_CELLS)throw Error(`An overlay holds exactly ${OVERLAY_CELLS} cells (${OVERLAY_COLUMNS} x ${OVERLAY_ROWS})`);
+  for(const cell of overlay.cells){
+   if(!cell||!range(cell.tile,0,TILES_PER_BANK-1)||!range(cell.paletteBank,0,PALETTE_BANKS-1))throw Error('Invalid overlay cell');
+   if(typeof cell.flipX!=='boolean'||typeof cell.flipY!=='boolean'||typeof cell.priority!=='boolean'||typeof cell.chrAlt!=='boolean')throw Error('Invalid overlay cell');
+  }
+  if(!Array.isArray(overlay.placeholders))throw Error('Invalid overlay placeholders');
+  const phNames=new Set<string>(),phIds=new Set<string>();
+  for(const p of overlay.placeholders){
+   if(!p||typeof p.name!=='string'||!/^[A-Za-z][A-Za-z0-9_-]{0,47}$/.test(p.name)||phNames.has(p.name.toLowerCase()))throw Error('Placeholder names must be unique file names: letters, digits, underscores, hyphens');
+   phNames.add(p.name.toLowerCase());
+   if(typeof p.id!=='string'||!p.id.length||phIds.has(p.id))throw Error('Placeholder identities must be unique');
+   phIds.add(p.id);
+   if(!range(p.col,0,OVERLAY_COLUMNS-1)||!range(p.row,0,OVERLAY_ROWS-1)||!range(p.width,1,OVERLAY_COLUMNS)||!range(p.height,1,OVERLAY_ROWS))throw Error('Invalid placeholder geometry');
+   if(p.col+p.width>OVERLAY_COLUMNS||p.row+p.height>OVERLAY_ROWS)throw Error(`Placeholder "${p.name}" lies outside the ${OVERLAY_COLUMNS} x ${OVERLAY_ROWS} overlay grid`);
+  }
+  for(let i=0;i<overlay.placeholders.length;i++)for(let j=i+1;j<overlay.placeholders.length;j++){
+   const a=overlay.placeholders[i],b=overlay.placeholders[j];
+   if(a.col<b.col+b.width&&b.col<a.col+a.width&&a.row<b.row+b.height&&b.row<a.row+a.height)throw Error(`Placeholder "${b.name}" overlaps "${a.name}"`);
+  }
+ }
+}
 export function validateShapes(shapes:Shape[],tilesets:Tileset[]=[]):void {
  if(!Array.isArray(shapes)||shapes.length>255)throw Error('At most 255 shapes are supported');
  const tilesetIds=new Set(tilesets.map(t=>t.id).filter(Boolean) as string[]);
@@ -157,7 +195,7 @@ export function encodeProject(p:StudioProject):string {
  validateProject(p);
  return JSON.stringify({format:'clementina-studio',version:PROJECT_VERSION,
   paletteLibrary:p.paletteLibrary,paletteConfigs:p.paletteConfigs,activeConfigId:p.activeConfigId,
-  tilesets:p.tilesets,backgrounds:p.backgrounds,shapes:p.shapes,animations:p.animations})+'\n';
+  tilesets:p.tilesets,backgrounds:p.backgrounds,overlays:p.overlays,shapes:p.shapes,animations:p.animations})+'\n';
 }
 export function decodeProject(text:string):StudioProject {
  const p=JSON.parse(text);
@@ -175,7 +213,7 @@ export function decodeProject(text:string):StudioProject {
 export function emptyProject():StudioProject {
  const paletteLibrary:ProjectPalette[]=[],paletteConfigs:PaletteBankConfig[]=[];
  const config=createConfig(paletteConfigs,paletteLibrary,'Default');
- return {paletteLibrary,paletteConfigs,activeConfigId:config.id,tilesets:[],backgrounds:[],shapes:[],animations:[]};
+ return {paletteLibrary,paletteConfigs,activeConfigId:config.id,tilesets:[],backgrounds:[],overlays:[],shapes:[],animations:[]};
 }
 
 /** A PRG wraps CHR data in a CPU load header; its address is not a CHR bank. */

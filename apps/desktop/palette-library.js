@@ -144,21 +144,10 @@
   dialog.showModal();
  }
  $('palDeleteCancel').onclick=()=>dialog.close();
- function rename(row){
-  if(row.querySelector('input'))return;
-  const target=palette(),input=document.createElement('input');
-  input.value=target.name;input.maxLength=48;input.setAttribute('aria-label','Rename '+target.name);
-  row.replaceChildren(input);let done=false;
-  const finish=save=>{
-   if(done)return;done=true;const name=input.value.trim();row.replaceChildren();
-   if(save&&name&&name!==target.name){
-    if(paletteLibrary.some(p=>p!==target&&p.name.toLowerCase()===name.toLowerCase()))setStatus('Use a unique palette name.');
-    else graphicsEdit(()=>target.name=name);
-   }
-   render();
-  };
-  input.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();finish(true);}if(e.key==='Escape'){e.preventDefault();finish(false);}};
-  input.onblur=()=>finish(true);input.focus();input.select();
+ function renamePalette(i,name){
+  if(!name)return false;
+  if(paletteLibrary.some((p,j)=>j!==i&&p.name.toLowerCase()===name.toLowerCase())){setStatus('Use a unique palette name.');return false;}
+  graphicsEdit(()=>paletteLibrary[i].name=name);return true;
  }
 
  // ===== bank configs =====
@@ -167,37 +156,21 @@
  function configEdit(fn){graphicsEdit(fn);renderConfigPicker();window.renderBankEditor?.();renderAnimations();}
  // Electron's window.prompt() throws rather than showing a dialog, so config
  // renaming uses the same inline-input pattern as every other renameable list.
- function renameConfig(row,config){
-  if(row.querySelector('input'))return;
-  const input=document.createElement('input');
-  input.value=config.name;input.maxLength=48;input.setAttribute('aria-label','Rename '+config.name);
-  row.replaceChildren(input);let done=false;
-  const finish=save=>{
-   if(done)return;done=true;const name=input.value.trim();row.replaceChildren();
-   if(save&&name&&name!==config.name){
-    if(paletteConfigs.some(c=>c!==config&&c.name.toLowerCase()===name.toLowerCase()))setStatus('Use a unique config name.');
-    else configEdit(()=>config.name=name);
-   }
-   render();
-  };
-  input.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();finish(true);}if(e.key==='Escape'){e.preventDefault();finish(false);}};
-  input.onblur=()=>finish(true);input.focus();input.select();
+ function renameConfig(i,name){
+  if(!name)return false;
+  if(paletteConfigs.some((c,j)=>j!==i&&c.name.toLowerCase()===name.toLowerCase())){setStatus('Use a unique config name.');return false;}
+  configEdit(()=>paletteConfigs[i].name=name);return true;
  }
  function renderConfigs(){
-  const list=$('palConfigList');
-  while(list.children.length>paletteConfigs.length)list.lastElementChild.remove();
-  paletteConfigs.forEach((config,i)=>{
-   let row=list.children[i];
-   if(!row){row=document.createElement('div');row.className='assetRow';row.tabIndex=0;row.setAttribute('role','option');list.append(row);}
-   row.setAttribute('aria-selected',String(config.id===activeConfigId));
-   if(!row.querySelector('input')){
+  StudioShell.renderList($('palConfigList'),paletteConfigs,{
+   selected:c=>c.id===activeConfigId,
+   choose:c=>{activeConfigId=c.id;redrawAll();render();},
+   rename:renameConfig,render,maxLength:48,
+   content:(row,config)=>{
     let name=row.firstElementChild;
     if(!name){name=document.createElement('span');row.replaceChildren(name);}
     name.textContent=config.name;
    }
-   row.onclick=e=>{if(e.target.tagName!=='INPUT'){activeConfigId=config.id;redrawAll();render();}};
-   row.ondblclick=e=>{if(e.target.tagName!=='INPUT')renameConfig(row,config);};
-   row.onkeydown=e=>{if(e.target.tagName==='INPUT')return;if(e.key==='Enter'){activeConfigId=config.id;redrawAll();render();}if(e.key==='F2'){e.preventDefault();renameConfig(row,config);}};
   });
   $('palConfigDelete').disabled=paletteConfigs.length<2;
   const config=activeConfig();
@@ -232,15 +205,13 @@
   configEdit(()=>{paletteConfigs.splice(paletteConfigs.indexOf(target),1);activeConfigId=paletteConfigs[0].id;});
   render();setStatus('Deleted '+target.name+'.');
  };
- function renderList(){
-  const list=$('palList');
-  while(list.children.length>paletteLibrary.length)list.lastElementChild.remove();
-  paletteLibrary.forEach((entry,i)=>{
-   let row=list.children[i];
-   if(!row){row=document.createElement('div');row.className='assetRow';row.tabIndex=0;row.setAttribute('role','option');list.append(row);}
-   row.classList.toggle('unusedPalette',!usage(entry.id).length);
-   row.setAttribute('aria-selected',String(i===index));
-   if(!row.querySelector('input')){
+ function renderPaletteList(){
+  StudioShell.renderList($('palList'),paletteLibrary,{
+   selected:(entry,i)=>i===index,
+   choose:(entry,i)=>{index=i;render();},
+   rename:renamePalette,render,maxLength:48,
+   content:(row,entry)=>{
+    row.classList.toggle('unusedPalette',!usage(entry.id).length);
     // Reused in place, not recreated, so a click-triggered render happening
     // between the two clicks of a double-click does not swap out the node
     // under the pointer — swapping it resets the browser's dblclick count.
@@ -254,9 +225,6 @@
      chip.style.background=css565(color);
     });
    }
-   row.onclick=e=>{if(e.target.tagName!=='INPUT'){index=i;render();}};
-   row.ondblclick=e=>{if(e.target.tagName!=='INPUT'){index=i;rename(row);}};
-   row.onkeydown=e=>{if(e.target.tagName==='INPUT')return;if(e.key==='Enter'){index=i;render();}if(e.key==='F2'){e.preventDefault();index=i;rename(row);}};
   });
  }
  function render(){
@@ -291,7 +259,7 @@
    swatch.disabled=!entry;
    cell.querySelector('.palHex').textContent=entry?'0x'+entry.colors[ink].toString(16).toUpperCase().padStart(4,'0'):'';
   }
-  renderList();
+  renderPaletteList();
  }
  $('palColorInput').onchange=()=>{if(!palette())return;graphicsEdit(()=>palette().colors[editing]=inputTo565($('palColorInput').value));render();};
  // Undo lives on the bank editor's rail, which this workspace does not show.
