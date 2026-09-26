@@ -139,6 +139,9 @@
  // Space-drag and middle-drag all scroll #bgStage instead of painting,
  // mirroring the tileset editor's existing shortcut.
  let bgSpaceHeld=false,bgPanDrag=null;
+ // The pointer's last position over the canvas, so the palette dock's hover
+ // marks follow a paint, an undo or a zoom made while it rests there.
+ let bgHover=null;
  let bgStamp={tile:0,paletteBank:0,flipX:false,flipY:false,priority:false,chrAlt:false};
  let bgPickAlt=false,bgPreviewModeId=0,bgViewportOrigin={x:0,y:0},bgOverlayDrag=null;
  // The tile picker's current selection, in tile coordinates of whichever
@@ -354,6 +357,21 @@
   ctx.stroke();
   if(bgShowOverlay)drawOverlayComposite(ctx);
   selection.layout($('bgMarquee'),bgZoom);
+  markHover();
+ }
+ // Outlines, in the palette dock, the bank and color of the background pixel
+ // under the pointer — as drawn, so a block being moved or pasted counts.
+ function markHover(){
+  const a=background();let hover=null;
+  if(a&&bgHover){
+   const r=$('bgCanvas').getBoundingClientRect(),x=Math.floor((bgHover.x-r.left)/r.width*a.width*8),y=Math.floor((bgHover.y-r.top)/r.height*a.height*8);
+   if(x>=0&&y>=0&&x<a.width*8&&y<a.height*8){
+    const cell=selection.cellAt({col:x>>3,row:y>>3}),source=cell.chrAlt?altTileset():primaryTileset();
+    const px=cell.flipX?7-x%8:x%8,py=cell.flipY?7-y%8:y%8;
+    hover={bank:cell.paletteBank,ink:source?tilePixel(source,cell.tile,px,py,cell.chrAlt?bgAltPlane:bgPrimaryPlane):0};
+   }
+  }
+  StudioShell.hoverBankDock($('bgSwatches'),hover);
  }
  // The overlay never scrolls — it always sits 1:1 on the physical screen, so
  // it composites onto exactly the same wrapped pieces the inner (visible)
@@ -439,6 +457,7 @@
  };
  $('bgCanvas').onpointermove=e=>{
   if(!background())return;
+  bgHover={x:e.clientX,y:e.clientY};markHover();
   const {col,row}=canvasCell(e);
   if(selection.move({col,row}))return;
   if(bgTool==='select')$('bgCanvas').style.cursor=selection.contains({col,row})?'move':'';
@@ -452,6 +471,7 @@
   bgPainting=false;bgLast=null;
  };
  $('bgCanvas').onpointercancel=()=>{bgAnchor=null;bgPainting=false;bgLast=null;selection.cancel();};
+ $('bgCanvas').onpointerleave=()=>{bgHover=null;markHover();};
  // Right-click erases while a painting tool is active, the Aseprite way;
  // with any other tool it opens the edit menu for the selection.
  function painting(){return ['pencil','rectangle','fill','eraser'].includes(bgTool);}
@@ -624,7 +644,7 @@
  function render(){
   host.hidden=currentView!=='backgrounds';
   document.body.classList.toggle('backgroundView',!host.hidden);
-  if(host.hidden)return;
+  if(host.hidden){bgHover=null;return;}
   backgroundIndex=Math.min(backgroundIndex,Math.max(0,backgrounds.length-1));
   const a=background();
   $('bgEmpty').hidden=!!a;StudioShell.emptyEditor(host,!a);

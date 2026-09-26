@@ -181,6 +181,14 @@ app.whenReady().then(async()=>{
  assert.equal(await run(`return $('bgSelectionLabel').hidden;`),true,'Escape must also clear the selection');
  await run(`$('bgPencilTool').click();`);
 
+ // Hovering a tile outlines, in the palette dock, its bank and the color
+ // under the pointer; leaving the canvas clears both.
+ const hoverMarks=async(x,y)=>{window.webContents.sendInputEvent({type:'mouseMove',x,y});await new Promise(r=>setTimeout(r,60));
+  return run(`return {banks:[...$('bgSwatches').querySelectorAll('.hoverBank')].map(r=>Number(r.dataset.palette)),colors:[...$('bgSwatches').querySelectorAll('.hoverColor')].map(s=>s.dataset.palette+':'+s.dataset.ink)};`);};
+ assert.deepEqual(await hoverMarks(at(25,2).x,at(25,2).y),{banks:[3],colors:['3:2']},'hovering a tile must outline its bank and the color under the pointer');
+ assert.deepEqual(await hoverMarks(at(10,10).x,at(10,10).y),{banks:[0],colors:['0:0']},'a blank cell (erased above) draws color 0 of bank 0');
+ assert.deepEqual(await hoverMarks(canvas.left-20,canvas.top-20),{banks:[],colors:[]},'leaving the canvas must clear the hover marks');
+
  // Resizing preserves existing content anchored at the top-left.
  const resized=await run(`$('bgWidth').value=50;$('bgHeight').value=25;$('bgResize').click();return {width:backgrounds[0].width,height:backgrounds[0].height,cells:backgrounds[0].cells.length,preserved:backgrounds[0].cells[2*50+2].tile};`);
  assert.deepEqual(resized,{width:50,height:25,cells:1250,preserved:1});

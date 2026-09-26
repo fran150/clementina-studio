@@ -34,7 +34,8 @@ drawn against them.
 
 Define palettes and the bank configs that place them in palette RAM, draw
 tilesets, build shapes from their tiles, sequence shapes into animations, paint
-backgrounds, then design the overlay — the order of the editor tabs. The active
+backgrounds, design the overlay, then make sound effects and compose music —
+the order of the editor tabs. The active
 config is a preview choice, switched from the one Config picker beside the tabs;
 it does not change what a project stores.
 
@@ -57,10 +58,16 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   latter reads its assets for a preview toggle), `background-editor.js`
   (backgrounds), `palette-library.js` (palettes and bank configs),
   `sprite-composer.js` (shapes), `animation-editor.js` (animations),
-  `image-import-ui.js` (artwork import). They load after the shell and wrap its
-  `showView`/`redrawAll`, so the shell boots them via `bootStudio()`.
+  `image-import-ui.js` (artwork import), `sound-editor.js` (sounds) and
+  `music-editor.js` (songs and instruments), which share `audio-shared.js`.
+  They load after the shell and wrap its `showView`/`redrawAll`, so the shell
+  boots them via `bootStudio()`.
 - `packages/assets`: the project format, its validators, and the attribute
-  encoders.
+  encoders. `audio.ts` is the audio model, the MIA audio engine and the song
+  compiler; it has no runtime imports, so `editor.html` loads its compiled
+  module into the page as `window.MiaAudio`.
+- `tests/firmware`: the harness that runs clementina-mia's `audio.c` on the
+  desktop to check Studio's engine against it (`npm run test:firmware`).
 - `apps/vscode`, `packages/basic`, `packages/cli`, `examples`: planned.
 
 ## Companion repositories
@@ -83,7 +90,8 @@ behavior.
 
 Projects are `.cstudio` JSON, `format: "clementina-studio"`, `version: 2`.
 They hold the palette library, the bank configs and which is active, the
-tilesets, the shapes, and the animations that sequence them. Version 1 files are rejected:
+tilesets, the shapes, the animations that sequence them, the backgrounds and
+overlays, and the instruments, sounds and songs. Version 1 files are rejected:
 they stored palettes per bank and eight fixed CHR banks, a model with no
 equivalent here, and Studio is unreleased. The `.mtb` importer that read the
 pre-Studio flat format is gone with them.
@@ -147,15 +155,36 @@ than copying them, so editing a shape updates every frame showing it. All of
 an animation's shapes must draw from the same tileset. Sprite-versus-background
 priority is not editable yet; it belongs to the future scene editor.
 
-Shape and animation edits share a 50-step undo history, separate from tileset
-and palette edits. Backgrounds and overlays each keep their own independent
-50-step history.
+**Sounds.** A sound effect is one voice's registers, frame by frame at 60 Hz —
+pitch, volume, pulse width, waveform and gate — under one envelope and pan:
+what a game's driver writes to a voice it takes from the music for a moment.
+Draw the frames on five lanes with the pencil and line, or start from a
+generated blip, coin, jump, laser, explosion, hit or power-up.
+
+**Music.** A song is MIA's four voices of notes on a piano roll, with a tempo,
+a length and a loop, played by the chip's background sequencer at no cost to
+the 6502. A voice plays one note at a time, and a voice without notes stays
+free for sound effects. Notes play instruments — waveform, pulse width,
+envelope and volume — and can slide legato from the note before. The Song
+panel shows how many bytes of sequencer data each voice compiles to.
+
+Both preview on a port of MIA's `audio.c` that plays sample for sample what
+the firmware does. **[docs/audio.md](docs/audio.md)** is the reference: the
+hardware, why sound effects and music are separate editors, what a song
+compiles to, and three things found in the firmware and ROM along the way.
 
 ## Tests
 
 `npm test` compiles the TypeScript and runs the model tests: the project
 format, its validators, palette and config behavior, background and overlay
-validation, the two attribute bit layouts, and image import.
+validation, the two attribute bit layouts, image import, and audio — the song
+compiler's bytes and timing, sound-effect writes, generated sounds, and the
+engine held to the output hashes MIA's firmware produced.
+
+`npm run test:firmware` compiles clementina-mia's own `src/mia/audio/audio.c`
+on the desktop (it needs a C compiler and the clementina-mia checkout beside
+this one, or `MIA_DIR`), plays every audio test scenario on it and on Studio's
+engine, and compares every sample. Rerun it when the firmware's audio changes.
 
 `npm run test:desktop` drives the real renderer in Electron and covers the
 model end to end — that a tile records a bank and recolors with the config,
@@ -165,7 +194,7 @@ project round trips through save and restore.
 
 ## Not yet built
 
-A scene editor, music and sound effects, the build step, and the runtime
+A scene editor, the build step, and the runtime
 routine library. `docs/model.md` records what each will need and which
 hardware constraints they have to respect — notably that a scene is where
 co-residency and sprite-versus-background priority get decided, and where an
@@ -189,7 +218,7 @@ animation preview, a player, keeps fitting its space — fractionally — until 
 is zoomed by hand.
 
 The File menu holds New (Ctrl/Cmd+N), Open (Ctrl/Cmd+O), Save (Ctrl/Cmd+S) and
-Save As (Ctrl/Cmd+Shift+S); the View menu switches editors with Ctrl/Cmd+1–6, in
+Save As (Ctrl/Cmd+Shift+S); the View menu switches editors with Ctrl/Cmd+1–8, in
 the tabs' order, as a browser switches tabs, and holds Zoom In (Ctrl/Cmd+=), Zoom
 Out (Ctrl/Cmd+−), Zoom to Fit (Ctrl/Cmd+0) and Actual Size (Ctrl/Cmd+Alt+0). The menu
 owns these shortcuts, so they work while a field has focus. There is no page
@@ -197,8 +226,9 @@ zoom or Reload: the first scaled the whole interface, the second dropped the
 open project.
 
 Painting tools share letters across editors: B pencil, E eraser, G fill, I pick,
-H pan, R rectangle, S select; the tileset editor adds L line and O ellipse,
-and the shape editor V select-and-move. Shift+H and Shift+V flip the selection
+H pan, R rectangle, S select; the tileset and sound editors add L line, the
+tileset editor O ellipse, and the shape editor V select-and-move. In the sound
+and music editors Space plays and stops when tapped, and pans while held. Shift+H and Shift+V flip the selection
 horizontally and vertically wherever there is one to flip.
 
 Right-click means one thing everywhere. With a painting tool it paints color 0
@@ -377,7 +407,12 @@ independent actors belong to scene composition.
 Run `npm run test:desktop:animation` for animation interaction and docked layout
 checks at 1440- and 1024-pixel window widths.
 
-Run `npm run test:ui` for all six Electron renderer suites, or `npm run test:all`
+Run `npm run test:desktop:audio` for the Sounds and Music editors: drawing
+lanes and notes with real pointer input, selection, the clipboard, transforms,
+undo, presets, song and instrument settings, playback, and docked layouts at
+1440- and 1024-pixel window widths.
+
+Run `npm run test:ui` for every Electron renderer suite, or `npm run test:all`
 for unit tests plus UI tests. The workflow suite starts with an empty project and
 uses native mouse input on visible, enabled, unobscured controls. It checks the
 missing-shape guidance, tileset and shape creation, animation creation, frame

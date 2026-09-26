@@ -98,8 +98,9 @@ header h1, header .sep, header .lbl, header #bankSel, header #mode1, header #mod
 </head>
 <body>
 <aside id="workflowNav"><div class="brand">CLEMENTINA STUDIO</div><div class="navGroup">GRAPHICS</div>
-<button data-view="palettes" title="Palettes (Ctrl/Cmd+1)">Palettes</button><button data-view="tiles" title="Tilesets (Ctrl/Cmd+2)">Tilesets</button><button data-view="shapes" title="Shapes (Ctrl/Cmd+3)">Shapes</button><button data-view="animations" title="Animations (Ctrl/Cmd+4)">Animations</button><button data-view="backgrounds" title="Backgrounds (Ctrl/Cmd+5)">Backgrounds</button><button data-view="overlays" title="Overlays (Ctrl/Cmd+6)">Overlays</button>
-<div class="navNote">Define palettes and bank configs, draw tilesets, build shapes from their tiles, sequence shapes into animations, paint backgrounds, then design the overlay.</div></aside>
+<button data-view="palettes" title="Palettes (Ctrl/Cmd+1)">Palettes</button><button data-view="tiles" title="Tilesets (Ctrl/Cmd+2)">Tilesets</button><button data-view="shapes" title="Shapes (Ctrl/Cmd+3)">Shapes</button><button data-view="animations" title="Animations (Ctrl/Cmd+4)">Animations</button><button data-view="backgrounds" title="Backgrounds (Ctrl/Cmd+5)">Backgrounds</button><button data-view="overlays" title="Overlays (Ctrl/Cmd+6)">Overlays</button><div class="navGroup navAudio">AUDIO</div>
+<button data-view="sounds" title="Sounds (Ctrl/Cmd+7)">Sounds</button><button data-view="music" title="Music (Ctrl/Cmd+8)">Music</button>
+<div class="navNote">Define palettes and bank configs, draw tilesets, build shapes from their tiles, sequence shapes into animations, paint backgrounds, then design the overlay. Make sound effects, then compose music.</div></aside>
 <div id="workspace"><div id="workflowHeading"><h1 id="viewTitle">Tilesets</h1><p id="viewHelp"></p></div>
 <header>
   <h1>Clementina Studio <small>· 8×8 tiles · 1/3 bpp · 16 palette banks</small></h1>
@@ -133,6 +134,8 @@ const statusEl = $('status'), dirtyEl = $('dirty'), nameInput = $('nameInput');
 // ===== state =====
 let paletteLibrary = [], paletteConfigs = [], activeConfigId = null, tilesets = [], backgrounds = [], overlays = [];
 let currentView = 'tiles', shapes = [], animations = [];
+// Audio: instruments are what songs' notes play; see docs/audio.md.
+let instruments = [], sounds = [], songs = [];
 let shapeIndex = 0, animationIndex = 0, frameIndex = 0, playing = false, playFrame = 0, playStart = 0;
 let dirty = false, projectFile = null;
 
@@ -267,6 +270,7 @@ function newProject() {
   if (dirty && !confirm('Discard unsaved changes?')) return;
   window.studio?.newProject();
   tilesets = []; backgrounds = []; overlays = []; animations = []; shapes = []; shapeIndex = 0; animationIndex = 0; frameIndex = 0;
+  instruments = []; sounds = []; songs = [];
   playing = false; window.ProjectHistory?.clear();
   loadDefaultPalettes();
   nameInput.value = 'tiles'; projectFile = null;
@@ -276,13 +280,15 @@ function newProject() {
 function studioProject() {
   return {paletteLibrary:structuredClone(paletteLibrary),paletteConfigs:structuredClone(paletteConfigs),
    activeConfigId,tilesets:structuredClone(tilesets),backgrounds:structuredClone(backgrounds),overlays:structuredClone(overlays),
-   shapes:structuredClone(shapes),animations:structuredClone(animations)};
+   shapes:structuredClone(shapes),animations:structuredClone(animations),
+   instruments:structuredClone(instruments),sounds:structuredClone(sounds),songs:structuredClone(songs)};
 }
 function restoreStudioProject(p,name='Recovered project') {
   paletteLibrary=structuredClone(p.paletteLibrary??[]);paletteConfigs=structuredClone(p.paletteConfigs??[]);
   activeConfigId=p.activeConfigId??paletteConfigs[0]?.id??null;tilesets=structuredClone(p.tilesets??[]);
   backgrounds=structuredClone(p.backgrounds??[]);overlays=structuredClone(p.overlays??[]);
   animations=structuredClone(p.animations??[]);shapes=structuredClone(p.shapes??[]);
+  instruments=structuredClone(p.instruments??[]);sounds=structuredClone(p.sounds??[]);songs=structuredClone(p.songs??[]);
   shapeIndex=0;animationIndex=0;frameIndex=0;playing=false;ProjectHistory.clear();
   setNameFromFile(name);dirty=false;setDirtyLabel();redrawAll();
 }
@@ -319,6 +325,8 @@ const descriptions={
  backgrounds:['Backgrounds','Paint a background from two tilesets. A cell reads the primary or alternate tileset, chosen by its CHR_ALT bit.'],
  shapes:['Shapes','One arrangement of sprites from a single tileset. Later sprites draw on top.'],
  animations:['Animations','Sequence shapes and set their timing. Editing a shape updates every frame showing it.'],
+ sounds:['Sounds','A sound effect is one voice\'s registers, frame by frame at 60 Hz: pitch, volume, pulse width, waveform and gate.'],
+ music:['Music','A song plays up to four voices on MIA\'s background sequencer. Voices without notes stay free for sound effects.'],
 };
 function showView(view){
  StudioShell.selectView(view);
@@ -336,6 +344,10 @@ window.bootStudio=()=>{newProject();showView('tiles');};
 <script src="cell-grid.js"></script>
 <script src="history.js"></script>
 <script src="image-import-ui.js"></script><script src="bank-editor.js"></script><script src="overlay-editor.js"></script><script src="background-editor.js"></script><script src="palette-library.js"></script><script src="animation-editor.js"></script><script src="sprite-composer.js"></script>
+<script src="audio-shared.js"></script><script src="sound-editor.js"></script><script src="music-editor.js"></script>
 <script>bootStudio();</script>
+<!-- The MIA audio engine and song compiler, built from packages/assets/audio.ts.
+     A module runs after the scripts above, before the page finishes loading. -->
+<script type="module">import * as MiaAudio from '../../dist/packages/assets/audio.js';window.MiaAudio=MiaAudio;document.dispatchEvent(new Event('miaaudioready'));</script>
 </body>
 </html>

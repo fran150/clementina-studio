@@ -64,10 +64,10 @@ app.whenReady().then(()=>{
  ]},
   // Replaces the default View menu, whose page zoom scaled the whole interface
   // and whose Reload dropped the open project. These zoom the canvas.
-  // Ctrl/Cmd+1–6 switch editors, the way they switch tabs in a browser, in
+  // Ctrl/Cmd+1–8 switch editors, the way they switch tabs in a browser, in
   // the tabs' order; Actual Size takes Photoshop's Ctrl/Cmd+Alt+0 instead.
   {label:'View',submenu:[
-   ...([['Palettes','palettes'],['Tilesets','tiles'],['Shapes','shapes'],['Animations','animations'],['Backgrounds','backgrounds'],['Overlays','overlays']] as const)
+   ...([['Palettes','palettes'],['Tilesets','tiles'],['Shapes','shapes'],['Animations','animations'],['Backgrounds','backgrounds'],['Overlays','overlays'],['Sounds','sounds'],['Music','music']] as const)
     .map(([label,view],i)=>({label,accelerator:`CommandOrControl+${i+1}`,click:command('view:'+view)})),
    {type:'separator'},
    {label:'Zoom In',accelerator:'CommandOrControl+=',click:command('zoomIn')},

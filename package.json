@@ -16,8 +16,10 @@
     "test:desktop:navigation": "npm run build && electron tests/desktop-navigation.cjs",
     "test:desktop:editing": "npm run build && electron tests/desktop-editing.cjs",
     "test:desktop:conventions": "npm run build && electron tests/desktop-conventions.cjs",
-    "test:ui": "npm run build && electron tests/desktop-workflow.cjs && electron tests/desktop-shell.cjs && electron tests/desktop-animation.cjs && electron tests/desktop-background.cjs && electron tests/desktop-overlay.cjs && electron tests/desktop-navigation.cjs && electron tests/desktop-editing.cjs && electron tests/desktop-conventions.cjs && electron tests/desktop-smoke.cjs",
-    "test:all": "npm test && npm run test:ui"
+    "test:desktop:audio": "npm run build && electron tests/desktop-audio.cjs",
+    "test:ui": "npm run build && electron tests/desktop-workflow.cjs && electron tests/desktop-shell.cjs && electron tests/desktop-animation.cjs && electron tests/desktop-background.cjs && electron tests/desktop-overlay.cjs && electron tests/desktop-navigation.cjs && electron tests/desktop-editing.cjs && electron tests/desktop-conventions.cjs && electron tests/desktop-audio.cjs && electron tests/desktop-smoke.cjs",
+    "test:all": "npm test && npm run test:ui",
+    "test:firmware": "npm run build && node tests/firmware/audio-crosscheck.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

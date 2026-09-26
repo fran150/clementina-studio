@@ -11,12 +11,15 @@
   animations:{get:()=>animations,set:v=>{animations=v;}},
   backgrounds:{get:()=>backgrounds,set:v=>{backgrounds=v;}},
   overlays:{get:()=>overlays,set:v=>{overlays=v;}},
+  instruments:{get:()=>instruments,set:v=>{instruments=v;}},
+  sounds:{get:()=>sounds,set:v=>{sounds=v;}},
+  songs:{get:()=>songs,set:v=>{songs=v;}},
  };
  const LIMIT=100;
  let undo=[],redo=[];
  const capture=names=>JSON.stringify(Object.fromEntries(names.map(name=>[name,parts[name].get()])));
  // Every Undo and Redo button says which step it would take.
- const BUTTONS={undo:['bankUndo','palUndo','scUndo','anUndo','bgUndo','ovUndo'],redo:['bankRedo','palRedo','scRedo','anRedo','bgRedo','ovRedo']};
+ const BUTTONS={undo:['bankUndo','palUndo','scUndo','anUndo','bgUndo','ovUndo','sfUndo','muUndo'],redo:['bankRedo','palRedo','scRedo','anRedo','bgRedo','ovRedo','sfRedo','muRedo']};
  function changed(){
   for(const [kind,ids] of Object.entries(BUTTONS)){
    const entry=(kind==='undo'?undo:redo).at(-1),keys=kind==='undo'?'Ctrl/Cmd+Z':'Ctrl/Cmd+Shift+Z';

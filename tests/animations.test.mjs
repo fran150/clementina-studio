@@ -89,6 +89,12 @@ test('a frame may nudge its whole shape, within OAM range',()=>{
  assert.throws(()=>validateAnimations([{name:'Bob',frames:[{shapeId:'Hero_Stand-id',ticks:6,dx:512}]}],shapes));
 });
 
+test('a frame may mirror its whole shape; a flip is true or false',()=>{
+ const shapes=[shape()];
+ validateAnimations([{name:'Roll',frames:[{shapeId:'Hero_Stand-id',ticks:6,flipX:true,flipY:false}]}],shapes);
+ assert.throws(()=>validateAnimations([{name:'Roll',frames:[{shapeId:'Hero_Stand-id',ticks:6,flipX:1}]}],shapes),/flip/);
+});
+
 test('every shape in one animation draws from the same tileset',()=>{
  const shapes=[shape('Hero'),shape('Enemy',{tilesetId:'Other-id'})];
  const tilesets=[tileset(),tileset('Other')];

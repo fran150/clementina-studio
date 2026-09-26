@@ -115,6 +115,16 @@
    /** Runs fn on every selected cell, as one undo step named label. */
    apply(fn,label='Edit cells'){if(!rect)return;const r=rect;edit(label,()=>{const g=grid();for(let y=r.y;y<r.y+r.height;y++)for(let x=r.x;x<r.x+r.width;x++)fn(g.cells[y*g.width+x]);});},
    selected(){return rect?lift(grid(),rect).cells:[];},
+   /** The cell drawn at a point: a block in flight covers the grid, and a moved block leaves blanks behind. */
+   cellAt(point){
+    const g=grid(),f=moving?{block:moving.block,at:moving.at,from:moving.from}:paste;
+    if(f){
+     const x=point.col-f.at.x,y=point.row-f.at.y;
+     if(x>=0&&y>=0&&x<f.block.width&&y<f.block.height)return f.block.cells[y*f.block.width+x];
+     if(contains(f.from,point))return blank();
+    }
+    return g.cells[point.row*g.width+point.col];
+   },
    /** Paints a block being moved or pasted over the canvas, before its grid lines. */
    drawFloating(ctx,drawCell){
     const g=grid(),f=moving?{block:moving.block,at:moving.at,from:moving.from}:paste;if(!f)return;

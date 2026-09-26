@@ -100,6 +100,9 @@
  // Panning at high zoom: the Pan tool, Space-drag and middle-drag all scroll
  // #ovStage instead of painting, mirroring the tileset editor's shortcut.
  let ovSpaceHeld=false,ovPanDrag=null;
+ // The pointer's last position over the canvas, so the palette dock's hover
+ // marks follow a paint, an undo or a zoom made while it rests there.
+ let ovHover=null;
  let ovStamp={tile:0,paletteBank:0,flipX:false,flipY:false,priority:false,chrAlt:false};
  let ovPickAlt=false,placeholderIndex=-1;
  // The tile picker's current pick, in tile coordinates of whichever tileset
@@ -261,6 +264,21 @@
   for(let row=0;row<OVERLAY_ROWS;row++)for(let col=0;col<OVERLAY_COLUMNS;col++)drawCell(ctx,a.cells[row*OVERLAY_COLUMNS+col],col,row);
   selection.drawFloating(ctx,drawCell);
   selection.layout($('ovMarquee'),ovZoom);
+  markHover();
+ }
+ // Outlines, in the palette dock, the bank and color of the overlay pixel
+ // under the pointer — as drawn, so a block being moved or pasted counts.
+ function markHover(){
+  const a=overlay();let hover=null;
+  if(a&&ovHover){
+   const r=$('ovCanvas').getBoundingClientRect(),x=Math.floor((ovHover.x-r.left)/r.width*OVERLAY_COLUMNS*8),y=Math.floor((ovHover.y-r.top)/r.height*OVERLAY_ROWS*8);
+   if(x>=0&&y>=0&&x<OVERLAY_COLUMNS*8&&y<OVERLAY_ROWS*8){
+    const cell=selection.cellAt({col:x>>3,row:y>>3}),source=cell.chrAlt?altTileset():primaryTileset();
+    const px=cell.flipX?7-x%8:x%8,py=cell.flipY?7-y%8:y%8;
+    hover={bank:cell.paletteBank,ink:source?tilePixel(source,cell.tile,px,py,cell.chrAlt?ovAltPlane:ovPrimaryPlane):0};
+   }
+  }
+  StudioShell.hoverBankDock($('ovSwatches'),hover);
  }
  function canvasCell(e){
   const r=$('ovCanvas').getBoundingClientRect();
@@ -329,6 +347,7 @@
  };
  $('ovCanvas').onpointermove=e=>{
   if(!overlay())return;
+  ovHover={x:e.clientX,y:e.clientY};markHover();
   const {col,row}=canvasCell(e);
   if(selection.move({col,row}))return;
   if(ovTool==='select')$('ovCanvas').style.cursor=selection.contains({col,row})?'move':'';
@@ -342,6 +361,7 @@
   ovPainting=false;ovLast=null;
  };
  $('ovCanvas').onpointercancel=()=>{ovAnchor=null;ovPainting=false;ovLast=null;selection.cancel();layoutPlaceholders();};
+ $('ovCanvas').onpointerleave=()=>{ovHover=null;markHover();};
  // Right-click erases while a painting tool is active, the Aseprite way;
  // with any other tool it opens the edit menu for the selection.
  function painting(){return ['pencil','rectangle','fill','eraser'].includes(ovTool);}
@@ -438,7 +458,7 @@
  function render(){
   host.hidden=currentView!=='overlays';
   document.body.classList.toggle('overlayView',!host.hidden);
-  if(host.hidden)return;
+  if(host.hidden){ovHover=null;return;}
   overlayIndex=Math.min(overlayIndex,Math.max(0,overlays.length-1));
   const a=overlay();
   $('ovEmpty').hidden=!!a;StudioShell.emptyEditor(host,!a);

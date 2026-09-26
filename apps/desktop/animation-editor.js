@@ -1,7 +1,7 @@
 // Animation authoring. An animation is a sequence of shapes with durations; it
 // names shapes rather than owning sprites, so a shape edit reaches every frame
-// showing it. Loaded before sprite-composer.js, which wraps renderAnimations
-// to keep its own canvas in sync with shape edits.
+// showing it, flipped or not. Loaded before sprite-composer.js, which wraps
+// renderAnimations to keep its own canvas in sync with shape edits.
 (() => {
  const host=document.createElement('section');host.id='animationEditor';host.className='studioEditor';host.hidden=true;
  host.innerHTML=`<aside class="anLibrary studioDock studioDockLeft"><h2>Animations</h2><div id="anAnimActions" class="assetToolbar"></div><div id="anAnimList" role="listbox" aria-label="Animations"></div><p>Double-click an animation to rename it.</p></aside>
@@ -12,7 +12,7 @@
  <div id="anTransport"><button id="anPrevious"></button><button id="anPlay" aria-pressed="false"></button><button id="anNext"></button><span id="anFrameCounter"></span></div>
  <div id="anTimeline" role="listbox" aria-label="Animation frames"></div>
  <div id="anStatus"></div></main>
- <aside class="anFramePanel studioDock studioDockRight"><h2>Frame</h2><div id="anFrames"></div><p>Drag the pose on the preview to change the frame's offset.</p>
+ <aside class="anFramePanel studioDock studioDockRight"><h2>Frame</h2><div id="anFrames"></div><p>Drag the pose on the preview to change the frame's offset. Flips mirror the shape about its origin.</p>
   <button id="anDuplicateFrame"></button><button id="anMoveEarlier"></button><button id="anMoveLater"></button></aside>`;
  // Inserted before the footer, not appended to #workspace, so the status bar
  // stays at the bottom of the page instead of landing above this section.
@@ -113,8 +113,11 @@
  function frameMenu(e){
   const a=currentAnimation();if(!a||!currentFrame())return;
   StudioShell.contextMenu(e.clientX,e.clientY,[{label:'Copy',hint:'Mod+C',run:copyFrame},{label:'Paste after',hint:'Mod+V',disabled:!StudioShell.clipboard.has('frames'),run:pasteFrames},{label:'Duplicate',hint:'Mod+D',disabled:a.frames.length>=255,run:()=>$('anDuplicateFrame').click()},{label:'Delete',hint:'Delete',disabled:a.frames.length<2,run:removeFrame},'-',
+   {label:'Flip horizontally',hint:'Shift+H',run:()=>flipFrame('x')},{label:'Flip vertically',hint:'Shift+V',run:()=>flipFrame('y')},'-',
    {label:'Move earlier',disabled:frameIndex===0,run:()=>moveFrame(frameIndex,frameIndex-1)},{label:'Move later',disabled:frameIndex===a.frames.length-1,run:()=>moveFrame(frameIndex,frameIndex+1)}]);
  }
+ // A flip is the frame's, like its offset: the shape stays as drawn.
+ function flipFrame(axis){const frame=currentFrame(),key=axis==='x'?'flipX':'flipY';if(!frame)return;edit(axis==='x'?'Flip the frame horizontally':'Flip the frame vertically',()=>{if(frame[key])delete frame[key];else frame[key]=true;});}
  function removeFrame(){const a=currentAnimation();if(!a||a.frames.length<2)return false;edit('Delete a frame',()=>{a.frames.splice(frameIndex,1);frameIndex=Math.max(0,Math.min(frameIndex,a.frames.length-1));});return true;}
  function copyFrame(){if(!currentFrame())return false;StudioShell.clipboard.set('frames',[currentFrame()]);return true;}
  function cutFrame(){const a=currentAnimation();if(!a||a.frames.length<2||!copyFrame())return false;return removeFrame();}
@@ -156,11 +159,19 @@
   ctx.setTransform(scale*zoom,0,0,scale*zoom,canvas.width*(1-zoom)/2,canvas.height*(1-zoom)/2);
   for(let y=0;y<200;y+=8)for(let x=0;x<320;x+=8){ctx.fillStyle=((x+y)/8)%2?'#292d35':'#22262e';ctx.fillRect(x,y,8,8);}
   ctx.fillStyle='#586174';ctx.fillRect(160,0,1,200);ctx.fillRect(0,100,320,1);
-  const shape=shapeById(frame?.shapeId),source=tilesetById(shape?.tilesetId);
-  if(shape&&source)for(const sprite of shape.sprites)for(let y=0;y<8;y++)for(let x=0;x<8;x++){
+  const source=tilesetById(shapeById(frame?.shapeId)?.tilesetId);
+  if(source)for(const sprite of frameSprites(frame))for(let y=0;y<8;y++)for(let x=0;x<8;x++){
    const ink=tilePixel(source,sprite.tile,sprite.flipX?7-x:x,sprite.flipY?7-y:y,0);
-   if(ink){ctx.fillStyle=css565(bankColor(sprite.paletteBank,ink));ctx.fillRect(160+sprite.x+(frame.dx??0)+x,100+sprite.y+(frame.dy??0)+y,1,1);}
+   if(ink){ctx.fillStyle=css565(bankColor(sprite.paletteBank,ink));ctx.fillRect(160+sprite.x+x,100+sprite.y+y,1,1);}
   }
+ }
+ // A frame's sprites as the game writes them to OAM: the shape mirrored about
+ // its origin — a sprite is 8×8, so x becomes -x-8 and its flip bit toggles —
+ // then moved by the frame's offset.
+ function frameSprites(frame){
+  return (shapeById(frame?.shapeId)?.sprites??[]).map(s=>({...s,
+   x:(frame.flipX?-s.x-8:s.x)+(frame.dx??0),y:(frame.flipY?-s.y-8:s.y)+(frame.dy??0),
+   flipX:s.flipX!==!!frame.flipX,flipY:s.flipY!==!!frame.flipY}));
  }
  function selectFrame(index){const a=currentAnimation();if(!a)return;frameIndex=Math.max(0,Math.min(index,a.frames.length-1));playing=false;render();}
  function moveFrame(from,to){const a=currentAnimation();if(!a||from===to||to<0||to>=a.frames.length)return;edit('Reorder frames',()=>{const [frame]=a.frames.splice(from,1);a.frames.splice(to,0,frame);frameIndex=to;});}
@@ -168,10 +179,12 @@
   const timeline=$('anTimeline'),scroll=timeline.scrollLeft;timeline.replaceChildren();
   a?.frames.forEach((frame,i)=>{
    const card=document.createElement('div');card.className='anFrameCard';card.tabIndex=0;card.draggable=true;card.dataset.index=i;
-   card.setAttribute('role','option');card.setAttribute('aria-selected',String(i===frameIndex));card.setAttribute('aria-label',`Frame ${i+1}: ${shapeById(frame.shapeId)?.name??'missing shape'}, ${frame.ticks} ticks`);
-   const canvas=document.createElement('canvas');canvas.width=320;canvas.height=200;const shape=shapeById(frame.shapeId);const extentX=Math.max(20,...(shape?.sprites??[]).map(s=>Math.abs(s.x+(frame.dx??0))+8)),extentY=Math.max(12,...(shape?.sprites??[]).map(s=>Math.abs(s.y+(frame.dy??0))+8));paintFrame(canvas,frame,Math.min(6,140/extentX,85/extentY));
+   card.setAttribute('role','option');card.setAttribute('aria-selected',String(i===frameIndex));const flipped=[frame.flipX&&'horizontally',frame.flipY&&'vertically'].filter(Boolean).join(' and ');
+   card.setAttribute('aria-label',`Frame ${i+1}: ${shapeById(frame.shapeId)?.name??'missing shape'}${flipped?', flipped '+flipped:''}, ${frame.ticks} ticks`);
+   const canvas=document.createElement('canvas');canvas.width=320;canvas.height=200;const placed=frameSprites(frame);const extentX=Math.max(20,...placed.map(s=>Math.abs(s.x)+8)),extentY=Math.max(12,...placed.map(s=>Math.abs(s.y)+8));paintFrame(canvas,frame,Math.min(6,140/extentX,85/extentY));
    const label=document.createElement('span');label.textContent=`${i+1} · ${shapeById(frame.shapeId)?.name??'Missing'}`;
-   const timing=document.createElement('span');timing.textContent=`${frame.ticks} ticks`;
+   // A flip is marked too, since a symmetric shape looks the same either way.
+   const timing=document.createElement('span');timing.textContent=`${frame.ticks} ticks${frame.flipX?' ↔':''}${frame.flipY?' ↕':''}`;
    card.append(canvas,label,timing);card.onclick=()=>selectFrame(i);
    card.oncontextmenu=e=>{e.preventDefault();selectFrame(i);frameMenu(e);};
    card.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectFrame(i);}if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();const next=Math.max(0,Math.min(i+(e.key==='ArrowLeft'?-1:1),a.frames.length-1));if(e.altKey)moveFrame(i,next);else selectFrame(next);timeline.children[next]?.focus();}};
@@ -260,6 +273,8 @@
   $('anAppend').disabled=!a||!selectedCount||a.frames.length+selectedCount>255;
   $('anAppend').textContent=`Append ${selectedCount} frame${selectedCount===1?'':'s'}`;
   $('anDuplicateFrame').disabled=!currentFrame()||a.frames.length>=255;
+  // The flips show pressed while the selected frame is flipped, like a stamp's in Backgrounds.
+  for(const [id,key] of [['anFlipX','flipX'],['anFlipY','flipY']]){const on=!!currentFrame()?.[key];$(id).disabled=!currentFrame();$(id).classList.toggle('on',on);$(id).setAttribute('aria-pressed',String(on));}
   $('anRemoveFrame').disabled=!a||a.frames.length<2;$('anCopy').disabled=!currentFrame();$('anPaste').disabled=!a||!StudioShell.clipboard.has('frames');
   $('anUndo').disabled=!ProjectHistory.canUndo();$('anRedo').disabled=!ProjectHistory.canRedo();
   renderFrames(a,usable);renderTimeline(a);
@@ -271,6 +286,7 @@
   const key=e.key.toLowerCase(),mod=e.ctrlKey||e.metaKey,handled=()=>{e.preventDefault();e.stopImmediatePropagation();};
   if(mod&&['c','x','v','d'].includes(key)){const done=key==='d'?($('anDuplicateFrame').click(),true):{c:copyFrame,x:cutFrame,v:pasteFrames}[key]();if(done||key==='d')handled();return;}
   if(mod||e.altKey)return;
+  if(e.shiftKey&&(key==='h'||key==='v')){handled();flipFrame(key==='h'?'x':'y');return;}
   // Keys a focused button or frame card already answers are left to it.
   if(e.target.closest?.('button,[role="option"]'))return;
   if(e.code==='Space'){handled();$('anPlay').click();return;}
@@ -299,7 +315,8 @@
  const framePanel=host.querySelector('.anFramePanel');
  const framePanelToggle=StudioShell.iconButton('anFramePanelToggle','Frame properties','properties');StudioShell.bindPanel({panel:framePanel,button:framePanelToggle,group:'animationRight',closeGroups:['animationRight'],asset:true});
  for(const [id,icon,label] of [['anDuplicateFrame','duplicate','Duplicate frame (Ctrl/Cmd+D)'],['anMoveEarlier','earlier','Move frame earlier'],['anMoveLater','later','Move frame later']])StudioShell.setIcon($(id),icon,label);
- StudioShell.railLayout(frameRail,[[framePanelToggle],[$('anDuplicateFrame'),$('anMoveEarlier'),$('anMoveLater')],[Object.assign(StudioShell.iconButton('anRemoveFrame','Remove frame (Delete)','delete'),{onclick:removeFrame})]]);
+ const flipButton=(id,axis,icon,label)=>Object.assign(StudioShell.iconButton(id,label,icon),{onclick:()=>flipFrame(axis)});
+ StudioShell.railLayout(frameRail,[[framePanelToggle],[flipButton('anFlipX','x','flipH','Flip the frame horizontally (Shift+H) — mirrors the shape about its origin'),flipButton('anFlipY','y','flipV','Flip the frame vertically (Shift+V) — mirrors the shape about its origin')],[$('anDuplicateFrame'),$('anMoveEarlier'),$('anMoveLater')],[Object.assign(StudioShell.iconButton('anRemoveFrame','Remove frame (Delete)','delete'),{onclick:removeFrame})]]);
  library.hidden=true;shapeLibrary.hidden=true;
  for(const id of ['anLibraryToggle','anShapeLibraryToggle'])$(id).setAttribute('aria-expanded','false');
 

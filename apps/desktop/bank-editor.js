@@ -359,14 +359,14 @@
  #viewTools{margin-left:auto;display:flex;align-items:center;gap:6px}#viewTools button,#viewTools summary{padding:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid var(--line);border-radius:4px;background:var(--panel)}#viewTools button.on{background:var(--ink);color:#111}#viewTools details[open]>summary{border-color:var(--sel)}#viewTools svg{width:23px;height:23px}#viewTools summary{list-style:none}#viewTools summary::-webkit-details-marker{display:none}#canvasTop #viewTools details,#canvasTop #viewTools details[open]{position:relative;right:auto;top:auto;padding:0;border:0;z-index:7}#viewTools .viewPopover{position:absolute;right:0;top:36px;width:300px;padding:12px;border:1px solid var(--line);background:var(--panel);box-shadow:0 8px 20px #0008;font-size:11px}#viewTools .viewPopover label{display:block;margin:8px 0}#viewTools .viewPopover p{line-height:1.5}#drawingOptions{min-height:32px}
  `;document.head.append(uiStyle);
 
- // Fill controls live beside selection transforms, with tool-dependent availability.
- const filledLabel=$('filledShapes').parentElement;filledLabel.hidden=true;transforms.append(filledLabel);
+ // Fill controls: the filled toggle and patterns, enabled per tool (see render).
+ const filledLabel=$('filledShapes').parentElement;filledLabel.hidden=true;
  paths.filled='<rect x="4" y="4" width="18" height="18" fill="currentColor"/>';
  paths.checker='<rect x="4" y="4" width="18" height="18"/><path d="M4 4h6v6H4zM16 4h6v6h-6zM10 10h6v6h-6zM4 16h6v6H4zM16 16h6v6h-6z" fill="currentColor" stroke="none"/>';
  paths.stripes='<rect x="4" y="4" width="18" height="18"/><path d="M4 7h18M4 13h18M4 19h18" stroke-width="3"/>';
  paths.fillToggle='<rect x="3" y="3" width="20" height="20"/><path d="M5 5h16v16z" fill="currentColor" stroke="none"/>';
- const fillToggle=document.createElement('button');fillToggle.id='filledShapeToggle';icon(fillToggle,'fillToggle','Toggle filled rectangles and ellipses');fillToggle.onclick=()=>{$('filledShapes').checked=!$('filledShapes').checked;render();};transforms.append(fillToggle);
- for(const [name,label] of [['solid','Solid fill'],['checker','Checkerboard fill'],['stripes','Horizontal stripe fill']]){const button=document.createElement('button');button.id='fillPattern_'+name;icon(button,name==='solid'?'filled':name,label);button.onclick=()=>{fillPattern=name;render();};transforms.append(button);}
+ const fillToggle=document.createElement('button');fillToggle.id='filledShapeToggle';icon(fillToggle,'fillToggle','Toggle filled rectangles and ellipses');fillToggle.onclick=()=>{$('filledShapes').checked=!$('filledShapes').checked;render();};
+ const patternButtons=[['solid','Solid fill'],['checker','Checkerboard fill'],['stripes','Horizontal stripe fill']].map(([name,label])=>{const button=document.createElement('button');button.id='fillPattern_'+name;icon(button,name==='solid'?'filled':name,label);button.onclick=()=>{fillPattern=name;render();};return button;});
  options.hidden=true;
  // Rails in the order every editor uses: panels, then tools, then edit
  // actions pinned to the bottom; on the right, the selection's transforms
@@ -376,7 +376,7 @@
  // The fill tools' options are a context bar, shown in the top bar only
  // while a tool that uses them is active, as Photoshop and Aseprite do.
  const toolOptions=document.createElement('div');toolOptions.id='toolOptions';toolOptions.setAttribute('aria-label','Fill options');
- toolOptions.append(fillToggle,$('fillPattern_solid'),$('fillPattern_checker'),$('fillPattern_stripes'),filledLabel);top.querySelector('.studioBarStart').append(toolOptions);
+ toolOptions.append(fillToggle,...patternButtons,filledLabel);top.querySelector('.studioBarStart').append(toolOptions);
  paths.pasteSettings=StudioShell.icons.paste+'<circle cx="19" cy="18" r="6" fill="var(--panel)"/><path d="M19 10v3M19 23v3M11 18h3M24 18h2M13 12l2 2M23 12l-2 2M13 24l2-2M23 24l-2-2"/><circle cx="19" cy="18" r="2"/>';
  icon(pasteOptions.querySelector('summary'),'pasteSettings','Paste options');
  pasteOptions.querySelector('.viewPopover p')?.remove();

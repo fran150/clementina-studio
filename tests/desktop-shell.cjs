@@ -10,7 +10,7 @@ app.whenReady().then(async()=>{
  const run=source=>window.webContents.executeJavaScript(`(()=>{${source}})()`);
  try {
  await window.loadFile(path.resolve(__dirname,'../apps/desktop/editor.html'));
- for(const view of ['palettes','tiles','overlays','backgrounds','shapes','animations']){
+ for(const view of ['palettes','tiles','overlays','backgrounds','shapes','animations','sounds','music']){
   const state=await run(`showView('${view}');return {current:document.querySelector('[aria-current="page"]')?.dataset.view,nav:Math.round($('workflowNav').getBoundingClientRect().height),header:Math.round(document.querySelector('header').getBoundingClientRect().height),fileActionsInTabs:!!$('nativeSave').closest('#workflowNav'),currentTabMarked:getComputedStyle(document.querySelector('[aria-current="page"]')).boxShadow.includes('inset'),status:document.querySelector('#status').getAttribute('role'),tooltips:document.querySelectorAll('#studioTooltip').length};`);
   // The file actions moved into the tab bar; the row below the tabs is gone.
   assert.deepEqual(state,{current:view,nav:44,header:0,fileActionsInTabs:true,currentTabMarked:true,status:'status',tooltips:1});

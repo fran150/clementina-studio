@@ -215,10 +215,12 @@ be changed per sprite, which is how one tileset yields a red enemy and a blue
 one.
 
 An **animation** is a sequence of `{shape, ticks}` entries, plus an optional
-per-entry X and Y offset applied to the whole shape. It references shapes
-rather than copying them, so editing a shape updates every animation using it;
-duplicate a shape when you want one to diverge. The per-entry offset exists so
-that a body bobbing one pixel does not need a second shape.
+per-entry flip and X and Y offset applied to the whole shape. It references
+shapes rather than copying them, so editing a shape updates every animation
+using it; duplicate a shape when you want one to diverge. The per-entry offset
+exists so that a body bobbing one pixel does not need a second shape, and the
+flip so that a mirrored pose does not either: it mirrors the shape about its
+origin by toggling each sprite's flip bit and moving it from `x` to `-x - 8`.
 
 Every shape in one animation must name the same tileset: they are displayed in
 sequence out of the single sprite CHR bank.
@@ -232,17 +234,27 @@ Sprite-versus-background priority is not set here. Nor is the choice of which
 shapes share a CHR bank, or which shape loads at which OAM base. Those are
 scene decisions.
 
+## Audio
+
+Sound effects, songs and the instruments songs play are MIA audio assets,
+modeled on the chip's four voices, its background sequencer and the voice
+registers a program writes. They are described in **[audio.md](audio.md)**:
+what the hardware has, why sound effects and music are two editors, what a
+song compiles to, and how closely the preview follows the firmware.
+
 ## Authoring versus output
 
 Exported: palettes, bank configs, tileset CHR bytes, each sprite's tile,
 offsets, flips and palette bank, the order of sprites within a shape, an
 animation's shape sequence with its durations and offsets, a background's
 width, height, two tileset references, and its cells, and an overlay's two
-tileset references, its cells, and its placeholders' geometry.
+tileset references, its cells, and its placeholders' geometry. For audio,
+each song's sequencer tracks and each sound's frame writes (see audio.md).
 
 Not exported: a tile's recorded palette bank, which config is active, preview
 backgrounds, a background's viewport preview mode, `BGSET`, scroll position,
-and overlay-preview toggle, and every editor's 1bpp plane choice.
+and overlay-preview toggle, and every editor's 1bpp plane choice; in the audio
+editors, the voice being drawn on, mutes, the cursor and snap.
 
 Never stored on an asset: `CHRMODE`, `CHRPLANE`, `BGBANK`/`BGALT`,
 `SPRBANK`, `OVLBANK`/`OVLALT`. These are global render state and belong to
@@ -254,7 +266,7 @@ hold their own plane choice independently, none of it stored on the tileset.
 
 ## Build step
 
-Not written yet, and deliberately last: it waits on maps, scenes and music, so
+Not written yet, and deliberately last: it waits on maps and scenes, so
 that it lays out all of a project's assets rather than being rebuilt each time
 a new kind arrives. The export path and its UI were removed rather than carried
 half-finished.

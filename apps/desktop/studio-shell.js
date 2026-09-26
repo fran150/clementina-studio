@@ -16,6 +16,9 @@
   shape:c('<path d="M9 3h6v5H9zM6 8h12v7H6zM7 15h4v6H7zM13 15h4v6h-4z"/>'),
   animation:c('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16M16 4v16"/><path d="M3 9h5M16 9h5M3 15h5M16 15h5"/>'),
   placeholder:c('<rect x="3" y="7" width="18" height="10" rx="1" stroke-dasharray="3 2"/><path d="M7 12h7"/>'),
+  sound:c('<path d="M3 9h4l5-4v14l-5-4H3z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6a8 8 0 0 1 0 12"/>'),
+  music:c('<path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/><path d="M9 10l11-2"/>'),
+  instrument:c('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M6 14h2l2-6 3 9 2-5 1 2h2"/>'),
   // Panels showing the current selection's properties.
   drawOrder:c('<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/>'),
   camera:c('<rect x="2" y="6" width="14" height="12" rx="1"/><path d="m16 10 6-3v10l-6-3"/>'),
@@ -38,6 +41,8 @@
   pause:c('<rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/>'),
   previous:c('<path d="M6 5v14"/><path d="M19 5 9 12l10 7z" fill="currentColor"/>'),
   next:c('<path d="M18 5v14"/><path d="M5 5l10 7-10 7z" fill="currentColor"/>'),
+  stop:c('<rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor"/>'),
+  mute:c('<path d="M3 9h4l5-4v14l-5-4H3z"/><path d="m16 9 6 6M22 9l-6 6"/>'),
   pan:'<path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10V6a2 2 0 0 0-4 0v8c0 4 2 7 7 7s7-3 7-7v-4a2 2 0 0 0-4 0v1"/>',
   // Actions.
   undo:'<path d="M9 5 3 11l6 6M3 11h11a7 7 0 0 1 7 7"/>',
@@ -60,6 +65,10 @@
   back:c('<path d="M12 4v11M6 10l6 6 6-6"/><path d="M5 21h14"/>'),
   earlier:c('<path d="M19 12H5M11 5l-7 7 7 7"/>'),
   later:c('<path d="M5 12h14M13 5l7 7-7 7"/>'),
+  // Pitch: a semitone up or down, and a legato slide into a note.
+  transposeUp:c('<circle cx="7" cy="18" r="3"/><path d="M10 18V6M17 13V3M13.5 6.5 17 3l3.5 3.5"/>'),
+  transposeDown:c('<circle cx="7" cy="18" r="3"/><path d="M10 18V6M17 3v10M13.5 9.5 17 13l3.5-3.5"/>'),
+  legato:c('<circle cx="6" cy="17" r="2.5"/><circle cx="18" cy="15" r="2.5"/><path d="M4 11c4-6 12-6 16-2"/>'),
   // View.
   grid:c('<rect x="3" y="3" width="18" height="18"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18" stroke-dasharray="1.5 1.5"/>'),
   snap:c('<path d="M4 4h16M4 12h16M4 20h16M4 4v16M12 4v16M20 4v16"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/>'),
@@ -346,7 +355,8 @@
  // bank, its label and eight colors, in a .bankSwatches grid. These editors
  // pick a whole bank, so a click anywhere on a row picks it. A cyan ring
  // (.chosenBank) marks the bank painting or the selection uses; a dot
- // (.usedBank) the banks the asset on screen already uses.
+ // (.usedBank) the banks the asset on screen already uses; dashed outlines
+ // the bank (.hoverBank) and color (.hoverColor) of the pixel under the pointer.
  const TRANSPARENT_ZERO='linear-gradient(135deg,white 43%,#e32636 44%,#e32636 56%,white 57%)';
  function bankDock(container,pick){
   if(container.children.length===16)return;
@@ -371,11 +381,21 @@
    row.title=title(bank);row.setAttribute('aria-label',row.title);
   });
  }
+ // Outlines the bank and color of the pixel under the pointer — {bank, ink},
+ // or null once the pointer leaves the canvas. Cheap enough for pointermove.
+ function hoverBankDock(container,hover){
+  container.querySelectorAll('.paletteGroup').forEach(row=>{
+   const on=Number(row.dataset.palette)===hover?.bank;
+   row.classList.toggle('hoverBank',on);
+   row.querySelectorAll('[data-ink]').forEach((swatch,ink)=>swatch.classList.toggle('hoverColor',on&&ink===hover.ink));
+  });
+ }
 
  // The app's clipboard: one item tagged with its kind, so a paste only lands
  // where that kind of thing fits — cells in the background and overlay
  // editors, sprites in shapes, frames in animations, palettes and colors in
- // the palette editor. Copies go in and out by value.
+ // the palette editor, sound frames and notes in the audio editors. Copies go
+ // in and out by value.
  let clip=null;
  const clipboard=Object.freeze({
   set(kind,data){clip={kind,data:structuredClone(data)};document.dispatchEvent(new Event('studioclipboard'));},
@@ -399,18 +419,20 @@
  // current editor's. Opened with ?, Ctrl/Cmd+/, Help ▸ Keyboard Shortcuts or
  // any editor's ? button.
  const SHORTCUTS={
-  everywhere:[['Ctrl/Cmd+N, O, S, Shift+S','New, open, save, save as'],['Ctrl/Cmd+Z','Undo'],['Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y','Redo'],['Ctrl/Cmd+C, X, V','Copy, cut, paste'],['Scroll or two-finger swipe','Pan the canvas (Shift: sideways)'],['Pinch or Ctrl/Cmd+scroll','Zoom around the pointer'],['Ctrl/Cmd+= / −','Zoom in / out'],['Ctrl/Cmd+0 · Ctrl/Cmd+Alt+0','Zoom to fit · actual size'],['Ctrl/Cmd+1 … 6','Palettes, Tilesets, Shapes, Animations, Backgrounds, Overlays'],['Space-drag or middle-drag','Pan with any tool'],['F2 or double-click','Rename a library item; right-click for more'],['? or Ctrl/Cmd+/','This list']],
+  everywhere:[['Ctrl/Cmd+N, O, S, Shift+S','New, open, save, save as'],['Ctrl/Cmd+Z','Undo'],['Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y','Redo'],['Ctrl/Cmd+C, X, V','Copy, cut, paste'],['Scroll or two-finger swipe','Pan the canvas (Shift: sideways)'],['Pinch or Ctrl/Cmd+scroll','Zoom around the pointer'],['Ctrl/Cmd+= / −','Zoom in / out'],['Ctrl/Cmd+0 · Ctrl/Cmd+Alt+0','Zoom to fit · actual size'],['Ctrl/Cmd+1 … 8','Palettes, Tilesets, Shapes, Animations, Backgrounds, Overlays, Sounds, Music'],['Space-drag or middle-drag','Pan with any tool'],['F2 or double-click','Rename a library item; right-click for more'],['? or Ctrl/Cmd+/','This list']],
   tiles:[['S · B · E · G','Select · pencil · eraser · fill'],['L · R · O · I · H','Line · rectangle · ellipse · pick color · pan'],['Shift while drawing','Square or circle'],['Right-click','Erase with a painting tool; otherwise the edit menu'],['Shift+H · Shift+V','Flip the selection'],['Ctrl/Cmd+A','Select all'],['Arrows','Move the selection'],['Delete','Clear the selection'],['Ctrl/Cmd+Shift+V','Paste with the source palettes'],['Escape','Drop the selection or paste']],
   backgrounds:[['S · B · E · G','Select · pencil · eraser · fill'],['R · I · H','Rectangle · pick tile · pan'],['Right-click','Erase with a painting tool; otherwise the edit menu'],['Shift+H · Shift+V','Flip the selection, or the next stamp'],['Ctrl/Cmd+A','Select all'],['Drag inside the selection · arrows','Move it'],['Delete','Clear the selection'],['Escape','Drop the selection or paste']],
   shapes:[['V · S · H','Select and move · box select · pan'],['Shift-click','Add or remove a sprite'],['Right-click','The edit menu'],['Shift+H · Shift+V','Flip the selected sprites'],['Ctrl/Cmd+A','Select all sprites'],['Ctrl/Cmd+D','Duplicate'],['Arrows','Nudge one pixel'],['Delete','Remove'],['Escape','Back to Select and move']],
-  animations:[['Space','Play or pause'],['← · →','Previous · next frame'],['Alt+← · → on a frame','Move it earlier · later'],['Ctrl/Cmd+D','Duplicate the frame'],['Delete','Remove the frame'],['Right-click a frame','The frame menu']],
+  animations:[['Space','Play or pause'],['← · →','Previous · next frame'],['Alt+← · → on a frame','Move it earlier · later'],['Shift+H · Shift+V','Flip the frame'],['Ctrl/Cmd+D','Duplicate the frame'],['Delete','Remove the frame'],['Right-click a frame','The frame menu']],
   palettes:[['Ctrl/Cmd+C · V','Copy · paste the palette, or the focused color'],['Right-click a color','Copy, paste or edit it']],
+  sounds:[['Space','Play or stop'],['S · B · L · E · H','Select frames · pencil · line · eraser · pan'],['Right-click','Write 0 with a painting tool; otherwise the edit menu'],['↑ · ↓ (Shift: octave)','Transpose the selected frames'],['Shift+H · Shift+V','Reverse the frames · invert their pitch'],['Ctrl/Cmd+A · D','Select all frames · duplicate the selection'],['Delete','Remove the selected frames'],['Escape','Deselect']],
+  music:[['Space','Play or pause'],['1 … 4','Draw on voice 0 … 3'],['S · B · E · H','Select · pencil · eraser · pan'],['Right-click','Erase with a painting tool; otherwise the edit menu'],['← · →','Move the selected notes a step'],['↑ · ↓ (Shift: octave)','Transpose the selected notes'],['Shift+H · Shift+V','Reverse the notes in time · invert their pitch'],['L','Legato: slide into the selected notes'],['Ctrl/Cmd+A · D','Select all notes on the voice · duplicate them'],['Delete','Remove the selected notes'],['Escape','Deselect']],
  };
  SHORTCUTS.overlays=SHORTCUTS.backgrounds;
  const shortcutSheet=document.createElement('dialog');shortcutSheet.id='shortcutHelp';document.body.append(shortcutSheet);
  function showShortcuts(){
   if(shortcutSheet.open)return;
-  const names={tiles:'Tilesets',palettes:'Palettes',overlays:'Overlays',backgrounds:'Backgrounds',shapes:'Shapes',animations:'Animations'};
+  const names={tiles:'Tilesets',palettes:'Palettes',overlays:'Overlays',backgrounds:'Backgrounds',shapes:'Shapes',animations:'Animations',sounds:'Sounds',music:'Music'};
   const table=(title,rows)=>`<h3>${title}</h3><dl>${rows.map(([keys,what])=>`<dt>${keys}</dt><dd>${what}</dd>`).join('')}</dl>`;
   shortcutSheet.innerHTML=`<h2>Keyboard shortcuts</h2>${table('Everywhere',SHORTCUTS.everywhere)}${table(names[currentView],SHORTCUTS[currentView]??[])}<form method="dialog"><button>Close</button></form>`;
   shortcutSheet.showModal();
@@ -421,5 +443,5 @@
   if((e.key==='?'&&!e.ctrlKey&&!e.metaKey)||((e.ctrlKey||e.metaKey)&&e.key==='/')){e.preventDefault();e.stopImmediatePropagation();showShortcuts();}
  },true);
 
- window.StudioShell=Object.freeze({icons,clipboard,editActions,viewStatus,contextMenu,showShortcuts,helpButton,bankDock,syncBankDock,TRANSPARENT_ZERO,iconButton,setIcon,toolRail,railLayout,bindPanel,emptyEditor,selectView,renderList,startRename,fitZoom,zoomScrolled,canvasZoom,canvasCommand});
+ window.StudioShell=Object.freeze({icons,clipboard,editActions,viewStatus,contextMenu,showShortcuts,helpButton,bankDock,syncBankDock,hoverBankDock,TRANSPARENT_ZERO,iconButton,setIcon,toolRail,railLayout,bindPanel,emptyEditor,selectView,renderList,startRename,fitZoom,zoomScrolled,canvasZoom,canvasCommand});
 })();

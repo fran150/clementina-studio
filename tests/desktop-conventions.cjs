@@ -1,8 +1,9 @@
 // Conventions every editor shares: the tab order and its shortcuts, one
 // config picker, the same empty state and stage, one Preview panel,
 // right-click (erase while painting, the edit menu otherwise), Shift+H/V
-// flips, docked properties, labeled undo steps — in the Edit menu too — and
-// the background layer's opaque color 0. Run with `npm run test:desktop:conventions`.
+// flips (animation frames too), docked properties, labeled undo steps — in
+// the Edit menu too — and the background layer's opaque color 0. Run with
+// `npm run test:desktop:conventions`.
 const {app,BrowserWindow,ipcMain}=require('electron');
 const assert=require('node:assert/strict');const path=require('node:path');
 app.whenReady().then(async()=>{
@@ -25,15 +26,15 @@ app.whenReady().then(async()=>{
   const empty=`const e=[...document.querySelectorAll('.studioEmpty')].find(x=>x.offsetParent);if(!e)return null;const p=getComputedStyle(e.querySelector('p')),s=getComputedStyle(e),r=e.getBoundingClientRect(),m=e.closest('.studioMain').getBoundingClientRect();
    return {font:p.fontSize+' '+p.color,stage:s.backgroundColor+' '+s.backgroundImage,centered:s.alignItems+' '+s.justifyContent,fills:Math.abs(r.width-m.width)<1&&Math.abs(r.height-m.height)<1,docks:[...document.querySelectorAll('.studioAssetDock')].filter(d=>d.offsetParent).length};`;
   const looks=[];
-  for(const view of ['tiles','shapes','animations','backgrounds','overlays']){await run(`showView('${view}');`);looks.push(await run(empty));}
+  for(const view of ['tiles','shapes','animations','backgrounds','overlays','sounds','music']){await run(`showView('${view}');`);looks.push(await run(empty));}
   for(const look of looks)assert.deepEqual(look,{...looks[0],docks:0},'every empty editor must look the same, fill its main area and hide its asset docks');
   assert.equal(looks[0].centered,'center center');assert.equal(looks[0].fills,true);
   assert.equal(await run(`const s=getComputedStyle($('palStage'));return s.backgroundColor+' '+s.backgroundImage;`),looks[0].stage,'the palette stage must be the same stage');
   await run(`showView('tiles');$('addBankFile').click();const t=tilesets[0];for(let tile=1;tile<=4;tile++)for(let y=0;y<8;y++)for(let x=0;x<8;x++)setTilePixel(t,tile,x,y,(x+tile)%8);redrawAll();`);
 
   // ---- The tabs, their shortcuts, and the one config picker ----
-  assert.deepEqual(await run(`return [...document.querySelectorAll('#workflowNav [data-view]')].map(b=>b.dataset.view);`),['palettes','tiles','shapes','animations','backgrounds','overlays']);
-  for(const view of ['shapes','overlays','palettes']){await command('view:'+view);assert.equal(await run(`return currentView;`),view,`the ${view} shortcut must switch editors`);}
+  assert.deepEqual(await run(`return [...document.querySelectorAll('#workflowNav [data-view]')].map(b=>b.dataset.view);`),['palettes','tiles','shapes','animations','backgrounds','overlays','sounds','music']);
+  for(const view of ['shapes','overlays','sounds','music','palettes']){await command('view:'+view);assert.equal(await run(`return currentView;`),view,`the ${view} shortcut must switch editors`);}
   assert.deepEqual(await run(`return {inTabs:!!$('configPicker').closest('#workflowNav'),perEditor:['bankConfigPicker','bgConfigPicker','ovConfigPicker','scConfigPicker','anConfigPicker'].filter(id=>$(id)).length};`),{inTabs:true,perEditor:0},'one config picker, with the tabs');
 
   // ---- The canvas stage, and the Preview panel Tilesets and Shapes share ----
@@ -54,6 +55,10 @@ app.whenReady().then(async()=>{
   assert.ok((await menuOn('#bankSelection')).includes('Flip horizontally'),'right-click with the Select tool must open the edit menu');
   await run(`$('pencilTool').click();`);
   assert.equal(await menuOn('#bankSelection'),null,'right-click with a painting tool must not open a menu');
+  // The fill tools' options sit in the top bar: the filled toggle and three patterns.
+  await run(`$('fillTool').click();$('fillPattern_checker').click();`);
+  assert.deepEqual(await run(`const o=$('toolOptions');return {text:o.innerText.trim(),buttons:[...o.querySelectorAll('button')].map(b=>b.id),checker:$('fillPattern_checker').classList.contains('on')&&!$('fillPattern_checker').disabled};`),{text:'',buttons:['filledShapeToggle','fillPattern_solid','fillPattern_checker','fillPattern_stripes'],checker:true},'the fill patterns must be real, selectable buttons');
+  await run(`$('fillPattern_solid').click();$('pencilTool').click();`);
 
   // ---- Backgrounds: color 0 is opaque in the cell's bank; right-click; Shift+H ----
   await run(`showView('backgrounds');$('bgNewAction').click();$('bgActualSize').click();`);
@@ -107,7 +112,19 @@ app.whenReady().then(async()=>{
   await command('zoomFit');
   assert.equal(await stage('anCanvas'),looks[0].stage,'the animation preview must sit on the shared stage');
   assert.deepEqual(await run(`return {play:!!$('anPlay').querySelector('svg'),inTransport:!!$('anPlay').closest('#anTransport'),dock:!document.querySelector('.anFramePanel').hidden,ticks:!!$('anFrames').querySelector('input[aria-label$="ticks"]')};`),{play:true,inTransport:true,dock:true,ticks:true});
-  assert.deepEqual(await menuOn('.anFrameCard'),['Copy','Paste after','Duplicate','Delete','Move earlier','Move later']);
+  assert.deepEqual(await menuOn('.anFrameCard'),['Copy','Paste after','Duplicate','Delete','Flip horizontally','Flip vertically','Move earlier','Move later']);
+  // Shift+H flips the selected frame, as it flips the selection elsewhere.
+  await key('H',['shift']);
+  assert.equal(await run(`return animations[animationIndex].frames[frameIndex].flipX;`),true,'Shift+H must flip the selected frame');
+  await run(`$('anUndo').click();`);
+
+  // ---- Sounds and Music: the same stage; right-click erases with a painting tool ----
+  await run(`showView('sounds');$('sfNew').click();showView('music');$('muNew').click();`);
+  for(const id of ['sfCanvas','muCanvas'])assert.equal(await stage(id),looks[0].stage,`${id} must sit on the shared stage`);
+  await run(`showView('sounds');$('sfSelectTool').click();`);
+  assert.ok((await menuOn('#sfCanvas')).includes('Select all'),'right-click with the Select tool must open the edit menu');
+  await run(`$('sfPencilTool').click();`);
+  assert.equal(await menuOn('#sfCanvas'),null,'right-click with a painting tool must not open a menu');
 
   // ---- Palettes: right-click a color ----
   await run(`showView('palettes');`);

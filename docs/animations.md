@@ -25,19 +25,26 @@ bits in the `ext` byte.
 ## Animations
 
 An **animation** is a sequence of frames, each naming a shape, a duration of
-1-255 ticks at 60 Hz, and an optional X and Y offset applied to the whole
-shape.
+1-255 ticks at 60 Hz, an optional horizontal and vertical flip, and an optional
+X and Y offset applied to the whole shape.
 
 It *references* shapes rather than copying them, so editing a shape updates
 every frame showing it; duplicate a shape when you want one to diverge. The
 per-frame offset exists so that a body bobbing one pixel does not need a
-second shape.
+second shape, and the per-frame flip so that a mirrored pose does not either.
 
 This is why a shape needs no per-frame ordering. A limb that passes in front
 of a torso partway through a walk is two shapes built from the same tiles in a
 different order — and since a game rewrites the OAM records every frame
 anyway, two shapes that differ in order cost no more than two that differ in
 position.
+
+A flip mirrors the whole shape about its origin, as a game would when drawing
+it facing the other way: every sprite's OAM flip bit toggles and its offset
+`x` becomes `-x - 8` (`y` likewise), since a hardware sprite is always 8×8. It
+costs no tiles and no OAM entries. The offset applies after the flip. Flipping
+both ways is a 180° turn; the hardware has no other rotation, so a shape
+rotated by 90° or 45° has to be drawn.
 
 Every shape in one animation must draw from the same tileset: the frames play
 in sequence out of the one sprite CHR bank. The editor only offers shapes on
@@ -60,9 +67,10 @@ tileset rather than needing any migration. Switch back and the shape looks
 right again, since nothing about the sprites themselves changed.
 
 **Animations.** Append shapes as frames, set each frame's duration and offset,
-and press Play. The preview fits its space with a central origin, and zooms like
-any canvas; large offsets may extend outside the preview viewport. Studio's preview loops; a game chooses
-for itself.
+flip it from the rail on the right or with Shift+H and Shift+V, and press Play.
+A flipped frame's card is marked ↔ or ↕. The preview fits its space with a
+central origin, and zooms like any canvas; large offsets may extend outside the
+preview viewport. Studio's preview loops; a game chooses for itself.
 
 Shape and animation edits share a 50-step undo history, separate from tileset
 and palette edits.

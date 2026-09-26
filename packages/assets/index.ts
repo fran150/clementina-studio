@@ -2,6 +2,8 @@ import type {ShapeSprite, AnimationFrame as SDKAnimationFrame, PaletteAsset, Pal
 import type {StudioProjectV2, StudioTileset, StudioShape, StudioBackground, StudioOverlay, StudioOverlayPlaceholder} from '@clementina/project';
 export {fromStudioProjectV2, toStudioProjectV2} from '@clementina/project';
 import {PALETTE_BANKS, PALETTE_COLORS, createConfig} from './palettes.js';
+import {validateInstruments, validateSongs, validateSounds, type Instrument, type Sound, type Song} from './audio.js';
+export * from './audio.js';
 export const BANK_BYTES = 6144, TILES_PER_BANK = 256, PROJECT_VERSION = 2;
 export const MAX_BACKGROUND_DIMENSION = 1024, MAX_BACKGROUND_CELLS = 200000;
 export const OVERLAY_COLUMNS = 40, OVERLAY_ROWS = 25, OVERLAY_CELLS = 1000;
@@ -26,7 +28,8 @@ export type Sprite = ShapeSprite;
 export type Shape = StudioShape;
 export type AnimationFrame = SDKAnimationFrame;
 export type Animation = StudioProjectV2['animations'][number];
-export type StudioProject = StudioProjectV2;
+/** The SDK's Studio v2 model, plus the audio assets the SDK does not describe yet (see audio.ts). */
+export type StudioProject = StudioProjectV2 & {instruments?: Instrument[]; sounds?: Sound[]; songs?: Song[]};
 
 function integers(a: unknown, length: number, max: number): a is number[] {
  return Array.isArray(a) && a.length === length && a.every(v => Number.isInteger(v) && v >= 0 && v <= max);
@@ -43,6 +46,9 @@ export function validateProject(p: StudioProject): void {
  validateOverlays(p.overlays??[],p.tilesets);
  validateShapes(p.shapes??[],p.tilesets);
  validateAnimations(p.animations??[],p.shapes??[]);
+ validateInstruments(p.instruments??[]);
+ validateSounds(p.sounds??[]);
+ validateSongs(p.songs??[],p.instruments??[]);
 }
 
 export function validatePaletteLibrary(library:ProjectPalette[]):void {
@@ -183,6 +189,7 @@ export function validateAnimations(animations:Animation[],shapes:Shape[]=[]):voi
    if(!frame||!byId.has(frame.shapeId))throw Error('Every animation frame names a shape in the project');
    if(!range(frame.ticks,1,255))throw Error('Animation frames run for 1 to 255 ticks');
    for(const k of ['dx','dy'] as const)if(frame[k]!==undefined&&!range(frame[k],-512,511))throw Error('Invalid animation frame offset');
+   for(const k of ['flipX','flipY'] as const)if(frame[k]!==undefined&&typeof frame[k]!=='boolean')throw Error('Invalid animation frame flip');
   }
   // The frames play in sequence out of the one sprite CHR bank, so they cannot
   // come from different tilesets without rewriting SPRBANK mid-animation.
@@ -195,7 +202,8 @@ export function encodeProject(p:StudioProject):string {
  validateProject(p);
  return JSON.stringify({format:'clementina-studio',version:PROJECT_VERSION,
   paletteLibrary:p.paletteLibrary,paletteConfigs:p.paletteConfigs,activeConfigId:p.activeConfigId,
-  tilesets:p.tilesets,backgrounds:p.backgrounds,overlays:p.overlays,shapes:p.shapes,animations:p.animations})+'\n';
+  tilesets:p.tilesets,backgrounds:p.backgrounds,overlays:p.overlays,shapes:p.shapes,animations:p.animations,
+  instruments:p.instruments??[],sounds:p.sounds??[],songs:p.songs??[]})+'\n';
 }
 export function decodeProject(text:string):StudioProject {
  const p=JSON.parse(text);
@@ -213,7 +221,7 @@ export function decodeProject(text:string):StudioProject {
 export function emptyProject():StudioProject {
  const paletteLibrary:ProjectPalette[]=[],paletteConfigs:PaletteBankConfig[]=[];
  const config=createConfig(paletteConfigs,paletteLibrary,'Default');
- return {paletteLibrary,paletteConfigs,activeConfigId:config.id,tilesets:[],backgrounds:[],overlays:[],shapes:[],animations:[]};
+ return {paletteLibrary,paletteConfigs,activeConfigId:config.id,tilesets:[],backgrounds:[],overlays:[],shapes:[],animations:[],instruments:[],sounds:[],songs:[]};
 }
 
 /** A PRG wraps CHR data in a CPU load header; its address is not a CHR bank. */

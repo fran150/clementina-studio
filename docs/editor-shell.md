@@ -1,7 +1,7 @@
 # Shared editor shell
 
-Every editor workspace — palettes, tilesets, overlays, backgrounds, shapes and
-animations — shares presentation primitives from `apps/desktop/studio-shell.js`
+Every editor workspace — palettes, tilesets, overlays, backgrounds, shapes,
+animations, sounds and music — shares presentation primitives from `apps/desktop/studio-shell.js`
 and `studio-shell.css`. These files load before editor scripts. Editor content,
 model mutation, undo and canvas geometry stay in each editor.
 
@@ -68,24 +68,30 @@ model mutation, undo and canvas geometry stay in each editor.
 
 - `clipboard` is the app's one clipboard: `set(kind, data)`, `get(kind)` and
   `has(kind)`, copying by value. It holds one kind of thing at a time —
-  `pixels`, `cells`, `sprites`, `frames`, `palette` or `color` — so a paste only
+  `pixels`, `cells`, `sprites`, `frames`, `palette`, `color`, `soundFrames` or
+  `notes` — so a paste only
   lands where that kind fits, and fires `studioclipboard` on `document` so
   Paste buttons can follow it.
 - `bankDock(container, pick)` and `syncBankDock(container, {color,
   transparentZero, chosen, used, title, disabled})` build and refresh the
   palette dock: one row per bank with its eight colors, a ring on the bank in
-  use (`.chosenBank`), a dot on banks the asset uses (`.usedBank`). The tileset
-  editor builds its own rows, to pick single colors, with the same markup and
-  classes.
+  use (`.chosenBank`), a dot on banks the asset uses (`.usedBank`).
+  `hoverBankDock(container, {bank, ink} | null)` outlines, dashed, the bank
+  (`.hoverBank`) and color (`.hoverColor`) of the pixel under the pointer; the
+  background and overlay editors call it as the pointer moves over the canvas.
+  The tileset editor builds its own rows, to pick single colors, with the same
+  markup and classes.
 - `cell-grid.js` is the Select tool for grids of background and overlay cells:
   `CellGrid.cellSelection({grid, edit, render})` handles the drag, move,
   nudge, copy, cut, paste, delete, select-all and flip, and `key(event)` maps
-  the keyboard to them, so both editors behave identically.
+  the keyboard to them, so both editors behave identically. `cellAt(point)`
+  is the cell drawn at a point, a block being moved or pasted included.
 
 - `history.js` is the project's one undo history. An editor calls
   `ProjectHistory.checkpoint(parts, label)` before an edit — `parts` naming what
   the edit touches: `palettes` (the library, bank configs and active config),
-  `tilesets`, `shapes`, `animations`, `backgrounds`, `overlays` — and its Undo and
+  `tilesets`, `shapes`, `animations`, `backgrounds`, `overlays`, `instruments`,
+  `sounds`, `songs` — and its Undo and
   Redo buttons call `ProjectHistory.undo` and `redo`. A step restores those
   parts, fires `studiohistory` on `document` for editors to clamp indices and
   drop transient state, and redraws everything. Ctrl/Cmd+Z and Edit ▸ Undo are
@@ -125,7 +131,19 @@ model mutation, undo and canvas geometry stay in each editor.
   stage's top-right, toggled by a Preview button (the `miniature` icon) in the
   top bar. Tilesets and Shapes both have it, shown by default.
 
-Future scene and music editors should compose these primitives and own their
+- `audio-shared.js` is what the Sounds and Music editors share on top of the
+  shell, as `StudioAudio`: `play(stream)`, `stop()` and `position()` play a
+  stream from the MIA engine (`window.MiaAudio`, the compiled
+  `packages/assets/audio.ts`, loaded by `editor.html` as a module) through a
+  24 kHz `AudioContext`, a chunk at a time; `envelopeRows`, `syncEnvelope`,
+  `bindEnvelope` and `drawEnvelope` are the envelope fields and the curve the
+  engine draws; `bindRange` makes one slider drag one undo step; and
+  `voiceColors` is the color each of MIA's four voices draws in. Its
+  `.audioField`, `.audioDock`, `.audioTransport` and `.audioStage` classes
+  are the docks' rows, the transport under a canvas and a canvas that fills
+  its stage. See [audio.md](audio.md).
+
+Future scene editors should compose these primitives and own their
 canvas/timeline/inspector content. Keep selection and panel visibility out of portable
 asset files. A shared shell does not require identical editor-specific layouts.
 

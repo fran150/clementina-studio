@@ -17,26 +17,30 @@ for UI work.
 
 ## Repository state
 
-Branch `editor-ux-consistency`, forked from `main` (which is unchanged, nothing
-pushed). `20bd226` holds the app-wide consistency pass. On top of it, uncommitted
-until the user asks:
+On `main`: `20bd226` holds the app-wide consistency pass and `280d4cb` the
+empty-state pass. Uncommitted until the user asks, two pieces of work:
 
-- The empty-state and stage pass:
-  - Every editor's empty state is the same centered message, filling the main
-    area on the same dot-grid stage.
-  - The editor's top bar and its asset docks (map, tile picker, properties)
-    step aside while it shows.
-  - Every canvas sits on `.studioStage` with the `.studioArt` edge.
-- One Preview panel (`.canvasPreview`) with the same top-bar toggle in Tilesets
-  and Shapes, on by default.
-- Edit ▸ Undo and Redo name the step ("Undo Paint"), via the `menu:history` IPC.
+- **Audio (2026-09-25):** the Sounds and Music editors, the MIA audio engine
+  and song compiler in `packages/assets/audio.ts`, the firmware cross-check in
+  `tests/firmware/`, and `docs/audio.md`. See "Audio" below.
+
+- **Older, from before the audio work:** changes that were already in the
+  working tree when it started, among them per-frame flips in Animations
+  (`flipX`/`flipY` on frames, Shift+H/V). They touch some of the same files
+  (`studio-shell.js`/`.css`, `docs/model.md`, `docs/editor-shell.md`,
+  `packages/assets/index.ts`, `tests/desktop-conventions.cjs`); `git diff`
+  shows both together.
+
+The empty-state and stage pass, the shared Preview panel and the named Edit ▸
+Undo/Redo steps are committed in `280d4cb`.
 
 Run `git status` and `git log -3` before editing.
 
 ## What the editors share
 
-Tabs, in order: Palettes, Tilesets, Shapes, Animations, Backgrounds, Overlays
-(Ctrl/Cmd+1–6).
+Tabs, in order: Palettes, Tilesets, Shapes, Animations, Backgrounds, Overlays,
+then past a rule Sounds and Music (Ctrl/Cmd+1–8). Below 1320 pixels the tab
+bar compacts so all of it fits one row at 1024.
 
 - **Layout:** each workspace is a `.studioEditor` grid with columns left rail,
   left dock, main, right dock, right rail.
@@ -66,6 +70,10 @@ Tabs, in order: Palettes, Tilesets, Shapes, Animations, Backgrounds, Overlays
   - `image-import-ui.js`, `bank-editor.js` (Tilesets), `overlay-editor.js`,
     `background-editor.js`, `palette-library.js`, `animation-editor.js`,
     `sprite-composer.js` (Shapes)
+  - `audio-shared.js`, `sound-editor.js`, `music-editor.js`
+  - then a module script imports `dist/packages/assets/audio.js` as
+    `window.MiaAudio`. It runs after `bootStudio()`, before the page's load
+    event; the audio editors read it lazily and re-render on `miaaudioready`.
 - **Main process:** `apps/desktop/main.ts` owns the menus. Menu items reach the
   page as `studio:command` and go through `runCommand` in `editor.html`.
   `preload.cts` exposes `window.studio`.
@@ -86,15 +94,38 @@ Check the canonical sources again before any hardware-dependent change.
   color 0. Source: `renderBackground` in `clementina-video-client`
   `internal/render/renderer.go`.
 
+## Audio
+
+`docs/audio.md` is the reference. In short:
+
+- Two editors, one engine. A song runs on MIA's background sequencer (notes on
+  a grid, zero 6502 cost); a sound effect is per-60 Hz-frame register writes
+  a driver makes on a voice it takes with VTAKE. Instruments belong to songs.
+- `MiaEngine` is `audio.c` bit for bit, including the live-write queue (16
+  writes per sample) and VTAKE/VGIVE catch-up. `npm run test:firmware`
+  compiles `../clementina-mia/src/mia/audio/audio.c` against stub Pico headers
+  and compares every sample of five scenarios; `tests/audio.test.mjs` holds
+  the engine to the recorded firmware hashes.
+- Firmware facts the compiler relies on: a NOTE only restarts the envelope on
+  the gate's rising edge (so a note that should attack gets a one-sample REST
+  first; legato notes skip it), and the sequencer holds an event for its
+  duration field plus one sample (so durations are written as samples − 1).
+- Three findings reported to the user, not acted on (other repos): the
+  sequencer doc's `dur` vs the ISR's `dur + 1`; ROM TRACK never gates off
+  between notes; no SET_FREQ opcode for smooth sequenced pitch moves.
+- Not built: exporting tracks and sounds, the SFX driver routine, and voice
+  allocation between a scene's song and its sounds — the build step's job.
+
 ## Tests
 
 ```sh
-npm test                                   # 43 model tests
+npm test                                   # 57 model tests
+npm run test:firmware                      # engine vs clementina-mia's audio.c
 env -u ELECTRON_RUN_AS_NODE ELECTRON_DISABLE_SECURITY_WARNINGS=1 npm run test:ui
 ```
 
 `test:ui` chains every Electron suite: workflow, shell, animation, background,
-overlay, navigation, editing, conventions, smoke. Each also runs alone as
+overlay, navigation, editing, conventions, audio, smoke. Each also runs alone as
 `npm run test:desktop:<name>` (`test:desktop` is the smoke test).
 
 - This environment sets `ELECTRON_RUN_AS_NODE`, so unset it for Electron. The
@@ -109,12 +140,12 @@ overlay, navigation, editing, conventions, smoke. Each also runs alone as
   states, stage, Preview panel, right-click, flips, docks, undo labels in the
   buttons and the menu.
 
-All suites and `git diff --check` passed on 2026-09-25.
+All suites passed on 2026-09-25, after the audio work.
 
 ## Possible next work
 
 Only at the user's direction. The usability list from the consistency audit is
 finished. Earlier ideas, not started:
 
-- scenes, music, then code generation, in that order;
+- scenes, then code generation (which now also covers audio export);
 - onion skin in Animations.
