@@ -98,22 +98,22 @@ header h1, header .sep, header .lbl, header #bankSel, header #mode1, header #mod
 </head>
 <body>
 <aside id="workflowNav"><div class="brand">CLEMENTINA STUDIO</div><div class="navGroup">GRAPHICS</div>
-<button data-view="palettes">Palettes</button><button data-view="tiles">Tilesets</button><button data-view="overlays">Overlays</button><button data-view="backgrounds">Backgrounds</button><button data-view="shapes">Shapes</button><button data-view="animations">Animations</button>
-<div class="navNote">Define palettes and bank configs, draw tilesets, design the overlay, paint backgrounds, build shapes from their tiles, then sequence shapes into animations.</div></aside>
+<button data-view="palettes" title="Palettes (Ctrl/Cmd+1)">Palettes</button><button data-view="tiles" title="Tilesets (Ctrl/Cmd+2)">Tilesets</button><button data-view="shapes" title="Shapes (Ctrl/Cmd+3)">Shapes</button><button data-view="animations" title="Animations (Ctrl/Cmd+4)">Animations</button><button data-view="backgrounds" title="Backgrounds (Ctrl/Cmd+5)">Backgrounds</button><button data-view="overlays" title="Overlays (Ctrl/Cmd+6)">Overlays</button>
+<div class="navNote">Define palettes and bank configs, draw tilesets, build shapes from their tiles, sequence shapes into animations, paint backgrounds, then design the overlay.</div></aside>
 <div id="workspace"><div id="workflowHeading"><h1 id="viewTitle">Tilesets</h1><p id="viewHelp"></p></div>
 <header>
   <h1>Clementina Studio <small>· 8×8 tiles · 1/3 bpp · 16 palette banks</small></h1>
   <label class="lbl">Name <input type="text" id="nameInput" value="tiles" title="Base filename for Save"></label>
   <button id="nativeOpen">Open project…</button><button id="nativeSave">Save project</button><button id="nativeSaveAs">Save as…</button><button id="newBtn">New</button>
   <div class="sep"></div>
-  <label class="lbl" id="configPickerWrap">Palette banks
-    <select id="configPicker" aria-label="Active palette bank config" title="Which config every editor previews with. Preview only — it does not change what a project exports."></select>
+  <label class="lbl" id="configPickerWrap">Config
+    <select id="configPicker" aria-label="Bank config every editor previews with" title="Which config every editor previews with. Preview only — it does not change what a project exports."></select>
   </label>
   <div class="spacer"></div>
 </header>
 
 <div id="spritePanel" hidden></div>
-<footer><span id="status">Ready.</span><span id="dirty"></span></footer>
+<footer><span id="status">Ready.</span><span id="viewStatus"></span><span id="dirty"></span></footer>
 </div>
 <script>
 "use strict";
@@ -133,8 +133,8 @@ const statusEl = $('status'), dirtyEl = $('dirty'), nameInput = $('nameInput');
 // ===== state =====
 let paletteLibrary = [], paletteConfigs = [], activeConfigId = null, tilesets = [], backgrounds = [], overlays = [];
 let currentView = 'tiles', shapes = [], animations = [];
-let shapeIndex = 0, animationIndex = 0, frameIndex = 0, shapeHistory = [], playing = false, playFrame = 0, playStart = 0;
-let dirty = false;
+let shapeIndex = 0, animationIndex = 0, frameIndex = 0, playing = false, playFrame = 0, playStart = 0;
+let dirty = false, projectFile = null;
 
 // ===== RGB565 helpers =====
 const to565 = (r, g, b) => ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
@@ -240,9 +240,12 @@ function setTilePixel(tileset, tile, x, y, value, plane = 0) {
 // ===== helpers =====
 function setStatus(s) { statusEl.textContent = s; }
 function markDirty() { dirty = true; setDirtyLabel(); }
-function setDirtyLabel() { dirtyEl.className = dirty ? 'dirty' : ''; dirtyEl.textContent = dirty ? '● unsaved changes' : ''; }
+function setDirtyLabel() { dirtyEl.className = dirty ? 'dirty' : ''; dirtyEl.textContent = dirty ? '● unsaved changes' : ''; updateTitle(); }
+// The window shows the project's file, and whether it has unsaved edits the
+// way macOS does: "— Edited" in the title and the dot in the close button.
+function updateTitle() { document.title = (projectFile ?? 'Untitled') + (dirty ? ' — Edited' : '') + ' — Clementina Studio'; window.studio?.edited?.(dirty); }
 function baseName() { return (nameInput.value.trim() || 'tiles').replace(/[^\w.\-]+/g, '_'); }
-function setNameFromFile(name) { nameInput.value = (name || '').replace(/\.[^/.]+$/, '') || 'tiles'; }
+function setNameFromFile(name) { nameInput.value = (name || '').replace(/\.[^/.]+$/, '') || 'tiles'; projectFile = name || null; }
 /** Every editor redraws on a config change, since all of them preview through it. */
 function redrawAll() { renderConfigPicker(); window.renderBankEditor?.(); window.renderBackgrounds?.(); window.renderPaletteLibrary?.(); renderAnimations(); }
 
@@ -264,9 +267,9 @@ function newProject() {
   if (dirty && !confirm('Discard unsaved changes?')) return;
   window.studio?.newProject();
   tilesets = []; backgrounds = []; overlays = []; animations = []; shapes = []; shapeIndex = 0; animationIndex = 0; frameIndex = 0;
-  shapeHistory = []; playing = false;
+  playing = false; window.ProjectHistory?.clear();
   loadDefaultPalettes();
-  nameInput.value = 'tiles';
+  nameInput.value = 'tiles'; projectFile = null;
   dirty = false; setDirtyLabel(); redrawAll();
   setStatus('New project — create your first tileset.');
 }
@@ -280,7 +283,7 @@ function restoreStudioProject(p,name='Recovered project') {
   activeConfigId=p.activeConfigId??paletteConfigs[0]?.id??null;tilesets=structuredClone(p.tilesets??[]);
   backgrounds=structuredClone(p.backgrounds??[]);overlays=structuredClone(p.overlays??[]);
   animations=structuredClone(p.animations??[]);shapes=structuredClone(p.shapes??[]);
-  shapeIndex=0;animationIndex=0;frameIndex=0;playing=false;shapeHistory=[];
+  shapeIndex=0;animationIndex=0;frameIndex=0;playing=false;ProjectHistory.clear();
   setNameFromFile(name);dirty=false;setDirtyLabel();redrawAll();
 }
 async function studioAction(action) { try { await action(); } catch(e) { alert(e.message); setStatus(e.message); } }
@@ -290,10 +293,23 @@ $('nativeOpen').onclick=()=>studioAction(async()=>{
  const file=await window.studio.open();if(!file)return;
  restoreStudioProject(file.project,file.name);await window.studio.opened(file.path);setStatus('Opened '+file.name);
 });
-async function nativeSave(saveAs) { const snapshot=studioProject();const name=await window.studio.save(snapshot,saveAs);if(name){dirty=JSON.stringify(snapshot)!==JSON.stringify(studioProject());setDirtyLabel();setStatus('Saved '+name);} }
+async function nativeSave(saveAs) { const snapshot=studioProject();const name=await window.studio.save(snapshot,saveAs);if(name){projectFile=name;dirty=JSON.stringify(snapshot)!==JSON.stringify(studioProject());setDirtyLabel();setStatus('Saved '+name);} }
 $('nativeSave').onclick=()=>studioAction(()=>nativeSave(false));
 $('nativeSaveAs').onclick=()=>studioAction(()=>nativeSave(true));
 if(!window.studio)for(const id of ['nativeOpen','nativeSave','nativeSaveAs'])$(id).disabled=true;
+// The application menu owns the project and zoom shortcuts, so they work even
+// while a field has focus, and forwards them here. Zoom goes to whichever
+// canvas the current view shows; views without one ignore it.
+const projectCommands={newProject:'newBtn',open:'nativeOpen',save:'nativeSave',saveAs:'nativeSaveAs'};
+const editingText=()=>/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName)||document.activeElement?.isContentEditable;
+function runCommand(command){
+ if(projectCommands[command]){$(projectCommands[command]).click();return;}
+ if(command==='shortcuts'){StudioShell.showShortcuts();return;}
+ if(command.startsWith('view:')){if(!document.querySelector('dialog[open]'))showView(command.slice(5));return;}
+ if(command==='undo'||command==='redo'){if(editingText())document.execCommand(command);else if(!document.querySelector('dialog[open]'))ProjectHistory[command]();return;}
+ if(!document.querySelector('dialog[open]'))StudioShell.canvasCommand(currentView,command);
+}
+window.studio?.onCommand?.(runCommand);
 
 // ===== views =====
 const descriptions={
@@ -317,6 +333,8 @@ document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>show
 window.bootStudio=()=>{newProject();showView('tiles');};
 </script>
 <script src="studio-shell.js"></script>
+<script src="cell-grid.js"></script>
+<script src="history.js"></script>
 <script src="image-import-ui.js"></script><script src="bank-editor.js"></script><script src="overlay-editor.js"></script><script src="background-editor.js"></script><script src="palette-library.js"></script><script src="animation-editor.js"></script><script src="sprite-composer.js"></script>
 <script>bootStudio();</script>
 </body>

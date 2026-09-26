@@ -62,9 +62,9 @@ app.whenReady().then(async () => {
     await click('#anRedo');
     await waitFor(`document.querySelector('#anTimeline').children.length === 2`);
     await click('#anPlay');
-    await waitFor(`document.querySelector('#anPlay').textContent === 'Pause'`);
+    await waitFor(`document.querySelector('#anPlay').getAttribute('aria-pressed') === 'true'`);
     await click('#anPlay');
-    await waitFor(`document.querySelector('#anPlay').textContent === 'Play'`);
+    await waitFor(`document.querySelector('#anPlay').getAttribute('aria-pressed') === 'false'`);
     await click('#anNew');
     await waitFor(`document.querySelector('#anGroupTitle').textContent === 'animation_2'`);
     assert.equal(await read(`document.querySelector('#anAnimList').children.length`), 2);

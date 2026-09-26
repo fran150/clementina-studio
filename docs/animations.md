@@ -60,8 +60,8 @@ tileset rather than needing any migration. Switch back and the shape looks
 right again, since nothing about the sprites themselves changed.
 
 **Animations.** Append shapes as frames, set each frame's duration and offset,
-and press Play. The preview is 4× with a central origin; large offsets may
-extend outside the preview viewport. Studio's preview loops; a game chooses
+and press Play. The preview fits its space with a central origin, and zooms like
+any canvas; large offsets may extend outside the preview viewport. Studio's preview loops; a game chooses
 for itself.
 
 Shape and animation edits share a 50-step undo history, separate from tileset

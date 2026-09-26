@@ -53,6 +53,6 @@
   session={tileset:structuredClone(tileset),protectedPalettes:[...protectedPalettes],commit,image,source,convert:convertTilesetImage,result:null};
   el('iiFilename').textContent=file.name;el('iiSourceSize').textContent=`${image.width} × ${image.height} pixels`+(file.format==='gif'?' · first GIF frame':'');
   const initial={iiCropX:0,iiCropY:0,iiCropW:image.width,iiCropH:image.height,iiWidth:Math.min(128,image.width),iiHeight:Math.min(128,image.height),iiTileX:selection.x,iiTileY:selection.y,iiAlpha:128};for(const [id,v] of Object.entries(initial))el(id).value=v;
-  const stem=file.name.replace(/\.[^.]+$/,'').trim().slice(0,56)||'Imported';let name=stem,n=2;while(bank.compositions.some(c=>c.name===name))name=stem+'_'+n++;el('iiObjectName').value=name;el('iiObject').checked=true;el('iiResize').checked=false;el('iiPaletteMode').value='match';dialog.showModal();update();
+  const stem=file.name.replace(/\.[^.]+$/,'').trim().slice(0,56)||'Imported';let name=stem,n=2;while(tileset.compositions.some(c=>c.name===name))name=stem+'_'+n++;el('iiObjectName').value=name;el('iiObject').checked=true;el('iiResize').checked=false;el('iiPaletteMode').value='match';dialog.showModal();update();
  };
 })();

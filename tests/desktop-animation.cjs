@@ -36,12 +36,12 @@ app.whenReady().then(async()=>{
  const offset=await run(`$('anTimeline').children[0].click();const before=JSON.stringify(shapes);const dx=$('anFrames').querySelector('input[aria-label$="dx"]');dx.value='12';dx.dispatchEvent(new Event('change',{bubbles:true}));return {dx:animations[0].frames[0].dx,unchanged:JSON.stringify(shapes)===before};`);
  assert.deepEqual(offset,{dx:12,unchanged:true});
  // Exercise actual pointer capture and ensure a whole drag is one undo step.
- const pointer=await run(`const r=$('anCanvas').getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2),width:r.width,history:shapeHistory.length,dx:animations[0].frames[0].dx};`);
+ const pointer=await run(`const r=$('anCanvas').getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2),width:r.width,history:ProjectHistory.depth(),dx:animations[0].frames[0].dx};`);
  window.webContents.sendInputEvent({type:'mouseDown',x:pointer.x,y:pointer.y,button:'left',clickCount:1});
  window.webContents.sendInputEvent({type:'mouseMove',x:pointer.x+32,y:pointer.y+16,button:'left'});
  window.webContents.sendInputEvent({type:'mouseUp',x:pointer.x+32,y:pointer.y+16,button:'left',clickCount:1});
  await new Promise(r=>setTimeout(r,80));
- assert.equal(await run(`return shapeHistory.length;`),pointer.history+1);
+ assert.equal(await run(`return ProjectHistory.depth();`),pointer.history+1);
  assert.ok(await run(`return animations[0].frames[0].dx>12;`));
  await run(`$('anUndo').click();`);
  assert.equal(await run(`return animations[0].frames[0].dx;`),12);

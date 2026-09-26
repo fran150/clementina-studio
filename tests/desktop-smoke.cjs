@@ -23,7 +23,8 @@ app.whenReady().then(async()=>{
     palettes:paletteLibrary.length,configs:paletteConfigs.length,
     active:activeConfigId===paletteConfigs[0].id,tilesets:tilesets.length,
     keys:Object.keys(studioProject()).sort().join(',')};`);
-  assert.equal(start.title,'Clementina Studio');
+  // The window names the project's file — none yet — and the app.
+  assert.equal(start.title,'Untitled — Clementina Studio');
   assert.equal(start.bridge,'function');
   assert.equal(start.palettes,2);
   assert.equal(start.configs,1);

@@ -7,15 +7,102 @@ body.studioWorkspace #workflowNav .navGroup,
 body.studioWorkspace #workflowNav .navNote,
 body.studioWorkspace #workflowHeading { display:none; }
 body.studioWorkspace #workflowNav button { width:auto; margin:0; padding:6px 12px; }
-body.studioWorkspace header { height:46px; padding:5px 12px; }
-body.studioWorkspace footer { left:0; height:28px; padding:6px 12px; font-size:11px; }
+body.studioWorkspace header { display:none; }
+body.studioWorkspace footer { left:0; height:28px; padding:6px 12px; font-size:11px; align-items:center; }
+/* The current editor's tab, and the project's file actions at the end of the tabs. */
+body.studioWorkspace #workflowNav button[aria-current="page"] { color:var(--ink); border-color:var(--ink); background:#322a1d; box-shadow:inset 0 -2px 0 var(--ink); }
+#workflowNav #configPickerWrap { margin-left:auto; font-size:11px; }
+#workflowNav #configPicker { background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:4px; padding:3px 6px; font-size:11px; max-width:190px; }
+#workflowNav .navProject { margin-left:14px; display:flex; gap:6px; }
+body.studioWorkspace #workflowNav .navProject button { padding:4px 6px; display:flex; align-items:center; }
+#workflowNav .navProject svg { width:24px; height:24px; }
+/* The status bar: the app's messages, the current editor's status, unsaved changes. */
+footer #viewStatus { flex:1; min-width:0; text-align:right; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+footer #viewStatus > * { display:inline; padding:0; border:0; background:none; font-size:11px; color:var(--text-dim); }
+footer #viewStatus > [hidden] { display:none; }
 .panelClose { position:absolute; top:5px; right:5px; padding:3px; height:auto!important; }
 .panelClose svg { width:18px; height:18px; }
 #studioTooltip { position:fixed; z-index:10000; pointer-events:none; background:#080a0e; color:#f5f5f5; border:1px solid #626772; border-radius:5px; padding:6px 9px; font:12px system-ui; max-width:280px; box-shadow:0 3px 10px #0008; }
 
-#workspace .studioToolRail { grid-column:1; grid-row:1; display:flex; flex-direction:column; gap:3px; padding:8px 5px; background:var(--panel); border-right:1px solid var(--line); }
-#workspace .studioToolRail button { padding:6px; margin:0; min-height:40px; height:40px; display:flex; align-items:center; justify-content:center; }
+/* Every editor workspace is the same five columns: left rail, left dock,
+   main area, right dock, right rail. A hidden dock is no grid item, so its
+   auto-sized track collapses and the main area takes the room back: docks
+   sit beside the canvas, never over it. */
+.studioEditor { position:relative; height:calc(100vh - 72px); display:grid; grid-template-columns:auto auto minmax(0,1fr) auto auto; grid-template-rows:minmax(0,1fr); }
+.studioEditor > * { grid-row:1; }
+.studioEditor > .studioMain { grid-column:3; min-width:0; min-height:0; }
+.studioEditor > .studioDock { position:relative; min-width:0; min-height:0; padding:38px 12px 12px; background:var(--panel); display:flex; flex-direction:column; overflow:auto; box-shadow:none; border:0; border-radius:0; }
+.studioEditor > .studioDockLeft { grid-column:2; width:285px; border-right:1px solid var(--line); }
+.studioEditor > .studioDockRight { grid-column:4; width:260px; border-left:1px solid var(--line); }
+.studioDock h2 { font-size:12px; color:var(--text-dim); margin:0 0 8px; flex-shrink:0; }
+.studioDock p { font-size:10px; line-height:1.5; color:var(--text-dim); }
+
+#workspace .studioToolRail { grid-column:1; grid-row:1; display:flex; flex-direction:column; gap:3px; padding:8px 5px; background:var(--panel); border-right:1px solid var(--line); overflow-y:auto; }
+#workspace .studioToolRail.studioRightRail { grid-column:5; border-right:0; border-left:1px solid var(--line); }
+#workspace .studioToolRail button { padding:6px; margin:0; min-height:40px; height:40px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
 #workspace .studioToolRail svg { width:29px; height:29px; }
+#workspace .studioToolRail hr { width:70%; border:0; border-top:1px solid var(--line); margin:4px auto; flex-shrink:0; }
+#workspace .studioToolRail .railSpacer { flex:1; min-height:4px; }
+/* Library toolbars: New, Duplicate, Import, Delete. */
+.assetToolbar { display:flex; gap:6px; margin:0 0 8px; flex-shrink:0; }
+.assetToolbar button { width:32px; height:32px; padding:5px; display:flex; align-items:center; justify-content:center; }
+.assetToolbar svg { width:20px; height:20px; }
+
+/* Canvas top bars: the asset name at the start, the zoom cluster centered,
+   editor controls at the end. The two sides share the leftover width equally
+   so the cluster sits in the middle, but never shrink below their contents. */
+.studioBarStart, .studioBarEnd { flex:1 1 0; min-width:max-content; display:flex; align-items:center; gap:10px; }
+.studioBarEnd { justify-content:flex-end; }
+.studioZoom { flex:none; display:flex; align-items:center; gap:7px; }
+.studioZoom span { min-width:44px; text-align:center; }
 
 header .projectIcon { display:inline-flex; align-items:center; justify-content:center; padding:5px; margin-right:4px; }
 header .projectIcon svg { width:25px; height:25px; }
+
+/* A selection's outline on a cell grid, drawn over the canvas rather than in
+   it so it stays one screen pixel wide at any zoom. */
+.cellMarquee { position:absolute; pointer-events:none; outline:1px dashed #fff; outline-offset:-1px; box-shadow:0 0 0 1px #111, inset 0 0 0 1px #111; }
+
+/* The palette dock every drawing editor shows: one row per palette bank, its
+   label and eight colors. A cyan ring marks the bank painting or the
+   selection uses, a dot the banks the asset on screen already uses, and — in
+   the tileset editor — a dashed outline the bank of the tile under the
+   pointer and a white frame the color being drawn with. */
+#workspace .bankSwatches { display:grid; grid-template-columns:repeat(auto-fill,minmax(248px,1fr)); gap:7px 16px; width:100%; justify-items:start; }
+#workspace .paletteGroup { display:flex; align-items:center; gap:2px; padding:3px; min-width:0; border:0; border-radius:5px; background:none; cursor:pointer; }
+#workspace .paletteGroup > span { position:relative; width:18px; flex-shrink:0; margin-right:3px; font-size:10px; text-align:right; color:var(--text-dim); }
+#workspace .paletteGroup [data-ink] { display:block; width:24px; height:24px; min-width:0; padding:0; margin:0; flex:none; border-radius:3px; border:1px solid #0006; }
+#workspace .paletteGroup.chosenBank { box-shadow:0 0 0 2px var(--sel); }
+#workspace .paletteGroup.hoverBank { outline:2px dashed var(--text-dim); outline-offset:1px; }
+#workspace .paletteGroup.usageSource { background:#ffffff12; }
+#workspace .paletteGroup.usedBank > span::after { content:''; position:absolute; right:-5px; top:50%; width:4px; height:4px; margin-top:-2px; border-radius:50%; background:var(--ink); }
+#workspace .paletteGroup .chosenColor { outline:2px solid white; outline-offset:-3px; box-shadow:inset 0 0 0 2px #111, 0 0 0 1px white; }
+#workspace .paletteGroup.disabled { opacity:.45; cursor:default; }
+#workspace .paletteGroup:focus-visible { outline:1px solid var(--sel); }
+
+/* An editor with nothing to show yet: what is missing, and the button that
+   makes it — the same in every editor. */
+.studioEmpty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px; text-align:center; }
+.studioEmpty[hidden] { display:none; }
+.studioEmpty p { margin:0; font-size:14px; color:var(--text); max-width:460px; line-height:1.6; }
+.studioEmptyActions { display:flex; gap:8px; }
+.studioEmptyActions button { padding:7px 14px; }
+#scViewport .studioEmpty { position:absolute; inset:0; z-index:1; background:#111318; }
+
+/* Right-click menus on library rows. */
+.studioMenu { position:fixed; z-index:10001; min-width:170px; padding:4px; display:flex; flex-direction:column; background:var(--panel2); border:1px solid var(--line); border-radius:5px; box-shadow:0 8px 24px #000a; }
+.studioMenu button { display:flex; justify-content:space-between; gap:18px; text-align:left; border:0; background:none; padding:6px 10px; }
+.studioMenu button:hover, .studioMenu button:focus { background:#322a1d; outline:none; }
+.studioMenu kbd { font:inherit; color:var(--text-dim); }
+.studioMenu button:disabled { opacity:.4; }
+.studioMenu hr { border:0; border-top:1px solid var(--line); margin:4px 2px; }
+/* The keyboard shortcut sheet, and the ? button every editor's top bar ends with. */
+#shortcutHelp { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:7px; padding:22px 26px; max-width:640px; }
+#shortcutHelp::backdrop { background:#0009; }
+#shortcutHelp h2 { margin:0 0 6px; font-size:14px; color:var(--ink); }
+#shortcutHelp h3 { margin:16px 0 6px; font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em; }
+#shortcutHelp dl { display:grid; grid-template-columns:max-content 1fr; gap:5px 18px; margin:0; font-size:12px; }
+#shortcutHelp dt { color:var(--ink); }
+#shortcutHelp dd { margin:0; }
+#shortcutHelp form { margin-top:18px; text-align:right; }
+.studioHelp { padding:4px 9px; }

@@ -1,12 +1,12 @@
 // The project's palette library. One palette can be bound by many banks and
 // named by many sprite parts, so every edit here is visible everywhere at once.
 (() => {
- const host=document.createElement('section');host.id='paletteWorkspace';host.hidden=true;
- host.innerHTML=`<nav id="palRail" aria-label="Palette tools"></nav>
- <aside id="palLibrary"><h2>Palettes</h2>
+ const host=document.createElement('section');host.id='paletteWorkspace';host.className='studioEditor';host.hidden=true;
+ host.innerHTML=`<nav id="palRail" class="studioToolRail" aria-label="Palette tools"></nav>
+ <aside id="palLibrary" class="studioDock studioDockLeft"><h2>Palettes</h2>
   <div id="palListActions" class="assetToolbar"></div>
   <div id="palList" role="listbox" aria-label="Palettes"></div></aside>
- <aside id="palConfigs"><h2>Bank configs</h2>
+ <aside id="palConfigs" class="studioDock studioDockLeft"><h2>Bank configs</h2>
   <div id="palConfigsBody">
    <div id="palConfigListPane">
     <div id="palConfigListActions" class="assetToolbar"></div>
@@ -14,7 +14,7 @@
    </div>
    <div id="palConfigRamPane"><h3>Palette RAM</h3><div id="palBankGrid"></div></div>
   </div></aside>
- <main><div id="palTop"><strong id="palName"></strong></div>
+ <main class="studioMain"><div id="palTop"><strong id="palName"></strong></div>
   <div id="palStage"><div id="palColors"></div></div>
   <div id="palStatus"></div></main>
  <input id="palColorInput" type="color" style="position:absolute;opacity:0;width:1px;height:1px">`;
@@ -29,11 +29,12 @@
 
 
 
- #paletteWorkspace{position:relative;height:calc(100vh - 118px);display:grid;grid-template-columns:64px auto auto minmax(0,1fr)}
- #palRail{grid-column:1;display:flex;flex-direction:column;gap:5px;padding:8px 5px;background:var(--panel);border-right:1px solid var(--line)}
- #palRail button{height:46px;padding:6px;display:flex;align-items:center;justify-content:center}
- #palRail svg{width:30px;height:30px}
- #paletteWorkspace main{grid-column:4;display:flex;flex-direction:column;min-width:0;min-height:0}
+ /* The one editor with two docks open side by side: the palette library and
+    the bank configs that place its palettes, each independently toggled. */
+ #paletteWorkspace{grid-template-columns:auto auto auto minmax(0,1fr) auto auto}
+ #paletteWorkspace>#palConfigs{grid-column:3;width:auto}
+ #paletteWorkspace>.studioMain{grid-column:4}
+ #paletteWorkspace main{display:flex;flex-direction:column}
  #palTop{display:flex;align-items:center;gap:14px;padding:9px 18px;background:var(--panel);font-size:11px}
  #palName{color:var(--ink);font-size:12px}
  #palStage{flex:1;min-height:0;overflow:auto;display:flex;align-items:safe center;justify-content:safe center;padding:28px;background:#101113;background-image:radial-gradient(#22252b 1px,transparent 1px);background-size:12px 12px}
@@ -43,19 +44,13 @@
  .palColor button:focus{outline:2px solid var(--sel);outline-offset:2px}
  .palColor .palIndex{font-size:11px;color:var(--text-dim)}
  .palColor .palHex{font-size:10px;color:var(--text-dim)}
- #palLibrary{position:relative;grid-column:2;width:285px;padding:12px;padding-top:38px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column}
- #palLibrary h2{font-size:12px;color:var(--text-dim);margin:0 0 8px;flex-shrink:0}
- .assetToolbar{display:flex;gap:6px;margin:0 0 8px;flex-shrink:0}
- .assetToolbar button{width:32px;height:32px;padding:5px;display:flex;align-items:center;justify-content:center}
- .assetToolbar svg{width:20px;height:20px}
  #palList{border:1px solid var(--line);background:var(--bg);flex:1;overflow:auto;min-height:60px}
  #palList .assetRow{display:flex;align-items:center;gap:8px}
  #palList .rowChips{display:flex;gap:1px;margin-left:auto;flex-shrink:0}
  #palList .rowChips i{width:8px;height:14px;border-radius:1px}
  #palList .assetRow.unusedPalette{opacity:.6}
  #palStatus{padding:6px 18px;font-size:10px;color:var(--text-dim)}
- #palConfigs{position:relative;grid-column:3;padding:12px;padding-top:38px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column}
- #palConfigs h2,#palConfigs h3{font-size:12px;color:var(--text-dim);margin:0 0 8px;flex-shrink:0}
+ #palConfigs h3{font-size:12px;color:var(--text-dim);margin:0 0 8px;flex-shrink:0}
  #palConfigs h3{margin-top:0}
  #palConfigsBody{display:flex;flex:1;min-height:0}
  #palConfigListPane{width:261px;flex-shrink:0;display:flex;flex-direction:column;padding-right:12px;border-right:1px solid var(--line)}
@@ -71,26 +66,52 @@
 
  let index=0,editing=0;
  const palette=()=>paletteLibrary[index];
- const iconButton=(id,label,path,size=30)=>StudioShell.iconButton(id,label,path,{size});
+ const iconButton=(id,label,icon)=>StudioShell.iconButton(id,label,icon);
  // A palette is used by the configs that place it in a bank. Nothing else binds
  // one: a tile records a bank number, and a sprite part names a bank outright.
  function usage(id){
   return paletteConfigs.map(c=>({config:c,banks:c.banks.flatMap((b,i)=>b===id?[i]:[])})).filter(u=>u.banks.length);
  }
  const library=$('palLibrary'),configsPanel=$('palConfigs');
- const toggle=iconButton('palLibraryToggle','Palettes','<path d="M12 3a9 9 0 0 0 0 18h2a2 2 0 0 0 2-2 2 2 0 0 1 2-2h1a3 3 0 0 0 3-3 8 8 0 0 0-8-8z"/><circle cx="7.5" cy="12" r="1.2" fill="currentColor"/><circle cx="9.5" cy="7.5" r="1.2" fill="currentColor"/><circle cx="14.5" cy="7" r="1.2" fill="currentColor"/><circle cx="17.5" cy="11" r="1.2" fill="currentColor"/>');
+ $('palTop').append(Object.assign(StudioShell.helpButton(),{style:'margin-left:auto'}));
+ const toggle=iconButton('palLibraryToggle','Palettes','palette');
  StudioShell.bindPanel({panel:library,button:toggle,closeId:'palClose'});
- $('palRail').append(toggle);
 
- const configsToggle=iconButton('palConfigsToggle','Bank configs','<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>');
+ const configsToggle=iconButton('palConfigsToggle','Bank configs','bankConfig');
  StudioShell.bindPanel({panel:configsPanel,button:configsToggle,closeId:'palConfigsClose'});
- $('palRail').append(configsToggle);
+ // Copy and paste, through the app clipboard: the whole selected palette, or
+ // one color when a swatch has focus. A copied color pastes into the swatch
+ // with focus, or the one last edited; it is the same clipboard the tileset
+ // editor's palette dock copies colors to.
+ const focusedInk=()=>{const el=document.activeElement;return el?.closest?.('#palColors')&&el.dataset.ink!==undefined?Number(el.dataset.ink):null;};
+ function copyPalette(){
+  const entry=palette(),ink=focusedInk();if(!entry)return false;
+  if(ink!==null){StudioShell.clipboard.set('color',entry.colors[ink]);setStatus(`Copied color ${ink} of ${entry.name}.`);}
+  else{StudioShell.clipboard.set('palette',entry.colors);setStatus(`Copied ${entry.name}.`);}
+  render();return true;
+ }
+ function pastePalette(){
+  const entry=palette();if(!entry)return false;
+  const colors=StudioShell.clipboard.get('palette'),color=StudioShell.clipboard.get('color');
+  if(colors)graphicsEdit('Paste a palette',()=>entry.colors.splice(0,colors.length,...colors));
+  else if(color!==null){const ink=focusedInk()??editing;graphicsEdit('Paste a color',()=>entry.colors[ink]=color);}
+  else return false;
+  render();return true;
+ }
+ StudioShell.editActions('palettes',{copy:copyPalette,paste:pastePalette});
+ // Palettes and bank configs are part of the project's one history.
+ const historyButton=(id,label,icon,fn)=>{const b=iconButton(id,label,icon);b.onclick=()=>{fn();render();};return b;};
+ StudioShell.railLayout($('palRail'),[[toggle,configsToggle]],[
+  Object.assign(iconButton('palCopy','Copy palette (Ctrl/Cmd+C) — or the focused color','copy'),{onclick:copyPalette}),
+  Object.assign(iconButton('palPaste','Paste palette or color (Ctrl/Cmd+V)','paste'),{onclick:pastePalette}),
+  historyButton('palUndo','Undo (Ctrl/Cmd+Z)','undo',ProjectHistory.undo),historyButton('palRedo','Redo (Ctrl/Cmd+Shift+Z)','redo',ProjectHistory.redo)]);
+ document.addEventListener('studioclipboard',()=>{if(!host.hidden)$('palPaste').disabled=!palette()||!(StudioShell.clipboard.has('palette')||StudioShell.clipboard.has('color'));});
 
  for(const [id,label,path,fn] of [
-  ['palNew','New palette','<path d="M12 4v16M4 12h16"/>',()=>{graphicsEdit(()=>{createPalette(RAINBOW_565);index=paletteLibrary.length-1;});setStatus('Added a palette. Bind it from a bank slot to use it.');render();}],
-  ['palDuplicate','Duplicate palette','<rect x="8" y="8" width="13" height="13" rx="1"/><path d="M16 8V4H3v13h5"/>',()=>{graphicsEdit(()=>{createPalette(palette().colors,uniquePaletteName());index=paletteLibrary.length-1;});setStatus('Duplicated the palette.');render();}],
-  ['palDelete','Delete palette','<path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v8M14 10v8"/>',()=>destroy()]
- ]){const button=iconButton(id,label,path,18);button.onclick=fn;$('palListActions').append(button);}
+  ['palNew','New palette','newItem',()=>{graphicsEdit('New palette',()=>{createPalette(RAINBOW_565);index=paletteLibrary.length-1;});setStatus('Added a palette. Bind it from a bank slot to use it.');render();}],
+  ['palDuplicate','Duplicate palette','duplicate',()=>{graphicsEdit('Duplicate '+palette().name,()=>{createPalette(palette().colors,uniquePaletteName());index=paletteLibrary.length-1;});setStatus('Duplicated the palette.');render();}],
+  ['palDelete','Delete palette','delete',()=>destroy()]
+ ]){const button=iconButton(id,label,path);button.onclick=fn;$('palListActions').append(button);}
 
  const dialog=document.createElement('dialog');dialog.id='palDeleteDialog';
  dialog.innerHTML=`<h2>Delete palette</h2><p id="palDeleteSummary"></p>
@@ -131,7 +152,7 @@
   $('palDeleteConfirm').onclick=()=>{
    const choice=inUse?$('palReplacement').value:null,replacement=choice==='__empty'?null:choice;
    dialog.close();
-   graphicsEdit(()=>{
+   graphicsEdit('Delete '+target.name,()=>{
     const moved=replacement?repoint(target.id,replacement):choice?unbind(target.id):0;
     paletteLibrary.splice(paletteLibrary.indexOf(target),1);
     index=Math.min(index,paletteLibrary.length-1);
@@ -147,25 +168,26 @@
  function renamePalette(i,name){
   if(!name)return false;
   if(paletteLibrary.some((p,j)=>j!==i&&p.name.toLowerCase()===name.toLowerCase())){setStatus('Use a unique palette name.');return false;}
-  graphicsEdit(()=>paletteLibrary[i].name=name);return true;
+  graphicsEdit('Rename a palette',()=>paletteLibrary[i].name=name);return true;
  }
 
  // ===== bank configs =====
  // Editing a config edits what every other editor previews, so the whole app
  // redraws rather than just this panel.
- function configEdit(fn){graphicsEdit(fn);renderConfigPicker();window.renderBankEditor?.();renderAnimations();}
+ function configEdit(...args){graphicsEdit(...args);renderConfigPicker();window.renderBankEditor?.();renderAnimations();}
  // Electron's window.prompt() throws rather than showing a dialog, so config
  // renaming uses the same inline-input pattern as every other renameable list.
  function renameConfig(i,name){
   if(!name)return false;
   if(paletteConfigs.some((c,j)=>j!==i&&c.name.toLowerCase()===name.toLowerCase())){setStatus('Use a unique config name.');return false;}
-  configEdit(()=>paletteConfigs[i].name=name);return true;
+  configEdit('Rename a config',()=>paletteConfigs[i].name=name);return true;
  }
  function renderConfigs(){
   StudioShell.renderList($('palConfigList'),paletteConfigs,{
    selected:c=>c.id===activeConfigId,
    choose:c=>{activeConfigId=c.id;redrawAll();render();},
    rename:renameConfig,render,maxLength:48,
+   duplicate:c=>{activeConfigId=c.id;$('palConfigCopy').click();},remove:c=>{activeConfigId=c.id;$('palConfigDelete').click();},
    content:(row,config)=>{
     let name=row.firstElementChild;
     if(!name){name=document.createElement('span');row.replaceChildren(name);}
@@ -186,23 +208,23 @@
     ...paletteLibrary.map(p=>new Option(p.name,p.id,false,p.id===config?.banks[bank])));
    // configEdit alone does not touch this panel; without the extra render() the
    // chips beside this very select would keep showing the bank's old colors.
-   select.onchange=()=>{configEdit(()=>config.banks[bank]=select.value||null);render();};
+   select.onchange=()=>{configEdit(`Change bank ${bank}`,()=>config.banks[bank]=select.value||null);render();};
    row.append(label,chips,select);
    return row;
   }));
  }
  for(const [id,label,path] of [
-  ['palConfigNew','New config','<path d="M12 4v16M4 12h16"/>'],
-  ['palConfigCopy','Duplicate config','<rect x="8" y="8" width="13" height="13" rx="1"/><path d="M16 8V4H3v13h5"/>'],
-  ['palConfigDelete','Delete config','<path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v8M14 10v8"/>']
- ]){$('palConfigListActions').append(iconButton(id,label,path,18));}
- $('palConfigNew').onclick=()=>{configEdit(()=>{activeConfigId=createConfig().id;});render();setStatus('Added a bank config. Fill its banks, then switch to it while drawing.');};
- $('palConfigCopy').onclick=()=>{const from=activeConfig();if(!from)return;configEdit(()=>{activeConfigId=createConfig(undefined,from.banks).id;});render();setStatus('Duplicated '+from.name+'.');};
+  ['palConfigNew','New config','newItem'],
+  ['palConfigCopy','Duplicate config','duplicate'],
+  ['palConfigDelete','Delete config','delete']
+ ]){$('palConfigListActions').append(iconButton(id,label,path));}
+ $('palConfigNew').onclick=()=>{configEdit('New config',()=>{activeConfigId=createConfig().id;});render();setStatus('Added a bank config. Fill its banks, then switch to it while drawing.');};
+ $('palConfigCopy').onclick=()=>{const from=activeConfig();if(!from)return;configEdit('Duplicate '+from.name,()=>{activeConfigId=createConfig(undefined,from.banks).id;});render();setStatus('Duplicated '+from.name+'.');};
  $('palConfigDelete').onclick=()=>{
   const target=activeConfig();
   if(!target||paletteConfigs.length<2){setStatus('A project keeps at least one bank config.');return;}
-  if(!confirm(`Delete config "${target.name}"?`))return;
-  configEdit(()=>{paletteConfigs.splice(paletteConfigs.indexOf(target),1);activeConfigId=paletteConfigs[0].id;});
+  setStatus(`Deleted ${target.name}. Ctrl/Cmd+Z brings it back.`);
+  configEdit('Delete '+target.name,()=>{paletteConfigs.splice(paletteConfigs.indexOf(target),1);activeConfigId=paletteConfigs[0].id;});
   render();setStatus('Deleted '+target.name+'.');
  };
  function renderPaletteList(){
@@ -210,6 +232,7 @@
    selected:(entry,i)=>i===index,
    choose:(entry,i)=>{index=i;render();},
    rename:renamePalette,render,maxLength:48,
+   duplicate:(entry,i)=>{index=i;$('palDuplicate').click();},remove:(entry,i)=>{index=i;$('palDelete').click();},
    content:(row,entry)=>{
     row.classList.toggle('unusedPalette',!usage(entry.id).length);
     // Reused in place, not recreated, so a click-triggered render happening
@@ -232,6 +255,8 @@
   renderConfigs();
   if(index>=paletteLibrary.length)index=Math.max(0,paletteLibrary.length-1);
   const entry=palette();
+  $('palUndo').disabled=!ProjectHistory.canUndo();$('palRedo').disabled=!ProjectHistory.canRedo();
+  $('palCopy').disabled=!entry;$('palPaste').disabled=!entry||!(StudioShell.clipboard.has('palette')||StudioShell.clipboard.has('color'));
   $('palDelete').disabled=!entry||paletteLibrary.length===1;
   $('palDuplicate').disabled=!entry;
   $('palName').textContent=entry?entry.name:'No palettes';
@@ -251,6 +276,8 @@
      input.style.left=(swatchRect.left-hostRect.left)+'px';input.style.top=(swatchRect.top-hostRect.top)+'px';
      input.value=css565ToInput(palette().colors[ink]);input.click();
     };
+    swatch.oncontextmenu=e=>{e.preventDefault();const entry=palette();if(!entry)return;
+     StudioShell.contextMenu(e.clientX,e.clientY,[{label:'Copy color',hint:'Mod+C',run:()=>{StudioShell.clipboard.set('color',entry.colors[ink]);render();}},{label:'Paste color',hint:'Mod+V',disabled:!StudioShell.clipboard.has('color'),run:()=>{const color=StudioShell.clipboard.get('color');graphicsEdit('Paste a color',()=>entry.colors[ink]=color);render();}},'-',{label:'Edit color…',run:()=>swatch.click()}]);};
    }
    const swatch=cell.querySelector('button');
    swatch.style.background=entry?css565(entry.colors[ink]):'transparent';
@@ -261,13 +288,12 @@
   }
   renderPaletteList();
  }
- $('palColorInput').onchange=()=>{if(!palette())return;graphicsEdit(()=>palette().colors[editing]=inputTo565($('palColorInput').value));render();};
- // Undo lives on the bank editor's rail, which this workspace does not show.
+ $('palColorInput').onchange=()=>{if(!palette())return;graphicsEdit('Change a color',()=>palette().colors[editing]=inputTo565($('palColorInput').value));render();};
  window.addEventListener('keydown',event=>{
   if(currentView!=='palettes'||!(event.metaKey||event.ctrlKey)||/INPUT|SELECT|TEXTAREA/.test(event.target.tagName))return;
-  const key=event.key.toLowerCase();if(key!=='z'&&key!=='y')return;
+  const key=event.key.toLowerCase();if(key!=='c'&&key!=='v')return;
   event.preventDefault();event.stopImmediatePropagation();
-  (key==='y'||event.shiftKey?$('bankRedo'):$('bankUndo')).click();render();
+  if(key==='c')copyPalette();else pastePalette();
  },true);
  const oldShow=showView;
  showView=function(view){
@@ -275,5 +301,6 @@
   document.body.classList.toggle('paletteWorkspaceView',view==='palettes');
   render();
  };
+ StudioShell.viewStatus('palettes',$('palStatus'));
  window.renderPaletteLibrary=render;
 })();

@@ -12,9 +12,9 @@
 // wraps too, and the camera panel's table-index math mirrors
 // clementina-video-client/internal/render/renderer.go's bgTableAndLocal.
 (() => {
- const host=document.createElement('section');host.id='backgroundEditor';host.hidden=true;
- host.innerHTML=`<aside class="bgLibrary"><h2>Backgrounds</h2><div id="bgActions" class="assetToolbar"></div><div id="bgList" role="listbox" aria-label="Backgrounds"></div><p>Double-click a background to rename it.</p></aside>
- <aside class="bgTileLibrary"><h2>Tilesets</h2>
+ const host=document.createElement('section');host.id='backgroundEditor';host.className='studioEditor';host.hidden=true;
+ host.innerHTML=`<aside class="bgLibrary studioDock studioDockLeft"><h2>Backgrounds</h2><div id="bgActions" class="assetToolbar"></div><div id="bgList" role="listbox" aria-label="Backgrounds"></div><p>Double-click a background to rename it.</p></aside>
+ <aside class="bgTileLibrary studioDock studioDockLeft"><h2>Tilesets</h2>
   <strong>Primary — reads when CHR_ALT is 0</strong><div id="bgPrimaryList" role="listbox" aria-label="Primary tileset"></div>
   <label id="bgPrimaryPlaneLabel">Plane <select id="bgPrimaryPlane" aria-label="Which 1bpp page the primary tileset shows"><option>0</option><option>1</option><option>2</option></select></label>
   <strong>Alternate — reads when CHR_ALT is 1</strong><div id="bgAltList" role="listbox" aria-label="Alternate tileset"></div>
@@ -27,7 +27,7 @@
   <div id="bgObjectList" role="listbox" aria-label="Tileset objects"></div>
   <p id="bgObjectNote">Click an object to pick its tiles as a group. Objects are named and edited in the Tilesets editor.</p>
  </aside>
- <aside class="bgStatusPanel"><h2>Status</h2>
+ <aside class="bgStatusPanel studioDock studioDockRight"><h2>Status</h2>
   <div class="bgLegendRow"><span class="bgLegendSwatch bgLegendWindow"></span><p><strong>Loaded window</strong> — the BGMODE-sized region resident in the active BGSET's four physical tables. Drag its handle on the canvas to move it.</p></div>
   <div class="bgLegendRow"><span class="bgLegendSwatch bgLegendScreen"></span><p><strong>Screen</strong> — the fixed 320 × 200 visible area, positioned within the loaded window by SCROLL_X/SCROLL_Y. Drag its handle to move it.</p></div>
   <h3>Loaded window</h3>
@@ -44,14 +44,13 @@
   <label id="bgOverlayPickWrap">Overlay <select id="bgOverlayPick" aria-label="Which overlay to preview"></select></label>
   <button id="bgToggleOverlay" aria-pressed="false">Show overlay</button>
  </aside>
- <main><div id="bgEmpty" role="status"><p id="bgEmptyMessage"></p><button id="bgCreateTileset">Go to Tilesets</button></div>
+ <main class="studioMain"><div id="bgEmpty" class="studioEmpty" role="status"><p id="bgEmptyMessage"></p><div class="studioEmptyActions"><button id="bgEmptyNew">New background</button><button id="bgCreateTileset">Go to Tilesets</button></div></div>
   <div id="bgWork">
-   <div class="bgTop"><strong id="bgTitle"></strong>
-    <label>Size <input id="bgWidth" type="number" min="1" max="1024" aria-label="Background width in tiles"> × <input id="bgHeight" type="number" min="1" max="1024" aria-label="Background height in tiles"><button id="bgResize">Resize</button></label>
-    <label id="bgPreviewModeWrap">Viewport preview <select id="bgPreviewMode" aria-label="Viewport preview size"></select></label>
-    <button id="bgZoomOut" aria-label="Zoom out">−</button><span id="bgZoomLabel"></span><button id="bgZoomIn" aria-label="Zoom in">+</button>
+   <div class="bgTop"><div class="studioBarStart"><strong id="bgTitle"></strong></div>
+    <div class="studioBarEnd"><label>Size <input id="bgWidth" type="number" min="1" max="1024" aria-label="Background width in tiles"> × <input id="bgHeight" type="number" min="1" max="1024" aria-label="Background height in tiles"><button id="bgResize">Resize</button></label>
+    <label id="bgPreviewModeWrap">Viewport preview <select id="bgPreviewMode" aria-label="Viewport preview size"></select></label></div>
    </div>
-   <div id="bgStage"><div id="bgCanvasWrap"><canvas id="bgCanvas"></canvas><div id="bgViewportOverlay" hidden><div id="bgViewportHandle" title="Drag to move the loaded window"></div></div><div id="bgScrollClip" hidden><div class="bgScrollRect"></div><div class="bgScrollRect"></div><div class="bgScrollRect"></div><div class="bgScrollRect"></div><div id="bgScrollHandle" title="Drag to preview scroll position (SCROLL_X/SCROLL_Y)"></div></div></div></div>
+   <div id="bgStage"><div id="bgCanvasWrap"><canvas id="bgCanvas"></canvas><div id="bgMarquee" class="cellMarquee" hidden></div><div id="bgViewportOverlay" hidden><div id="bgViewportHandle" title="Drag to move the loaded window"></div></div><div id="bgScrollClip" hidden><div class="bgScrollRect"></div><div class="bgScrollRect"></div><div class="bgScrollRect"></div><div class="bgScrollRect"></div><div id="bgScrollHandle" title="Drag to preview scroll position (SCROLL_X/SCROLL_Y)"></div></div></div></div>
    <div id="bgStampBar">
     <span>Tile <b id="bgStampTile"></b></span>
     <span id="bgGroupLabel" hidden></span>
@@ -60,7 +59,7 @@
     <span id="bgStampSource"></span>
     <span id="bgBankLabel"></span><button id="bgBankReset" hidden>Reset to default</button>
    </div>
-   <section id="bgPaletteDock"><div class="paletteDockHead"><label id="bgConfigWrap">Group <select id="bgConfigPicker" aria-label="Palette bank group"></select></label></div><div id="bgSwatches"></div></section>
+   <section id="bgPaletteDock"><div id="bgSwatches"></div></section>
    <div id="bgStatus"></div>
   </div>
  </main>`;
@@ -69,16 +68,14 @@
  $('spritePanel').after(host);
 
  const style=document.createElement('style');style.textContent=`
- #backgroundEditor{position:relative;height:calc(100vh - 118px);display:grid;grid-template-columns:64px minmax(0,1fr)}
- #backgroundEditor main{grid-column:2;display:flex;flex-direction:column;min-width:0;min-height:0}
- #bgEmpty{padding:12px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
+ #backgroundEditor main{display:flex;flex-direction:column;overflow:hidden}
  #bgWork{flex:1;width:100%;max-width:100%;min-width:0;min-height:0;display:flex;flex-direction:column}
  .bgTop{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:8px 18px;background:var(--panel)}
- #bgTitle{color:var(--ink);font-size:13px;margin-right:auto}
+ #bgTitle{color:var(--ink);font-size:13px}
  #bgWidth,#bgHeight{width:64px;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:5px}
- #bgPreviewModeWrap{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--text-dim)}
- #bgStage{flex:1;min-width:0;min-height:0;overflow:auto;background:#101113;padding:24px}
- #bgCanvasWrap{position:relative;display:inline-block;border:1px solid var(--text-dim);box-shadow:0 6px 24px #0008}
+ #bgPreviewModeWrap{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--text-dim)}
+ #bgStage{flex:1;min-width:0;min-height:0;overflow:auto;background:#101113;padding:24px;display:flex;align-items:safe center;justify-content:safe center}
+ #bgCanvasWrap{position:relative;flex:none;border:1px solid var(--text-dim);box-shadow:0 6px 24px #0008}
  #bgCanvas{image-rendering:pixelated;display:block;touch-action:none;cursor:crosshair;background:#000}
  #bgViewportOverlay{position:absolute;border:1px dashed #fff;box-shadow:0 0 0 1px #111,0 0 0 2px #fff inset;pointer-events:none}
  /* Anchored at the loaded window's top-left corner, not its center: at the
@@ -92,30 +89,21 @@
  .bgScrollRect{position:absolute;border:1px dashed #ffcf40;box-shadow:0 0 0 1px #111,0 0 0 2px #ffcf40 inset;pointer-events:none}
  #bgScrollHandle{position:absolute;width:16px;height:16px;border-radius:3px;background:#ffcf40cc;border:2px solid #fff;cursor:move;pointer-events:auto;transform:translate(-50%,-50%)}
  #bgStampBar{display:flex;align-items:center;gap:14px;padding:8px 18px;background:var(--panel);border-top:1px solid var(--line);font-size:11px}
+ /* One fixed-height line, always: the canvas above is centered, so a bar
+    that wrapped, or grew when a button appeared in it, would shift the art
+    under the pointer mid-drag. */
+ #bgStampBar{white-space:nowrap;overflow:hidden;height:42px;padding-top:0;padding-bottom:0}
+ #bgStampBar>*{flex-shrink:0}
+ #bgStampBar>span{flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
  #bgStampSource{color:var(--text-dim)}
  #bgBankLabel{color:var(--text-dim)}
  #bgGroupLabel{color:var(--ink)}
  #bgSelectionLabel{color:var(--sel)}
- #bgSwatches .paletteGroup:disabled{opacity:.4;cursor:default}
  #bgPaletteDock{background:var(--panel);border-top:1px solid var(--line);padding:10px 18px}
- #bgConfigWrap{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--text-dim)}
- #bgConfigPicker{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:3px 6px;font-size:11px;max-width:190px}
- #bgSwatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 12px;max-width:660px}
- #bgSwatches .paletteGroup{display:flex;align-items:center;gap:6px;height:26px;padding:0 6px;border-radius:3px;border:2px solid var(--line);background:none;cursor:pointer;font:inherit;color:var(--text-dim)}
- #bgSwatches .paletteGroup.chosenColor{border-color:var(--sel);box-shadow:0 0 0 1px var(--sel)}
- #bgSwatches .paletteGroup span:first-child{width:16px;flex-shrink:0;text-align:right;font-size:10px}
- #bgSwatches .rowChips{display:flex;gap:1px;flex-shrink:0}
- #bgSwatches .rowChips i{width:9px;height:16px;border-radius:1px;display:block}
  #bgStatus{padding:6px 18px;font-size:10px;color:var(--text-dim);background:var(--panel);border-top:1px solid var(--line)}
- .bgLibrary,.bgTileLibrary,.bgStatusPanel{position:absolute;z-index:8;left:64px;top:0;bottom:0;width:285px;padding:12px;padding-top:38px;background:var(--panel);border-right:1px solid var(--line);box-shadow:6px 0 20px #0008;display:flex;flex-direction:column;overflow:auto}
- .bgLibrary h2,.bgTileLibrary h2,.bgStatusPanel h2{font-size:12px;color:var(--text-dim);margin:0 0 8px;flex-shrink:0}
  .bgTileLibrary strong{display:block;font-size:10px;color:var(--text-dim);margin:8px 0 4px}
- .bgLibrary p,.bgTileLibrary p{font-size:10px;line-height:1.5;color:var(--text-dim)}
  #bgList,#bgPrimaryList,#bgAltList,#bgObjectList{border:1px solid var(--line);background:var(--bg);min-height:70px;max-height:140px;overflow:auto}
  #bgTileMap{width:100%;image-rendering:pixelated;touch-action:none;cursor:crosshair;margin-top:6px}
- #backgroundEditor:has(>.bgLibrary:not([hidden])),#backgroundEditor:has(>.bgTileLibrary:not([hidden])),#backgroundEditor:has(>.bgStatusPanel:not([hidden])){grid-template-columns:64px 285px minmax(0,1fr)}
- #backgroundEditor main{grid-column:-2 / -1;grid-row:1;overflow:hidden}
- #backgroundEditor>.bgLibrary,#backgroundEditor>.bgTileLibrary,#backgroundEditor>.bgStatusPanel{position:relative;grid-column:2;grid-row:1;left:auto;top:auto;bottom:auto;width:auto;min-width:0;min-height:0;box-shadow:none}
  .bgStatusPanel h3{font-size:10px;color:var(--text-dim);margin:14px 0 4px;text-transform:uppercase;letter-spacing:.04em;flex-shrink:0}
  .bgStatusPanel h3:first-of-type{margin-top:4px}
  .bgStatusPanel>span{display:block;font-size:11px;color:var(--text);margin:4px 0}
@@ -145,12 +133,8 @@
  // input without importing the SDK's session validator into the renderer.
  const MAX_BG_DIMENSION=1024,MAX_BG_CELLS=200000;
 
- let backgroundIndex=0,bgUndo=[],bgRedo=[];
- let bgTool='pencil',bgZoom=1,bgErasing=false,bgPainting=false,bgLast=null,bgAnchor=null;
- // The Select tool marks an existing range of cells so Flip X/Y, Priority
- // and a palette bank click below edit them in place — tile and CHR_ALT are
- // never touched by this, only the four attribute fields.
- let bgSelection=null,bgSelectAnchor=null;
+ let backgroundIndex=0;
+ let bgTool='pencil',bgZoom=1,bgFittedId=null,zoomControls=null,bgErasing=false,bgPainting=false,bgLast=null,bgAnchor=null;
  // Panning a canvas that can be much bigger than the window: the Pan tool,
  // Space-drag and middle-drag all scroll #bgStage instead of painting,
  // mirroring the tileset editor's existing shortcut.
@@ -210,6 +194,9 @@
  }
 
  const background=()=>backgrounds[backgroundIndex];
+ // The Select tool (cell-grid.js): with cells selected, the flips, Priority
+ // and a palette bank click edit those cells rather than the next stamp.
+ const selection=CellGrid.cellSelection({grid:background,edit:(label,fn)=>bgEdit(label,fn),render:()=>{paintCanvas();updateStampBar();renderPaletteDock();syncEditActions();}});
  const bgTilesetById=id=>tilesets.find(t=>t.id===id);
  const primaryTileset=()=>bgTilesetById(background()?.tilesetId);
  const altTileset=()=>bgTilesetById(background()?.altTilesetId);
@@ -220,19 +207,19 @@
  // A background's own data never mutates tilesets/palettes/shapes/animations
  // and nothing in those domains mutates a background, so this history is
  // independent rather than shared with theirs.
- function bgCheckpoint(){bgUndo.push(JSON.stringify({backgrounds}));if(bgUndo.length>50)bgUndo.shift();bgRedo=[];}
- function bgEdit(fn){bgCheckpoint();fn();markDirty();render();}
- function bgStepUndo(){if(!bgUndo.length)return;bgRedo.push(JSON.stringify({backgrounds}));({backgrounds}=JSON.parse(bgUndo.pop()));backgroundIndex=Math.min(backgroundIndex,Math.max(0,backgrounds.length-1));markDirty();render();}
- function bgStepRedo(){if(!bgRedo.length)return;bgUndo.push(JSON.stringify({backgrounds}));({backgrounds}=JSON.parse(bgRedo.pop()));backgroundIndex=Math.min(backgroundIndex,Math.max(0,backgrounds.length-1));markDirty();render();}
+ function bgCheckpoint(label='Edit the background'){ProjectHistory.checkpoint(['backgrounds'],label);}
+ // An edit's label names it in the history: bgEdit('Delete X', fn).
+ function bgEdit(...args){const label=typeof args[0]==='string'?args.shift():'Edit the background';bgCheckpoint(label);args[0]();markDirty();render();}
+ document.addEventListener('studiohistory',()=>{backgroundIndex=Math.max(0,Math.min(backgroundIndex,backgrounds.length-1));selection.revalidate();});
 
  function freshBackgroundName(){let n=1;while(backgrounds.some(b=>b.name.toLowerCase()==='background_'+n))n++;return 'Background_'+n;}
- function chooseBackground(i){backgroundIndex=i;bgViewportOrigin={x:0,y:0};bgScroll={x:0,y:0};bgActiveSet=0;bgPrimaryPlane=0;bgAltPlane=0;bgPickRegion={col:0,row:0,width:1,height:1};bgSelection=null;render();}
+ function chooseBackground(i){backgroundIndex=i;bgViewportOrigin={x:0,y:0};bgScroll={x:0,y:0};bgActiveSet=0;bgPrimaryPlane=0;bgAltPlane=0;bgPickRegion={col:0,row:0,width:1,height:1};selection.reset();render();}
  function renameBackground(i,name){
   if(!/^[A-Za-z][A-Za-z0-9_-]{0,47}$/.test(name)||backgrounds.some((x,j)=>j!==i&&x.name.toLowerCase()===name.toLowerCase())){setStatus('Use a unique filename: letters, digits, underscore or hyphen.');return false;}
-  bgEdit(()=>backgrounds[i].name=name);return true;
+  bgEdit('Rename a background',()=>backgrounds[i].name=name);return true;
  }
  function renderBackgroundList(){
-  StudioShell.renderList($('bgList'),backgrounds,{selected:(b,i)=>i===backgroundIndex,choose:(b,i)=>chooseBackground(i),rename:renameBackground,render,maxLength:48});
+  StudioShell.renderList($('bgList'),backgrounds,{selected:(b,i)=>i===backgroundIndex,choose:(b,i)=>chooseBackground(i),rename:renameBackground,render,maxLength:48,duplicate:(b,i)=>{chooseBackground(i);$('bgDuplicateAction').click();},remove:(b,i)=>{chooseBackground(i);$('bgDeleteAction').click();}});
  }
 
  function renderTilesetAssignment(){
@@ -245,7 +232,7 @@
     if(!row){row=document.createElement('div');row.className='assetRow';row.tabIndex=0;row.setAttribute('role','option');list.append(row);}
     row.textContent=t.name;
     row.setAttribute('aria-selected',String(!!a&&t.id===a[field]));
-    row.onclick=()=>{if(!a||t.id===a[field])return;bgEdit(()=>{a[field]=t.id;});};
+    row.onclick=()=>{if(!a||t.id===a[field])return;bgEdit(field==='tilesetId'?'Change the primary tileset':'Change the alternate tileset',()=>{a[field]=t.id;});};
     row.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();row.onclick();}};
    });
   }
@@ -261,8 +248,9 @@
   if(source)for(let t=0;t<256;t++){
    const bank=source.tilePaletteBanks[t];
    for(let y=0;y<8;y++)for(let x=0;x<8;x++){
+    // As on the canvas, color 0 is the tile's bank color: backgrounds draw it.
     const ink=tilePixel(source,t,x,y,bgPickAlt?bgAltPlane:bgPrimaryPlane);
-    ctx.fillStyle=ink===0?'#252830':css565(bankColor(bank,ink));
+    ctx.fillStyle=css565(bankColor(bank,ink));
     ctx.fillRect((t%16*8+x)*2,(Math.floor(t/16)*8+y)*2,2,2);
    }
   }
@@ -282,8 +270,16 @@
   bgPickRegion={col:Math.min(bgPickAnchor.x,x),row:Math.min(bgPickAnchor.y,y),width:Math.abs(x-bgPickAnchor.x)+1,height:Math.abs(y-bgPickAnchor.y)+1};
   const tile=bgPickRegion.row*16+bgPickRegion.col;
   bgStamp={...bgStamp,tile,paletteBank:source.tilePaletteBanks[tile],chrAlt:bgPickAlt};
-  render();
+  stampTool();render();
  }
+ // Picking tiles — on the map or from an object — is picking what to paint,
+ // so it switches to the pencil unless a stamping tool is already active.
+ function stampTool(){if(!['pencil','rectangle','fill'].includes(bgTool))setTool('pencil');}
+ // The selection belongs to the Select tool, as in Photoshop: taking up a
+ // painting tool drops it (panning keeps it), so the flips, Priority and a
+ // palette bank click act on the selection while selecting and on the next
+ // stamp while painting — never ambiguously on both.
+ function setTool(name){if(name!=='select'&&name!=='pan')selection.reset();bgTool=name;render();}
  $('bgTileMap').onpointerdown=e=>{
   if(!pickingTileset())return;
   bgPickAnchor=tileMapCell(e);$('bgTileMap').setPointerCapture(e.pointerId);selectPickRegion(bgPickAnchor.x,bgPickAnchor.y);
@@ -301,7 +297,7 @@
     bgPickRegion={col:o.x,row:o.y,width:o.width,height:o.height};
     const tile=bgPickRegion.row*16+bgPickRegion.col;
     bgStamp={...bgStamp,tile,paletteBank:source.tilePaletteBanks[tile],chrAlt:bgPickAlt};
-    render();
+    stampTool();render();
    },
    render
   });
@@ -316,33 +312,40 @@
  // (col,row) — used only by the pencil tool, never fill/rectangle, since
  // flooding or dragging a rectangle with a group picked would stamp it
  // densely at every covered cell rather than placing it once. Each sub-tile
- // keeps its own authored palette bank; flip and priority from the stamp
- // bar apply uniformly across the group.
+ // keeps its own authored palette bank. A flipped group is mirrored whole —
+ // its tiles swap places as well as flipping — so the picture turns over.
  function paintGroupAt(col,row){
   if(bgErasing){paintCellAt(col,row);return;}
   const a=background(),source=bgStamp.chrAlt?altTileset():primaryTileset();
   for(let dy=0;dy<bgPickRegion.height;dy++)for(let dx=0;dx<bgPickRegion.width;dx++){
    const cx=col+dx,cy=row+dy;
    if(cx<0||cy<0||cx>=a.width||cy>=a.height)continue;
-   const tile=(bgPickRegion.row+dy)*16+(bgPickRegion.col+dx);
+   const sx=bgStamp.flipX?bgPickRegion.width-1-dx:dx,sy=bgStamp.flipY?bgPickRegion.height-1-dy:dy;
+   const tile=(bgPickRegion.row+sy)*16+(bgPickRegion.col+sx);
    a.cells[cy*a.width+cx]={tile,paletteBank:source?.tilePaletteBanks[tile]??0,flipX:bgStamp.flipX,flipY:bgStamp.flipY,priority:bgStamp.priority,chrAlt:bgStamp.chrAlt};
   }
  }
  function paintAt(col,row){(bgPickRegion.width>1||bgPickRegion.height>1?paintGroupAt:paintCellAt)(col,row);}
+ function drawCell(ctx,cell,col,row){
+  const source=cell.chrAlt?altTileset():primaryTileset();
+  for(let y=0;y<8;y++)for(let x=0;x<8;x++){
+   const px=cell.flipX?7-x:x,py=cell.flipY?7-y:y;
+   // Color 0 is opaque on the background layer, in the cell's own bank:
+   // clementina-video-client renderer.go renderBackground draws every pixel
+   // with paletteColorByIndex, color 0 included. Only the overlay (and
+   // sprites) treat color 0 as transparent.
+   const ink=source?tilePixel(source,cell.tile,px,py,cell.chrAlt?bgAltPlane:bgPrimaryPlane):0;
+   ctx.fillStyle=css565(bankColor(cell.paletteBank,ink));
+   ctx.fillRect(col*8+x,row*8+y,1,1);
+  }
+ }
  function paintCanvas(){
   const a=background();if(!a)return;
   const canvas=$('bgCanvas');canvas.width=a.width*8;canvas.height=a.height*8;
   canvas.style.width=(a.width*8*bgZoom)+'px';canvas.style.height=(a.height*8*bgZoom)+'px';
-  const ctx=canvas.getContext('2d'),primary=primaryTileset(),alt=altTileset();
-  for(let row=0;row<a.height;row++)for(let col=0;col<a.width;col++){
-   const cell=a.cells[row*a.width+col],source=cell.chrAlt?alt:primary;
-   for(let y=0;y<8;y++)for(let x=0;x<8;x++){
-    const px=cell.flipX?7-x:x,py=cell.flipY?7-y:y;
-    const ink=source?tilePixel(source,cell.tile,px,py,cell.chrAlt?bgAltPlane:bgPrimaryPlane):0;
-    ctx.fillStyle=ink===0?'#101113':css565(bankColor(cell.paletteBank,ink));
-    ctx.fillRect(col*8+x,row*8+y,1,1);
-   }
-  }
+  const ctx=canvas.getContext('2d');
+  for(let row=0;row<a.height;row++)for(let col=0;col<a.width;col++)drawCell(ctx,a.cells[row*a.width+col],col,row);
+  selection.drawFloating(ctx,drawCell);
   // Marks where each cell — one nametable + attribute table entry — begins
   // and ends, so an empty cell doesn't read as featureless background.
   ctx.strokeStyle='#ffffff26';ctx.lineWidth=1;ctx.beginPath();
@@ -350,11 +353,7 @@
   for(let row=0;row<=a.height;row++){ctx.moveTo(0,row*8+.5);ctx.lineTo(a.width*8,row*8+.5);}
   ctx.stroke();
   if(bgShowOverlay)drawOverlayComposite(ctx);
-  if(bgSelection){
-   ctx.save();ctx.strokeStyle='#36c9d6';ctx.lineWidth=2;ctx.setLineDash([4,4]);
-   ctx.strokeRect(bgSelection.x0*8+1,bgSelection.y0*8+1,(bgSelection.x1-bgSelection.x0+1)*8-2,(bgSelection.y1-bgSelection.y0+1)*8-2);
-   ctx.restore();
-  }
+  selection.layout($('bgMarquee'),bgZoom);
  }
  // The overlay never scrolls — it always sits 1:1 on the physical screen, so
  // it composites onto exactly the same wrapped pieces the inner (visible)
@@ -427,25 +426,13 @@
   for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)paintCellAt(x,y);
   bgAnchor=null;markDirty();paintCanvas();
  }
- // The Select tool never edits a cell itself — it just marks a range for
- // the attribute controls below (Flip X/Y, Priority, palette bank) to apply
- // to in one step, each cell keeping its own tile and CHR_ALT.
- function selectRegion(col,row){
-  bgSelection={x0:Math.min(bgSelectAnchor.col,col),y0:Math.min(bgSelectAnchor.row,row),x1:Math.max(bgSelectAnchor.col,col),y1:Math.max(bgSelectAnchor.row,row)};
-  updateStampBar();paintCanvas();
- }
- function applyToSelection(mutate){
-  if(!bgSelection)return;
-  const a=background(),sel=bgSelection;
-  bgEdit(()=>{for(let row=sel.y0;row<=sel.y1;row++)for(let col=sel.x0;col<=sel.x1;col++)mutate(a.cells[row*a.width+col]);});
- }
  $('bgCanvas').onpointerdown=e=>{
-  e.preventDefault();if(!background())return;
+  e.preventDefault();if(!background()||(e.button===2&&!painting()))return;
   bgErasing=e.button===2||bgTool==='eraser';
   const {col,row}=canvasCell(e);
+  if(selection.pasting||bgTool==='select'){$('bgCanvas').setPointerCapture(e.pointerId);selection.down({col,row});return;}
   if(bgTool==='picker'){const cell=background().cells[row*background().width+col];bgStamp={...cell};bgPickAlt=cell.chrAlt;bgPickRegion={col:cell.tile%16,row:Math.floor(cell.tile/16),width:1,height:1};render();return;}
-  if(bgTool==='select'){bgSelectAnchor={col,row};$('bgCanvas').setPointerCapture(e.pointerId);selectRegion(col,row);return;}
-  bgCheckpoint();
+  bgCheckpoint(bgTool==='fill'?'Fill':bgTool==='rectangle'?'Draw a rectangle':bgErasing?'Erase':'Paint');
   if(bgTool==='fill'){bgFlood(col,row);markDirty();paintCanvas();return;}
   if(bgTool==='rectangle'){bgAnchor={col,row};$('bgCanvas').setPointerCapture(e.pointerId);previewRectangle(col,row);return;}
   bgPainting=true;bgLast=null;$('bgCanvas').setPointerCapture(e.pointerId);bgDrawTo(col,row);
@@ -453,18 +440,25 @@
  $('bgCanvas').onpointermove=e=>{
   if(!background())return;
   const {col,row}=canvasCell(e);
-  if(bgSelectAnchor){selectRegion(col,row);return;}
+  if(selection.move({col,row}))return;
+  if(bgTool==='select')$('bgCanvas').style.cursor=selection.contains({col,row})?'move':'';
   if(bgAnchor){previewRectangle(col,row);return;}
   if(bgPainting)bgDrawTo(col,row);
  };
  $('bgCanvas').onpointerup=e=>{
   if(!background())return;
-  if(bgSelectAnchor){bgSelectAnchor=null;return;}
+  if(selection.up())return;
   if(bgAnchor){const {col,row}=canvasCell(e);commitRectangle(col,row);return;}
   bgPainting=false;bgLast=null;
  };
- $('bgCanvas').onpointercancel=()=>{bgAnchor=null;bgPainting=false;bgLast=null;bgSelectAnchor=null;paintCanvas();};
- $('bgCanvas').oncontextmenu=e=>e.preventDefault();
+ $('bgCanvas').onpointercancel=()=>{bgAnchor=null;bgPainting=false;bgLast=null;selection.cancel();};
+ // Right-click erases while a painting tool is active, the Aseprite way;
+ // with any other tool it opens the edit menu for the selection.
+ function painting(){return ['pencil','rectangle','fill','eraser'].includes(bgTool);}
+ $('bgCanvas').oncontextmenu=e=>{e.preventDefault();if(!background()||painting())return;const sel=!!selection.rect,paste=()=>{if(selection.startPaste()){setTool('select');setStatus('Click to place the paste. Escape cancels.');}};
+  StudioShell.contextMenu(e.clientX,e.clientY,[{label:'Cut',hint:'Mod+X',disabled:!sel,run:()=>selection.cut()},{label:'Copy',hint:'Mod+C',disabled:!sel,run:()=>selection.copy()},{label:'Paste',hint:'Mod+V',disabled:!StudioShell.clipboard.has('cells'),run:paste},{label:'Delete',hint:'Delete',disabled:!sel,run:()=>selection.remove()},'-',
+   {label:'Flip horizontally',hint:'Shift+H',disabled:!sel,run:()=>selection.flip('x')},{label:'Flip vertically',hint:'Shift+V',disabled:!sel,run:()=>selection.flip('y')},{label:'Priority',disabled:!sel,run:()=>$('bgPriority').click()},'-',
+   {label:'Select all',hint:'Mod+A',run:()=>{setTool('select');selection.selectAll();}},{label:'Deselect',hint:'Esc',disabled:!sel,run:()=>selection.deselect()}]);};
 
  function resizeBackground(newWidth,newHeight){
   const a=background();if(!a)return;
@@ -478,9 +472,9 @@
    const cell=a.cells[y*a.width+x];
    if(cell.tile!==0||cell.paletteBank!==0||cell.flipX||cell.flipY||cell.priority||cell.chrAlt){cropsContent=true;break;}
   }
-  if(cropsContent&&!confirm('Shrinking crops painted cells outside the new size. Continue?')){render();return;}
-  bgSelection=null;
-  bgEdit(()=>{
+  if(cropsContent)setStatus('Cropped the painted cells outside the new size. Ctrl/Cmd+Z brings them back.');
+  selection.reset();
+  bgEdit('Resize the background',()=>{
    const cells=makeCells(newWidth,newHeight);
    for(let y=0;y<Math.min(a.height,newHeight);y++)for(let x=0;x<Math.min(a.width,newWidth);x++)cells[y*newWidth+x]=a.cells[y*a.width+x];
    a.width=newWidth;a.height=newHeight;a.cells=cells;
@@ -576,71 +570,56 @@
  $('bgOverlayPick').onchange=()=>{bgOverlayId=$('bgOverlayPick').value||null;paintCanvas();};
  $('bgToggleOverlay').onclick=()=>{bgShowOverlay=!bgShowOverlay;renderOverlayToggle();paintCanvas();};
 
- $('bgZoomIn').onclick=()=>{bgZoom=Math.min(8,bgZoom*2);render();};
- $('bgZoomOut').onclick=()=>{bgZoom=Math.max(1,bgZoom/2);render();};
+ const fitLevel=a=>StudioShell.fitZoom($('bgStage').clientWidth-48,$('bgStage').clientHeight-48,a.width*8,a.height*8);
+ zoomControls=StudioShell.canvasZoom({view:'backgrounds',ids:{fit:'bgFit',actual:'bgActualSize',zoomOut:'bgZoomOut',label:'bgZoomLabel',zoomIn:'bgZoomIn'},
+  get:()=>bgZoom,set:(next,x,y)=>StudioShell.zoomScrolled($('bgStage'),$('bgCanvas'),bgZoom,next,z=>{bgZoom=z;render();},x,y),
+  fit:()=>{if(!background())return;bgZoom=fitLevel(background());render();$('bgStage').scrollLeft=$('bgStage').scrollTop=0;},
+  wheel:$('bgStage'),busy:()=>!!(bgPainting||bgAnchor||selection.busy||bgPanDrag||bgOverlayDrag||bgScrollDrag)});
+ host.querySelector('.bgTop .studioBarStart').after(zoomControls.group);host.querySelector('.bgTop .studioBarEnd').append(StudioShell.helpButton());
 
  function updateStampBar(){
   const group=bgPickRegion.width>1||bgPickRegion.height>1;
   $('bgStampTile').textContent=String(bgStamp.tile);
   $('bgGroupLabel').hidden=!group;
   $('bgGroupLabel').textContent=`Group ${bgPickRegion.width} × ${bgPickRegion.height} — each tile keeps its own bank`;
-  $('bgSelectionLabel').hidden=!bgSelection;
-  if(bgSelection)$('bgSelectionLabel').textContent=`Selected ${bgSelection.x1-bgSelection.x0+1} × ${bgSelection.y1-bgSelection.y0+1} — Flip/Priority/bank below edit these tiles in place`;
-  $('bgSelectionClear').hidden=!bgSelection;
-  $('bgFlipX').classList.toggle('on',bgStamp.flipX);
-  $('bgFlipY').classList.toggle('on',bgStamp.flipY);
-  $('bgPriority').classList.toggle('on',bgStamp.priority);
+  const sel=selection.rect;
+  $('bgSelectionLabel').hidden=!sel;
+  if(sel)$('bgSelectionLabel').textContent=`Selected ${sel.width} × ${sel.height} — flips, Priority and a palette bank edit these tiles in place`;
+  $('bgSelectionClear').hidden=!sel;
+  // With a selection the flips and Priority act on it; otherwise they are the
+  // next stamp's settings, shown pressed when on.
+  $('bgFlipX').classList.toggle('on',!sel&&bgStamp.flipX);
+  $('bgFlipY').classList.toggle('on',!sel&&bgStamp.flipY);
+  $('bgPriority').classList.toggle('on',!sel&&bgStamp.priority);
   $('bgStampSource').textContent=bgStamp.chrAlt?'Reads: Alternate':'Reads: Primary';
   const source=bgStamp.chrAlt?altTileset():primaryTileset(),authored=source?.tilePaletteBanks?.[bgStamp.tile];
-  $('bgBankLabel').textContent=group&&!bgSelection?'':'Bank '+String(bgStamp.paletteBank).padStart(2,'0');
-  $('bgBankReset').hidden=bgSelection?false:(group||authored===undefined||authored===bgStamp.paletteBank);
+  $('bgBankLabel').textContent=group&&!sel?'':'Bank '+String(bgStamp.paletteBank).padStart(2,'0');
+  $('bgBankReset').hidden=sel?false:(group||authored===undefined||authored===bgStamp.paletteBank);
  }
- // With an active Select-tool range, these edit every selected cell's
- // attribute in place instead of just updating the next stamp — the tile
- // and CHR_ALT of each selected cell are never touched.
- $('bgFlipX').onclick=()=>{bgStamp={...bgStamp,flipX:!bgStamp.flipX};if(bgSelection)applyToSelection(cell=>cell.flipX=bgStamp.flipX);else render();};
- $('bgFlipY').onclick=()=>{bgStamp={...bgStamp,flipY:!bgStamp.flipY};if(bgSelection)applyToSelection(cell=>cell.flipY=bgStamp.flipY);else render();};
- $('bgPriority').onclick=()=>{bgStamp={...bgStamp,priority:!bgStamp.priority};if(bgSelection)applyToSelection(cell=>cell.priority=bgStamp.priority);else render();};
+ // With a selection these edit the selected cells, as one undo step: a flip
+ // turns the selected block over, Priority turns on for all of them unless
+ // all have it already. Otherwise they set up the next stamp.
+ $('bgFlipX').onclick=()=>{if(selection.rect)selection.flip('x');else{bgStamp={...bgStamp,flipX:!bgStamp.flipX};render();}};
+ $('bgFlipY').onclick=()=>{if(selection.rect)selection.flip('y');else{bgStamp={...bgStamp,flipY:!bgStamp.flipY};render();}};
+ $('bgPriority').onclick=()=>{if(selection.rect){const on=!selection.selected().every(c=>c.priority);selection.apply(c=>c.priority=on,on?'Set priority':'Clear priority');}else{bgStamp={...bgStamp,priority:!bgStamp.priority};render();}};
  $('bgBankReset').onclick=()=>{
-  if(bgSelection){applyToSelection(cell=>{const source=cell.chrAlt?altTileset():primaryTileset();if(source)cell.paletteBank=source.tilePaletteBanks[cell.tile];});return;}
+  if(selection.rect){selection.apply(cell=>{const source=cell.chrAlt?altTileset():primaryTileset();if(source)cell.paletteBank=source.tilePaletteBanks[cell.tile];},'Reset palette banks');return;}
   const source=bgStamp.chrAlt?altTileset():primaryTileset();if(source)bgStamp={...bgStamp,paletteBank:source.tilePaletteBanks[bgStamp.tile]};render();
  };
- $('bgSelectionClear').onclick=()=>{bgSelection=null;render();};
+ $('bgSelectionClear').onclick=()=>selection.deselect();
 
  // Each bank is a full 8-color palette, not one representative color — a
  // single swatch per bank made two banks that only differed past color 1
  // look identical. Clicking anywhere on a bank's row selects it, same as
  // the single-swatch buttons this replaces.
  function renderPaletteDock(){
-  const host=$('bgSwatches');
-  if(host.querySelectorAll('.paletteGroup').length!==16)host.replaceChildren(...Array.from({length:16},(_,b)=>{
-   const row=document.createElement('button');row.type='button';row.className='paletteGroup';row.dataset.palette=String(b);
-   const label=document.createElement('span');label.textContent=String(b).padStart(2,'0');
-   const chips=document.createElement('span');chips.className='rowChips';
-   for(let i=0;i<8;i++)chips.append(document.createElement('i'));
-   row.append(label,chips);
-   row.onclick=()=>{bgStamp={...bgStamp,paletteBank:b};if(bgSelection)applyToSelection(cell=>cell.paletteBank=b);else render();};
-   return row;
-  }));
-  // A picked group has no single bank to preview or apply — unless a Select
-  // range is active, in which case a bank click applies to that range
-  // regardless of what's picked in the tile picker.
-  const group=!bgSelection&&(bgPickRegion.width>1||bgPickRegion.height>1);
-  host.querySelectorAll('.paletteGroup').forEach(row=>{
-   const b=Number(row.dataset.palette),chips=row.querySelectorAll('.rowChips i');
-   for(let i=0;i<8;i++)chips[i].style.background=css565(bankColor(b,i));
-   row.classList.toggle('chosenColor',!group&&!bgSelection&&b===bgStamp.paletteBank);
-   row.disabled=group;
-   row.title=group?'A group keeps each tile\'s own authored bank':bgSelection?`Set the selected tiles to bank ${String(b).padStart(2,'0')} · ${bankPalette(b)?.name??'empty'}`:`Bank ${String(b).padStart(2,'0')} · ${bankPalette(b)?.name??'empty'}`;
-  });
-  syncBgConfigPicker();
+  StudioShell.bankDock($('bgSwatches'),b=>{if(selection.rect)selection.apply(cell=>cell.paletteBank=b,`Set bank ${b}`);else{bgStamp={...bgStamp,paletteBank:b};render();}});
+  // A picked group has no single bank to set — unless cells are selected,
+  // which a bank click then sets whatever is picked.
+  const sel=selection.rect,group=!sel&&(bgPickRegion.width>1||bgPickRegion.height>1);
+  StudioShell.syncBankDock($('bgSwatches'),{color:(b,i)=>css565(bankColor(b,i)),transparentZero:false,chosen:group||sel?null:bgStamp.paletteBank,used:new Set(background().cells.map(c=>c.paletteBank)),disabled:group,
+   title:b=>group?'A group keeps each tile\'s own authored bank':sel?`Set the selected tiles to bank ${String(b).padStart(2,'0')} · ${bankPalette(b)?.name??'empty'}`:`Bank ${String(b).padStart(2,'0')} · ${bankPalette(b)?.name??'empty'}`});
  }
- function syncBgConfigPicker(){
-  const picker=$('bgConfigPicker'),signature=paletteConfigs.map(c=>c.id+'|'+c.name).join(',');
-  if(picker.dataset.signature!==signature){picker.dataset.signature=signature;picker.replaceChildren(...paletteConfigs.map(c=>new Option(c.name,c.id)));}
-  picker.value=activeConfig()?.id??'';picker.disabled=paletteConfigs.length<2;
- }
- $('bgConfigPicker').onchange=()=>{activeConfigId=$('bgConfigPicker').value;redrawAll();};
 
  function render(){
   host.hidden=currentView!=='backgrounds';
@@ -649,18 +628,18 @@
   backgroundIndex=Math.min(backgroundIndex,Math.max(0,backgrounds.length-1));
   const a=background();
   $('bgEmpty').hidden=!!a;
-  $('bgEmptyMessage').textContent=!tilesets.length?'Create a tileset first. A background draws from two tilesets.':'Choose New background in the Backgrounds library to start painting.';
+  $('bgEmptyMessage').textContent=!tilesets.length?'Create a tileset first. A background draws from two tilesets.':'No backgrounds yet. A background draws from two tilesets.';$('bgEmptyNew').hidden=!tilesets.length;
   $('bgCreateTileset').hidden=!!tilesets.length;
   $('bgWork').hidden=!a;
   renderBackgroundList();
-  if(!a)return;
+  if(!a){$('bgStatus').textContent='';return;}
   $('bgTitle').textContent=a.name;
   $('bgWidth').value=a.width;$('bgHeight').value=a.height;
   $('bgPreviewMode').value=String(bgPreviewModeId);
-  $('bgZoomLabel').textContent=bgZoom+'×';$('bgZoomOut').disabled=bgZoom===1;$('bgZoomIn').disabled=bgZoom===8;
+  zoomControls?.sync();
   for(const [id,tool] of [['bgPencilTool','pencil'],['bgRectangleTool','rectangle'],['bgFillTool','fill'],['bgEraserTool','eraser'],['bgPickerTool','picker'],['bgSelectTool','select'],['bgPanTool','pan']])$(id).classList.toggle('on',bgTool===tool);
   $('bgCanvas').style.cursor=bgTool==='pan'?'grab':'';
-  $('bgUndo').disabled=!bgUndo.length;$('bgRedo').disabled=!bgRedo.length;
+  $('bgUndo').disabled=!ProjectHistory.canUndo();$('bgRedo').disabled=!ProjectHistory.canRedo();syncEditActions();
   renderTilesetAssignment();
   $('bgPickSlot').value=bgPickAlt?'alt':'primary';
   drawTileMap();
@@ -673,19 +652,18 @@
   renderPaletteDock();
   updateStampBar();
   $('bgStatus').textContent=`${a.width} × ${a.height} tiles · ${a.cells.length} cells · primary ${primaryTileset()?.name??'missing'} · alternate ${altTileset()?.name??'missing'}`;
+  // A background opens fitted to the window; returning to one keeps its zoom.
+  // Measured last, once the docks around the stage have their final size.
+  if(a.id!==bgFittedId){bgFittedId=a.id;bgZoom=fitLevel(a);render();}
  }
 
- $('bgCreateTileset').onclick=()=>{showView('tiles');};
- const toolbarButton=(id,label,path)=>{const b=StudioShell.iconButton(id,label,path);b.querySelector('svg').setAttribute('width','20');b.querySelector('svg').setAttribute('height','20');return b;};
- for(const [id,label,path] of [
-  ['bgNewAction','New background','<path d="M12 4v16M4 12h16"/>'],
-  ['bgDuplicateAction','Duplicate background','<rect x="8" y="8" width="13" height="13" rx="1"/><path d="M16 8V4H3v13h5"/>'],
-  ['bgDeleteAction','Delete background','<path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v8M14 10v8"/>']
- ]){$('bgActions').append(toolbarButton(id,label,path));}
+ $('bgCreateTileset').onclick=()=>{showView('tiles');};$('bgEmptyNew').onclick=()=>$('bgNewAction').click();
+ for(const [id,label,icon] of [['bgNewAction','New background','newItem'],['bgDuplicateAction','Duplicate background','duplicate'],['bgDeleteAction','Delete background','delete']])
+  $('bgActions').append(StudioShell.iconButton(id,label,icon));
  $('bgNewAction').onclick=()=>{
   if(backgrounds.length>=255){setStatus('A project holds at most 255 backgrounds.');return;}
   if(!tilesets.length){setStatus('Create a tileset first.');return;}
-  bgEdit(()=>{
+  bgEdit('New background',()=>{
    const width=40,height=25;
    backgrounds.push({id:crypto.randomUUID(),name:freshBackgroundName(),width,height,tilesetId:tilesets[0].id,altTilesetId:tilesets[0].id,cells:makeCells(width,height)});
    backgroundIndex=backgrounds.length-1;bgViewportOrigin={x:0,y:0};bgScroll={x:0,y:0};bgActiveSet=0;bgPrimaryPlane=0;bgAltPlane=0;
@@ -694,46 +672,55 @@
  };
  $('bgDuplicateAction').onclick=()=>{
   if(!background()||backgrounds.length>=255)return;
-  bgEdit(()=>{const copy=structuredClone(background());copy.id=crypto.randomUUID();copy.name=freshBackgroundName();backgrounds.push(copy);backgroundIndex=backgrounds.length-1;});
+  bgEdit('Duplicate '+background().name,()=>{const copy=structuredClone(background());copy.id=crypto.randomUUID();copy.name=freshBackgroundName();backgrounds.push(copy);backgroundIndex=backgrounds.length-1;});
  };
  $('bgDeleteAction').onclick=()=>{
-  if(!background()||!confirm('Delete background "'+background().name+'"?'))return;
-  bgEdit(()=>{backgrounds.splice(backgroundIndex,1);backgroundIndex=Math.max(0,backgroundIndex-1);});
+  if(!background())return;setStatus(`Deleted ${background().name}. Ctrl/Cmd+Z brings it back.`);
+  bgEdit('Delete '+background().name,()=>{backgrounds.splice(backgroundIndex,1);backgroundIndex=Math.max(0,backgroundIndex-1);});
  };
 
- const rail=StudioShell.toolRail('bgRail','Background tools');host.prepend(rail);
+ // Left rail: the panels to pick from, then the tools. Right rail: the
+ // selection's panel, then the flips and priority that the next stamp — or
+ // an active selection — takes.
  const library=host.querySelector('.bgLibrary'),tileLibrary=host.querySelector('.bgTileLibrary'),statusPanel=host.querySelector('.bgStatusPanel');
- for(const [panel,id,label,path] of [
-  [library,'bgLibraryToggle','Backgrounds','<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 4v16M16 4v16"/><path d="M3 9h5M16 9h5M3 15h5M16 15h5"/>'],
-  [tileLibrary,'bgTileLibraryToggle','Tilesets','<path d="M5 2h11l5 5v17H5zM16 2v6h5"/><path d="M8 12h10v8H8zM13 12v8M8 16h10"/>'],
-  [statusPanel,'bgStatusToggle','Status — loaded window and screen position','<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>']
- ]){
-  const b=StudioShell.iconButton(id,label,path);rail.append(b);
-  StudioShell.bindPanel({panel,button:b,group:'background',closeGroups:['background']});
- }
+ const panelToggle=(panel,id,label,icon,group)=>{const b=StudioShell.iconButton(id,label,icon);StudioShell.bindPanel({panel,button:b,group,closeGroups:[group]});return b;};
+ const tool=(id,label,icon,name)=>{const b=StudioShell.iconButton(id,label,icon);b.onclick=()=>setTool(name);return b;};
+ const rail=StudioShell.toolRail('bgRail','Background tools');host.prepend(rail);
+ StudioShell.railLayout(rail,[
+  [panelToggle(library,'bgLibraryToggle','Backgrounds','background','bgLeft'),panelToggle(tileLibrary,'bgTileLibraryToggle','Tilesets and tile picker','tilePicker','bgLeft')],
+  [tool('bgSelectTool','Select (S) — drag over cells, then flip, set Priority or click a palette bank to edit them in place','select','select'),
+   tool('bgPencilTool','Pencil (B)','pencil','pencil'),tool('bgEraserTool','Eraser (E)','eraser','eraser'),tool('bgFillTool','Fill (G)','fill','fill'),
+   tool('bgRectangleTool','Rectangle (R)','rectangle','rectangle'),tool('bgPickerTool','Pick tile (I)','picker','picker'),
+   tool('bgPanTool','Pan (H) — drag the canvas to scroll it; Space or the middle button pan with any other tool active','pan','pan')],
+ ],[Object.assign(StudioShell.iconButton('bgCopy','Copy selection (Ctrl/Cmd+C)','copy'),{onclick:()=>selection.copy()&&syncEditActions()}),
+  Object.assign(StudioShell.iconButton('bgPaste','Paste (Ctrl/Cmd+V) — click to place it','paste'),{onclick:()=>{if(selection.startPaste()){setTool('select');setStatus('Click to place the paste. Escape cancels.');}}}),
+  Object.assign(StudioShell.iconButton('bgUndo','Undo (Ctrl/Cmd+Z)','undo'),{onclick:ProjectHistory.undo}),Object.assign(StudioShell.iconButton('bgRedo','Redo (Ctrl/Cmd+Shift+Z)','redo'),{onclick:ProjectHistory.redo})]);
+ const sideRail=StudioShell.toolRail('bgSideRail','Selection','right');host.append(sideRail);
+ for(const [id,icon,label] of [['bgFlipX','flipH','Flip horizontally (Shift+H) — the selection, or the next stamp'],['bgFlipY','flipV','Flip vertically (Shift+V) — the selection, or the next stamp'],['bgPriority','priority','Priority, drawn in front of sprites — the selection, or the next stamp']])StudioShell.setIcon($(id),icon,label);
+ StudioShell.railLayout(sideRail,[[panelToggle(statusPanel,'bgStatusToggle','Status — loaded window and screen position','camera','bgRight')],[$('bgFlipX'),$('bgFlipY'),$('bgPriority')],
+  [Object.assign(StudioShell.iconButton('bgDeleteSelection','Clear the selected cells (Delete)','delete'),{onclick:()=>selection.remove()})]]);
+ StudioShell.editActions('backgrounds',{copy:()=>selection.copy(),cut:()=>selection.cut(),paste:()=>{if(selection.startPaste()){setTool('select');setStatus('Click to place the paste. Escape cancels.');}}});
+ // Copy, Paste and Delete follow the selection and the clipboard.
+ function syncEditActions(){$('bgCopy').disabled=$('bgDeleteSelection').disabled=!selection.rect;$('bgPaste').disabled=!StudioShell.clipboard.has('cells');}
+ document.addEventListener('studioclipboard',()=>{if(!host.hidden)syncEditActions();});
  library.hidden=true;tileLibrary.hidden=true;statusPanel.hidden=true;
  for(const id of ['bgLibraryToggle','bgTileLibraryToggle','bgStatusToggle'])$(id).setAttribute('aria-expanded','false');
- for(const [id,label,path,fn] of [
-  ['bgPencilTool','Pencil (B)','<path d="m4 16 12-12 4 4L8 20H4zM13 7l4 4"/>',()=>{bgTool='pencil';render();}],
-  ['bgRectangleTool','Rectangle fill (R)','<rect x="3" y="5" width="18" height="14"/>',()=>{bgTool='rectangle';render();}],
-  ['bgFillTool','Fill (G)','<path d="m4 12 8-8 9 9-8 8z"/><path d="M7 9V5a3 3 0 0 1 6 0v3M4 12h16"/>',()=>{bgTool='fill';render();}],
-  ['bgEraserTool','Eraser (E)','<path d="m3 15 9-10a2 2 0 0 1 3 0l7 6a2 2 0 0 1 0 3l-6 7H9z"/><path d="m8 10 10 8M9 21h14"/>',()=>{bgTool='eraser';render();}],
-  ['bgPickerTool','Pick tile (I)','<path d="m15 4 2-2a3 3 0 0 1 4 4l-2 2 2 2-3 3-7-7 3-3z" fill="currentColor"/><path d="m12 8-9 9v4h4l9-9"/>',()=>{bgTool='picker';render();}],
-  ['bgSelectTool','Select tiles — drag to select existing cells, then use Flip X/Y, Priority or a palette bank below to edit them in place without repainting the tile itself','<rect x="4" y="4" width="16" height="16" rx="1" stroke-dasharray="3 3"/>',()=>{bgTool='select';render();}],
-  ['bgPanTool','Pan (H) — drag the canvas to scroll it; Space or the middle button pan with any other tool active','<path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10V6a2 2 0 0 0-4 0v8c0 4 2 7 7 7s7-3 7-7v-4a2 2 0 0 0-4 0v1"/>',()=>{bgTool='pan';render();}],
-  ['bgUndo','Undo','<path d="M9 5 3 11l6 6M3 11h11a7 7 0 0 1 7 7"/>',bgStepUndo],
-  ['bgRedo','Redo','<path d="m15 5 6 6-6 6M21 11H10a7 7 0 0 0-7 7"/>',bgStepRedo],
- ]){const b=StudioShell.iconButton(id,label,path);b.onclick=fn;rail.append(b);}
 
  window.addEventListener('keydown',e=>{
   if(currentView!=='backgrounds'||/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
-  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.stopImmediatePropagation();(e.shiftKey?bgStepRedo:bgStepUndo)();}
-  if(e.key==='Escape'&&bgSelection){e.preventDefault();bgSelection=null;render();}
+  // Selection and clipboard keys, the same in every grid editor.
+  const command=selection.key(e);
+  if(command){e.preventDefault();e.stopImmediatePropagation();if((command==='selectAll'||command==='paste')&&bgTool!=='select')setTool('select');if(command==='paste')setStatus('Click to place the paste. Escape cancels.');return;}
   // No `!bgSpaceHeld` guard here: held keys repeat-fire keydown, and every
   // one of those must be prevented too, or the un-prevented repeats leave
   // the browser's native "Space pages the nearest scrollable ancestor down"
   // behavior free to fire on #bgStage in between them.
   if(e.code==='Space'){bgSpaceHeld=true;e.preventDefault();$('bgCanvas').style.cursor='grab';}
+  // Single-key tool shortcuts, the same letters as the tileset editor's.
+  if(e.metaKey||e.ctrlKey||e.altKey||document.querySelector('dialog[open]'))return;
+  if(e.shiftKey&&(e.key.toLowerCase()==='h'||e.key.toLowerCase()==='v')){e.preventDefault();e.stopImmediatePropagation();$(e.key.toLowerCase()==='h'?'bgFlipX':'bgFlipY').click();return;}
+  const tool={b:'bgPencilTool',r:'bgRectangleTool',g:'bgFillTool',e:'bgEraserTool',i:'bgPickerTool',s:'bgSelectTool',h:'bgPanTool'}[e.key.toLowerCase()];
+  if(tool&&!e.shiftKey){e.preventDefault();e.stopImmediatePropagation();$(tool).click();}
  },true);
  window.addEventListener('keyup',e=>{if(e.code==='Space'){bgSpaceHeld=false;$('bgCanvas').style.cursor=bgTool==='pan'?'grab':'';}});
  window.addEventListener('blur',()=>{bgSpaceHeld=false;bgPanDrag=null;$('bgCanvas').style.cursor=bgTool==='pan'?'grab':'';});
@@ -741,7 +728,7 @@
  // of painting. Capture phase + stopImmediatePropagation so this runs before
  // the canvas's own paint handlers or the rectangle handles' drag handlers.
  $('bgStage').addEventListener('pointerdown',e=>{
-  if(!bgSpaceHeld&&e.button!==1&&bgTool!=='pan')return;
+  if(e.button===2||(!bgSpaceHeld&&e.button!==1&&bgTool!=='pan'))return;
   e.preventDefault();e.stopImmediatePropagation();
   bgPanDrag={x:e.clientX,y:e.clientY,left:$('bgStage').scrollLeft,top:$('bgStage').scrollTop};
   $('bgStage').setPointerCapture(e.pointerId);$('bgCanvas').style.cursor='grabbing';
@@ -756,6 +743,7 @@
   $('bgCanvas').style.cursor=bgSpaceHeld||bgTool==='pan'?'grab':'';
  },true);
 
+ StudioShell.viewStatus('backgrounds',$('bgStatus'));
  window.renderBackgrounds=render;
  const oldRedraw=redrawAll;redrawAll=function(){oldRedraw();render();};
  const oldShow=showView;showView=function(v){oldShow(v);render();};

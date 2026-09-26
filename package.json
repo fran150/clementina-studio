@@ -13,7 +13,10 @@
     "test:desktop:animation": "npm run build && electron tests/desktop-animation.cjs",
     "test:desktop:background": "npm run build && electron tests/desktop-background.cjs",
     "test:desktop:overlay": "npm run build && electron tests/desktop-overlay.cjs",
-    "test:ui": "npm run build && electron tests/desktop-workflow.cjs && electron tests/desktop-shell.cjs && electron tests/desktop-animation.cjs && electron tests/desktop-background.cjs && electron tests/desktop-overlay.cjs && electron tests/desktop-smoke.cjs",
+    "test:desktop:navigation": "npm run build && electron tests/desktop-navigation.cjs",
+    "test:desktop:editing": "npm run build && electron tests/desktop-editing.cjs",
+    "test:desktop:conventions": "npm run build && electron tests/desktop-conventions.cjs",
+    "test:ui": "npm run build && electron tests/desktop-workflow.cjs && electron tests/desktop-shell.cjs && electron tests/desktop-animation.cjs && electron tests/desktop-background.cjs && electron tests/desktop-overlay.cjs && electron tests/desktop-navigation.cjs && electron tests/desktop-editing.cjs && electron tests/desktop-conventions.cjs && electron tests/desktop-smoke.cjs",
     "test:all": "npm test && npm run test:ui"
   },
   "devDependencies": {

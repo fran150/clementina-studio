@@ -8,10 +8,11 @@ import { encodeProject, decodeProject, importTilesetFile, type StudioProject } f
 const here=path.dirname(fileURLToPath(import.meta.url));
 let win: BrowserWindow;
 let projectPath: string | undefined;
+function representFile(file:string){if(process.platform==='darwin'&&win&&!win.isDestroyed())win.setRepresentedFilename(file);}
 async function saveProject(p:StudioProject,saveAs=false):Promise<string|null>{
  const bytes=encodeProject(p);let target=projectPath;
  if(!target||saveAs){const r=await dialog.showSaveDialog(win,{defaultPath:target??'project.cstudio',filters:[{name:'Studio project',extensions:['cstudio']}]});if(r.canceled||!r.filePath)return null;target=r.filePath;}
- await writeFile(target,bytes);projectPath=target;return path.basename(target);
+ await writeFile(target,bytes);projectPath=target;representFile(target);return path.basename(target);
 }
 app.whenReady().then(()=>{
  const recovery=new RecoveryStore(path.join(app.getPath('userData'),'recovery'),String(process.pid)+'-'+Date.now());
@@ -35,10 +36,45 @@ app.whenReady().then(()=>{
   beforeClose:async()=>{recoveryStopped=true;clearInterval(recoveryTimer);await recoveryWork;await recovery.clear();},
   error:error=>{void dialog.showMessageBox(win,{type:'error',message:'Could not close safely',detail:String(error)});}
  });
+ // Menu shortcuts reach the page as commands (see runCommand in editor.html).
+ const command=(name:string)=>()=>win.webContents.send('studio:command',name);
  Menu.setApplicationMenu(Menu.buildFromTemplate([
   {label:'Clementina Studio',submenu:[{role:'about'},{type:'separator'},{label:'Quit Clementina Studio',accelerator:'CommandOrControl+Q',click:()=>win.close()}]},
-  {label:'File',submenu:[{label:'Close window',accelerator:'CommandOrControl+W',click:()=>win.close()}]},
-  {role:'editMenu'},{role:'viewMenu'},{role:'windowMenu'}
+  {label:'File',submenu:[
+   {label:'New Project',accelerator:'CommandOrControl+N',click:command('newProject')},
+   {label:'Open Project…',accelerator:'CommandOrControl+O',click:command('open')},
+   {type:'separator'},
+   {label:'Save Project',accelerator:'CommandOrControl+S',click:command('save')},
+   {label:'Save Project As…',accelerator:'CommandOrControl+Shift+S',click:command('saveAs')},
+   {type:'separator'},
+   {label:'Close Window',accelerator:'CommandOrControl+W',click:()=>win.close()}
+  ]},
+  // Undo and Redo are the project's own history (history.js); inside a text
+ // field the page hands them back to it. Cut, Copy and Paste keep their
+ // native roles, which the page answers for the canvas (studio-shell.js).
+ // registerAccelerator:false leaves the keys to the page on Windows and
+ // Linux, which handles them first everywhere.
+ {label:'Edit',submenu:[
+  {label:'Undo',accelerator:'CommandOrControl+Z',registerAccelerator:false,click:command('undo')},
+  {label:'Redo',accelerator:'Shift+CommandOrControl+Z',registerAccelerator:false,click:command('redo')},
+  {type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{type:'separator'},{role:'selectAll'}
+ ]},
+  // Replaces the default View menu, whose page zoom scaled the whole interface
+  // and whose Reload dropped the open project. These zoom the canvas.
+  // Ctrl/Cmd+1–6 switch editors, the way they switch tabs in a browser, in
+  // the tabs' order; Actual Size takes Photoshop's Ctrl/Cmd+Alt+0 instead.
+  {label:'View',submenu:[
+   ...([['Palettes','palettes'],['Tilesets','tiles'],['Shapes','shapes'],['Animations','animations'],['Backgrounds','backgrounds'],['Overlays','overlays']] as const)
+    .map(([label,view],i)=>({label,accelerator:`CommandOrControl+${i+1}`,click:command('view:'+view)})),
+   {type:'separator'},
+   {label:'Zoom In',accelerator:'CommandOrControl+=',click:command('zoomIn')},
+   {label:'Zoom Out',accelerator:'CommandOrControl+-',click:command('zoomOut')},
+   {label:'Zoom to Fit',accelerator:'CommandOrControl+0',click:command('zoomFit')},
+   {label:'Actual Size',accelerator:'CommandOrControl+Alt+0',click:command('zoomActual')},
+   {type:'separator'},{role:'toggleDevTools'},{role:'togglefullscreen'}
+  ]},
+  {role:'windowMenu'},
+ {role:'help',submenu:[{label:'Keyboard Shortcuts',accelerator:'CommandOrControl+/',registerAccelerator:false,click:command('shortcuts')}]}
  ]));
  win.webContents.on('before-input-event',(event,input)=>{if(input.type==='keyDown'&&input.key.toLowerCase()==='q'&&(input.control||input.meta)){event.preventDefault();win.close();}});
  void win.loadFile(path.resolve(here,'../../../apps/desktop/editor.html'));
@@ -71,14 +107,16 @@ app.whenReady().then(()=>{
   return {name:path.basename(selected),dataUrl:'data:'+mime+';base64,'+bytes.toString('base64'),format:ext.slice(1)};
  });
  ipcMain.handle('project:open',async()=>{
-  const result=await dialog.showOpenDialog(win,{filters:[{name:'Studio or legacy tile projects',extensions:['cstudio','mtb']}],properties:['openFile']});
+  const result=await dialog.showOpenDialog(win,{filters:[{name:'Studio project',extensions:['cstudio']}],properties:['openFile']});
   if(result.canceled)return null;
-  const selected=result.filePaths[0]; const bytes=await readFile(selected);
-  if(path.extname(selected).toLowerCase()==='.cstudio')return {path:selected,name:path.basename(selected),project:decodeProject(bytes.toString('utf8'))};
-  return {path:selected,name:path.basename(selected),bytes:Array.from(bytes)};
+  const selected=result.filePaths[0];
+  return {path:selected,name:path.basename(selected),project:decodeProject(await readFile(selected,'utf8'))};
  });
- ipcMain.handle('project:opened',(_event,selected:string)=>{projectPath=path.extname(selected).toLowerCase()==='.cstudio'?selected:undefined;});
- ipcMain.handle('project:new',()=>{projectPath=undefined;});
+ ipcMain.handle('project:opened',(_event,selected:string)=>{projectPath=selected;representFile(selected);});
+ // macOS shows unsaved edits as a dot in the close button, and the file as
+ // the title's proxy icon.
+ ipcMain.on('project:edited',(_event,edited:boolean)=>{if(process.platform==='darwin'&&!win.isDestroyed())win.setDocumentEdited(!!edited);});
+ ipcMain.handle('project:new',()=>{projectPath=undefined;representFile('');});
  ipcMain.handle('project:save',(_event,p:StudioProject,saveAs:boolean)=>saveProject(p,saveAs));
 });
 app.on('window-all-closed',()=>app.quit());

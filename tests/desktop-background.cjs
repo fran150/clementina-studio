@@ -46,7 +46,8 @@ app.whenReady().then(async()=>{
  await new Promise(r=>setTimeout(r,60));
  assert.deepEqual(await run(`return {tile:$('bgStampTile').textContent,bank:$('bgBankLabel').textContent};`),{tile:'1',bank:'Bank 03'});
 
- const canvas=await run(`$('bgPencilTool').click();const r=$('bgCanvas').getBoundingClientRect();return {left:r.left,top:r.top};`);
+ // A background opens fitted to the window; these cell coordinates assume 100%.
+ const canvas=await run(`$('bgPencilTool').click();$('bgActualSize').click();const r=$('bgCanvas').getBoundingClientRect();return {left:r.left,top:r.top};`);
  const at=(col,row)=>({x:canvas.left+col*8+4,y:canvas.top+row*8+4});
 
  // Dragging on the tile picker selects a multi-tile group; painting with it
@@ -68,7 +69,7 @@ app.whenReady().then(async()=>{
 
  // Saving that same region as a named Object in the tileset editor must make
  // it appear in the background editor's Objects list, reloadable with a click.
- await run(`showView('tiles');document.querySelector('button[aria-label="Objects & tile map"]').click();`);
+ await run(`showView('tiles');if($('bankMapToggle').getAttribute('aria-expanded')!=='true')$('bankMapToggle').click();`);
  const bankMapRect=await run(`const r=$('bankMap').getBoundingClientRect();return {left:r.left,top:r.top,width:r.width,height:r.height};`);
  const bmCell=bankMapRect.width/16;
  const bmFrom={x:bankMapRect.left+bmCell*0.5,y:bankMapRect.top+bmCell*2.5},bmTo={x:bankMapRect.left+bmCell*1.5,y:bankMapRect.top+bmCell*2.5};
@@ -156,7 +157,7 @@ app.whenReady().then(async()=>{
  window.webContents.sendInputEvent({type:'mouseUp',x:selTo.x,y:selTo.y,button:'left',clickCount:1});
  await new Promise(r=>setTimeout(r,60));
  assert.equal(await run(`return $('bgSelectionLabel').textContent;`),
-  'Selected 2 × 2 — Flip/Priority/bank below edit these tiles in place');
+  'Selected 2 × 2 — flips, Priority and a palette bank edit these tiles in place');
 
  await run(`$('bgFlipX').click();`);
  assert.deepEqual(await run(`const a=backgrounds[0];return [[25,2],[26,2],[25,3],[26,3]].map(([c,r])=>({tile:a.cells[r*40+c].tile,flipX:a.cells[r*40+c].flipX}));`),
@@ -283,12 +284,13 @@ app.whenReady().then(async()=>{
  assert.deepEqual(panAfter,{left:panBefore.left+50,top:panBefore.top+30,cellsUnchanged:true},'the Pan tool must scroll the stage and must not paint');
  await run(`$('bgPencilTool').click();$('bgWidth').value=50;$('bgHeight').value=25;$('bgResize').click();`);
 
- // Docked-panel bounds at two window widths, matching the animation editor's check.
+ // Docked-panel bounds at two window widths: a panel docks beside the canvas
+ // area — left or right — and the canvas scrolls inside what is left.
  for(const width of [1440,1024]){
   window.setSize(width,900);await new Promise(r=>setTimeout(r,150));
   for(const toggle of ['bgLibraryToggle','bgTileLibraryToggle','bgStatusToggle']){
    await run(`if($('${toggle}').getAttribute('aria-expanded')!=='true')$('${toggle}').click();`);await new Promise(r=>setTimeout(r,80));
-   const bounds=await run(`const panel=$($('${toggle}').getAttribute('aria-controls')).getBoundingClientRect(),main=document.querySelector('#backgroundEditor main').getBoundingClientRect(),canvas=$('bgCanvas').getBoundingClientRect();return {clear:panel.right<=main.left,canvasWithin:canvas.left>=main.left&&canvas.right<=main.right+1};`);
+   const bounds=await run(`const panel=$($('${toggle}').getAttribute('aria-controls')).getBoundingClientRect(),main=document.querySelector('#backgroundEditor main').getBoundingClientRect(),stage=$('bgStage').getBoundingClientRect();return {clear:panel.right<=main.left||panel.left>=main.right,canvasWithin:stage.left>=main.left&&stage.right<=main.right+1};`);
    assert.equal(bounds.clear,true);assert.equal(bounds.canvasWithin,true);
   }
   if(process.env.STUDIO_CAPTURE_DIR)fs.writeFileSync(path.join(process.env.STUDIO_CAPTURE_DIR,`background-${width}.png`),(await window.webContents.capturePage()).toPNG());

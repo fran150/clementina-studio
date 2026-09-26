@@ -33,9 +33,10 @@ drawn against them.
 ## Normal workflow
 
 Define palettes and the bank configs that place them in palette RAM, draw
-tilesets, build shapes from their tiles, then sequence shapes into animations.
-The active config is a preview choice, switchable from the header in every
-editor; it does not change what a project stores.
+tilesets, build shapes from their tiles, sequence shapes into animations, paint
+backgrounds, then design the overlay — the order of the editor tabs. The active
+config is a preview choice, switched from the one Config picker beside the tabs;
+it does not change what a project stores.
 
 A later build step will lay out Clementina's memory, choose files and emit a
 loader. It is deliberately last, so that it handles maps, scenes and music too
@@ -107,7 +108,7 @@ the zoomed pixel canvas instead of drawing.
 
 **Overlays.** The fixed 40×25 hardware text/HUD layer — no `BGMODE`, no
 scroll, its own `OVLBANK`/`OVLALT` primary and alternate tileset pair. Same
-cell shape and paint tools as backgrounds. A **placeholder** is a named
+cell shape, tile picker, Objects list, paint and Select tools as backgrounds. A **placeholder** is a named
 rectangular region, nothing more; whatever is painted inside it is the
 overlay's real initial content, not a mockup — a future build step generates
 a primitive per placeholder that overwrites its tile IDs at runtime. Where
@@ -173,11 +174,107 @@ streaming will eventually be handled.
 
 Shared UI conventions and extension points: **[docs/editor-shell.md](docs/editor-shell.md)**.
 
+### Canvas navigation and menus
+
+The tileset, overlay, background and shape canvases navigate the same way.
+The wheel or a two-finger swipe pans (Shift+wheel pans sideways); a pinch or
+Ctrl/Cmd+wheel zooms around the pointer. Space-drag, the middle button and the
+Pan tool (H) pan too. Zoom steps are whole numbers above 1× — 1, 2, 3, 4, 6, 8,
+12, 16, 24, 32 — so every art pixel stays the same size on screen, and halve
+below it (0.5×, 0.25×) for art bigger than the window; tilesets never go below
+1×. Every canvas's top bar centers the same Fit, 100%, −, level, + cluster.
+Every canvas opens fitted to the window and keeps its zoom when you come back
+to it; a tileset refits when the area picked on its tile map changes size. The
+animation preview, a player, keeps fitting its space — fractionally — until it
+is zoomed by hand.
+
+The File menu holds New (Ctrl/Cmd+N), Open (Ctrl/Cmd+O), Save (Ctrl/Cmd+S) and
+Save As (Ctrl/Cmd+Shift+S); the View menu switches editors with Ctrl/Cmd+1–6, in
+the tabs' order, as a browser switches tabs, and holds Zoom In (Ctrl/Cmd+=), Zoom
+Out (Ctrl/Cmd+−), Zoom to Fit (Ctrl/Cmd+0) and Actual Size (Ctrl/Cmd+Alt+0). The menu
+owns these shortcuts, so they work while a field has focus. There is no page
+zoom or Reload: the first scaled the whole interface, the second dropped the
+open project.
+
+Painting tools share letters across editors: B pencil, E eraser, G fill, I pick,
+H pan, R rectangle, S select; the tileset editor adds L line and O ellipse,
+and the shape editor V select-and-move. Shift+H and Shift+V flip the selection
+horizontally and vertically wherever there is one to flip.
+
+Right-click means one thing everywhere. With a painting tool it paints color 0
+— it erases — the way Aseprite's right button paints the background color;
+with any other tool it opens the edit menu: cut, copy, paste, delete, the
+flips and arrangement that apply, select all. Right-click an animation frame
+for the frame menu, and a color in the palette editor or the tileset editor's
+palette dock to copy, paste or edit it.
+
+Every editor is laid out the same way: a rail of panel toggles and tools on
+the left, with copy, paste, undo and redo pinned to its bottom; panels to pick
+from docked on the left (libraries, tile pickers); the selection's own panel
+and transforms — flips, rotation, priority, arrangement, delete — on a right
+rail, with its properties docked on the right: a shape's draw order, a
+background's camera, the selected placeholder, the selected animation frame.
+Docked panels sit beside the canvas and never cover it. Picking tiles
+in a tile picker switches to the tool that places them (the pencil, or Place
+tiles for shapes), as Tiled does.
+
+The editor tabs end with the project's New, Open, Save and Save As; the window
+title names the project's file and says when it has unsaved edits. One status
+bar carries the app's messages, the current editor's status (sizes, counts,
+what is under the pointer) and the unsaved-changes marker. Library rows rename
+with F2 or a double-click, and offer Rename, Duplicate and Delete on a
+right-click; Delete also deletes the focused row. Deleting anything that undo
+can bring back asks no question — the status bar says how to undo it. An
+editor with nothing to show says what is missing, with the button that makes
+it. **?**, Ctrl/Cmd+/, Help ▸ Keyboard Shortcuts or any editor's **?** button
+lists the keys that work everywhere and in the editor on screen.
+
+### Selection and the clipboard
+
+Selection works the same everywhere it applies. The Select tool (S) drags a
+rectangle — of tileset pixels, or of background or overlay cells; in the shape
+editor, sprites are clicked or boxed. Dragging inside a selection moves it,
+arrows nudge it, Ctrl/Cmd+A selects everything, Escape deselects, and Delete
+clears it. Transforms on the right rail act on the selection as one undo step:
+flipping a block of cells turns the picture over (the cells swap places and
+each flips), and a palette bank click or Priority applies to every selected
+cell. In the background and overlay editors the selection belongs to the
+Select tool: taking up a painting tool drops it, so the flips, Priority and a
+bank click act on the selection while selecting and on the next stamp while
+painting.
+
+Ctrl/Cmd+C, X and V copy, cut and paste in every editor, through one app
+clipboard that holds one kind of thing at a time: pixels, cells (which paste
+between backgrounds and overlays), sprites, animation frames, a palette or a
+single color (shared by the tileset editor's palette dock and the palette
+editor). A pixel or cell paste follows the pointer until a click places it;
+a sprite paste lands where it was copied from, selected; a frame paste goes
+in after the selected frame. Ctrl/Cmd+D duplicates sprites and frames. In the
+animation editor Space plays and pauses and the arrows step through frames.
+
+One undo history covers the whole project, as a document's does in any
+editor: Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z (or Ctrl/Cmd+Y), every rail's Undo and
+Redo, and Edit ▸ Undo and Redo all step through the same edits, whichever
+editor made them — an edit to a tile shows up wherever the tile is used, and
+so does its undo. Every step is named: the Undo and Redo buttons say which one
+they would take ("Undo Delete Background_2") and the status bar says what was
+undone. Each step records only
+the parts of the project its edit touched, so a large background's history
+does not also carry every tileset. A new or opened project starts with an
+empty history.
+
+Run `npm run test:desktop:editing` for selection, flips, the clipboard and
+undo in every editor.
+
+Run `npm run test:desktop:navigation` for wheel panning and zooming around the
+pointer, fit-on-open, the menu's commands, the tool letters, and image import.
+
 ### Overlay workspace
 
 Structured like the background workspace, but fixed to 40×25 — no resize, no
 `BGMODE`, no scroll, no camera panel. A Placeholders panel lists each
-region's name and `col`/`row`/`width`/`height`; a dedicated Placeholder tool
+region by name; the selected one's `col`/`row`/`width`/`height` are in the
+Placeholder panel docked on the right. A dedicated Placeholder tool
 drags out a new one directly on the canvas, rejecting drags or field edits
 that would overlap an existing placeholder or leave the 40×25 grid. Existing
 placeholders render as labeled, click-through dashed outlines so they stay
@@ -199,7 +296,8 @@ in the stamp bar as "Group *w* × *h*". An Objects list below the picker
 mirrors the tileset's own named selections (managed in the Tilesets editor)
 as one-click shortcuts to re-pick a saved group. The pencil tool stamps a
 picked group as a unit, each tile keeping its own authored palette bank
-rather than one bank forced across the whole group — the palette dock is
+rather than one bank forced across the whole group, and mirrors it whole
+when the stamp is flipped — the palette dock is
 disabled while a group is picked, since there's no single bank to override.
 Rectangle fill, flood fill and the eraser stay single-tile regardless of
 what's picked, using just its top-left tile: stamping a whole group at every
@@ -208,12 +306,12 @@ placing it once. The palette dock itself shows every bank's full 8 colors,
 not one representative swatch, so two banks that only differ past color 1
 don't look identical. Pencil, rectangle fill, flood fill, eraser and
 eyedropper tools paint cells; a stroke or a rectangle drag is one undo step.
-A Select tool marks a range of already-painted cells instead — dragging it
-shows "Selected *w* × *h*" in the stamp bar, and clicking Flip X/Y, Priority
-or a palette bank then edits every marked cell's attribute in place as one
-undo step, never touching its tile or `CHR_ALT`. It's how to recolor or
-reflip a placed shape after the fact without repainting it tile by tile.
-Escape or the "Clear selection" button drops the range.
+The Select tool marks a range of cells instead — "Selected *w* × *h*" in the
+stamp bar — to copy, move, clear or edit as described under Selection and the
+clipboard: a palette bank click or Priority changes every selected cell
+without touching its tile or `CHR_ALT`, and a flip turns the block over. It's
+how to recolor or turn over a placed picture without repainting it tile by
+tile. Escape or the "Clear selection" button drops the range.
 A Pan tool scrolls the canvas on drag instead of painting — needed once a
 background is bigger than the window, since the canvas area scrolls
 independently of the toolbar above it rather than growing past the window
@@ -224,6 +322,11 @@ independent for primary and alternate — the picker and canvas re-render from
 whichever page is chosen. A "toggle overlay" control in the Status panel
 composites a chosen overlay asset over the inner (visible-screen) rectangle,
 defaulting to plane 0 for any 1bpp overlay tileset.
+
+Color 0 is opaque on the background layer: the canvas and its tile picker draw
+it in each cell's own bank, as the hardware does (clementina-video-client's
+`renderer.go` draws every background pixel through the palette, color 0
+included). Only the overlay and sprites show what is behind color 0.
 
 The canvas is native pixel size (`width × height × 8`), scrollable, and
 zoomable in discrete steps, with a light grid at every tile boundary so an
@@ -259,14 +362,15 @@ camera/scroll preview math, and docked layout checks at 1440- and
 ### Animation workspace
 
 The animation libraries dock beside the canvas so opening them does not cover the
-preview, frame properties, or timeline. Select poses with Ctrl/Cmd-click or
+preview, frame properties, or timeline. Select shapes with Ctrl/Cmd-click or
 Shift-click, then append them as successive frames in library order. Only shapes
 from the animation's tileset are offered.
 
 The thumbnail strip supports selection, drag reordering, and Alt+Left/Right keyboard
-reordering. Previous/next and play/pause controls navigate the sequence; pausing
-selects the displayed frame. Edit ticks and offsets in the selected-frame row, or
-drag on the preview to offset the pose. These edits preserve source shapes and
+reordering. The previous, play/pause and next controls sit above the timeline
+(Space plays and pauses, the arrows step); pausing selects the displayed frame.
+Edit the selected frame's shape, ticks and offset in the Frame panel docked on
+the right, or drag on the preview to offset the pose. These edits preserve source shapes and
 participate in undo/redo. Each frame still references one shape; simultaneous
 independent actors belong to scene composition.
 

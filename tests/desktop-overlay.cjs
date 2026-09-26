@@ -59,7 +59,8 @@ app.whenReady().then(async()=>{
  await new Promise(r=>setTimeout(r,60));
  assert.deepEqual(await run(`return {tile:$('ovStampTile').textContent,bank:$('ovBankLabel').textContent};`),{tile:'1',bank:'Bank 03'});
 
- const canvas=await run(`$('ovPencilTool').click();const r=$('ovCanvas').getBoundingClientRect();return {left:r.left,top:r.top};`);
+ // An overlay opens fitted to the window; these cell coordinates assume 100%.
+ const canvas=await run(`$('ovPencilTool').click();$('ovActualSize').click();const r=$('ovCanvas').getBoundingClientRect();return {left:r.left,top:r.top};`);
  const at=(col,row)=>({x:canvas.left+col*8+4,y:canvas.top+row*8+4});
 
  // A pencil click stamps the picked tile and bank, and is one undo step.
@@ -146,7 +147,7 @@ app.whenReady().then(async()=>{
 
  // At high zoom the fixed 320x200 canvas can exceed the window; the Pan tool
  // scrolls #ovStage on drag instead of painting.
- await run(`$('ovZoomIn').click();$('ovZoomIn').click();$('ovZoomIn').click();$('ovPanTool').click();`);
+ await run(`for(let i=0;i<5;i++)$('ovZoomIn').click();$('ovPanTool').click();`);
  const panBefore=await run(`return {left:$('ovStage').scrollLeft,top:$('ovStage').scrollTop,cells:JSON.stringify(overlays[0].cells)};`);
  const stageCenter=await run(`const r=$('ovStage').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};`);
  window.webContents.sendInputEvent({type:'mouseDown',x:stageCenter.x,y:stageCenter.y,button:'left',clickCount:1});
@@ -155,14 +156,14 @@ app.whenReady().then(async()=>{
  await new Promise(r=>setTimeout(r,60));
  const panAfter=await run(`return {left:$('ovStage').scrollLeft,top:$('ovStage').scrollTop,cellsUnchanged:JSON.stringify(overlays[0].cells)===${JSON.stringify(panBefore.cells)}};`);
  assert.deepEqual(panAfter,{left:panBefore.left+40,top:panBefore.top+25,cellsUnchanged:true},'the Pan tool must scroll the stage and must not paint');
- await run(`$('ovPencilTool').click();$('ovZoomOut').click();$('ovZoomOut').click();$('ovZoomOut').click();`);
+ await run(`$('ovPencilTool').click();$('ovActualSize').click();`);
 
  // Docked-panel bounds at two window widths, matching the other editors' check.
  for(const width of [1440,1024]){
   window.setSize(width,900);await new Promise(r=>setTimeout(r,150));
   for(const toggle of ['ovLibraryToggle','ovTileLibraryToggle','ovPlaceholderLibraryToggle']){
    await run(`if($('${toggle}').getAttribute('aria-expanded')!=='true')$('${toggle}').click();`);await new Promise(r=>setTimeout(r,80));
-   const bounds=await run(`const panel=$($('${toggle}').getAttribute('aria-controls')).getBoundingClientRect(),main=document.querySelector('#overlayEditor main').getBoundingClientRect(),canvas=$('ovCanvas').getBoundingClientRect();return {clear:panel.right<=main.left,canvasWithin:canvas.left>=main.left&&canvas.right<=main.right+1};`);
+   const bounds=await run(`const panel=$($('${toggle}').getAttribute('aria-controls')).getBoundingClientRect(),main=document.querySelector('#overlayEditor main').getBoundingClientRect(),stage=$('ovStage').getBoundingClientRect();return {clear:panel.right<=main.left||panel.left>=main.right,canvasWithin:stage.left>=main.left&&stage.right<=main.right+1};`);
    assert.equal(bounds.clear,true);assert.equal(bounds.canvasWithin,true);
   }
   if(process.env.STUDIO_CAPTURE_DIR)fs.writeFileSync(path.join(process.env.STUDIO_CAPTURE_DIR,`overlay-${width}.png`),(await window.webContents.capturePage()).toPNG());
