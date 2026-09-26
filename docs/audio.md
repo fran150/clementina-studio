@@ -183,15 +183,18 @@ snap. They are editor state.
 
 ## Build step
 
-Not written yet. For audio it will:
+Designed, not built yet. See
+[`clementina-sdk/docs/gamedev/builder.md`](../../clementina-sdk/docs/gamedev/builder.md).
+For audio:
 
-- choose track bases in the free RAM at `$14000–$3FFFF`;
-- issue `AUDIO_SEQ_SET_BASE<v>` and `AUDIO_SEQ_LOAD`, then start the voices
-  together;
-- include the sound-effect driver in the runtime routine library.
-
-Which voices a scene's song leaves free for its sound effects is a scene
-decision.
+- **Songs.** A song is a file holding its compiled tracks, and a slot in MIA RAM
+  gives it a default address. `PlaySong` points each voice at its track with
+  `AUDIO_SEQ_SET_BASE<v>`, loads the tracks, then starts the voices together.
+- **Sounds.** A sound is a file of `soundWrites` frames. `PlaySound` takes a
+  voice, and `TickSound` writes one frame per call. Both are in the runtime
+  library.
+- **Voices.** Which voices a song leaves free for sound effects is the game's
+  decision. It says which voice each `PlaySound` uses.
 
 ## Findings for the firmware and ROM
 

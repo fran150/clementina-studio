@@ -266,32 +266,17 @@ hold their own plane choice independently, none of it stored on the tileset.
 
 ## Build step
 
-Not written yet, and deliberately last: it waits on maps and scenes, so
-that it lays out all of a project's assets rather than being rebuilt each time
-a new kind arrives. The export path and its UI were removed rather than carried
-half-finished.
+Designed, not built yet. The design lives in the SDK, which owns the build,
+the file formats and the runtime routines:
+[`clementina-sdk/docs/gamedev/builder.md`](../../clementina-sdk/docs/gamedev/builder.md).
 
-When it lands, it is where the user lays out Clementina's memory and chooses
-files. It assigns tilesets to CHR banks, groups palettes into files, names
-the outputs, and selects which runtime routines to include.
-
-It can report two things cheaply. Two tilesets of different `bpp` assigned to
-the same CHR bank is a genuine conflict, since `CHR_1BPP_MASK` holds one bit
-per bank. And a config that a scene's placements do not agree with is worth
-flagging once the scene editor exists.
-
-The runtime routines should live in the ROM repository or a shared library,
-not in Studio. They depend on hardware constants — the OAM base, the five-byte
-entry stride, the index window numbers, the `$C0-$DF` direct range covering
-only sprites 0-31 — which track the firmware, not the editor. Studio
-references modules by name. Today `bankAssetPackage` hardcodes the palette RAM
-base as decimal 256 in a generated loader, which is the drift this avoids.
-
-Two routines are needed early and are easy to omit. Loading a group at OAM
-index X must raise `OAM_LAST_INDEX` when the group extends past it, or the
-renderer never scans those entries. And OAM needs a clear routine that sets
-the disable bit across the range, because every entry up to `OAM_LAST_INDEX`
-is drawn whether or not anything wrote it.
+In short, the Builder tab doesn't wait for scenes, because it never decides
+when anything is loaded. It edits named memory slots in MIA RAM and CPU banks,
+each asset's default slot, and which assets are included. It saves those
+settings to the SDK project's `clementina.yaml` and runs the SDK build. The
+build writes one file per asset for the SD card, plus a ca65 routine library
+and generated descriptors. The game's own code decides when to load, draw,
+play and tick.
 
 ## Preview fidelity
 
