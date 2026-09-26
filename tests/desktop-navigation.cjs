@@ -65,8 +65,9 @@ app.whenReady().then(async()=>{
   // Shapes: the wheel pans the camera; Ctrl+wheel zooms.
   await run(`showView('shapes');$('scNew').click();`);await wait(80);
   const shapeCanvas=await run(`const r=$('scCanvas').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};`);
-  // The first row, from the top, that leaves the empty viewport color: the shape canvas's top edge.
-  const artTop=`const c=$('scCanvas'),d=c.getContext('2d').getImageData(Math.floor(c.width/2),0,1,c.height).data;for(let y=0;y<c.height;y++)if(d[y*4]!==0x11||d[y*4+1]!==0x13||d[y*4+2]!==0x18)return y;return -1;`;
+  // The first opaque row from the top: the shape canvas's top edge. Around
+  // the art the canvas is clear, showing the stage, but for its drop shadow.
+  const artTop=`const c=$('scCanvas'),d=c.getContext('2d').getImageData(Math.floor(c.width/2),0,1,c.height).data;for(let y=0;y<c.height;y++)if(d[y*4+3]===255)return y;return -1;`;
   const shapeZoom=await run(`return $('scZoomLabel').textContent;`),topBefore=await run(artTop);
   // Scrolls up, moving the art down, so its top edge stays on screen.
   await wheel(shapeCanvas.x,shapeCanvas.y,120);

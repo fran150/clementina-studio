@@ -24,7 +24,20 @@
    for(const id of ids){const b=document.getElementById(id);if(b){b.title=title;b.setAttribute('aria-label',title);b.disabled=!entry;}}
   }
   document.dispatchEvent(new Event('studiohistorychange'));
+  publishMenu();
  }
+ // Edit ▸ Undo and Redo name the step as well. While a text field has focus
+ // they are the field's own, so they go back to plain and enabled.
+ let published='';
+ function publishMenu(){
+  const text=/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName)||document.activeElement?.isContentEditable;
+  const item=(verb,entry)=>text?{label:verb,enabled:true}:{label:entry?`${verb} ${entry.label}`:verb,enabled:!!entry};
+  const menu={undo:item('Undo',undo.at(-1)),redo:item('Redo',redo.at(-1))},json=JSON.stringify(menu);
+  if(json!==published){published=json;window.studio?.historyMenu?.(menu);}
+ }
+ document.addEventListener('focusin',publishMenu);
+ // Focus has not landed anywhere yet during focusout.
+ document.addEventListener('focusout',()=>setTimeout(publishMenu));
  function step(from,to,verb){
   const entry=from.pop();if(!entry)return;
   to.push({...entry,state:capture(entry.parts)});
@@ -50,6 +63,7 @@
 
  // Ctrl/Cmd+Z undoes and Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y redoes in every
  // workspace; text fields keep their own undo.
+ publishMenu();
  window.addEventListener('keydown',event=>{
   if(!(event.ctrlKey||event.metaKey)||event.altKey||/INPUT|SELECT|TEXTAREA/.test(event.target.tagName)||document.querySelector('dialog[open]'))return;
   const key=event.key.toLowerCase();if(key!=='z'&&key!=='y')return;

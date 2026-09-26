@@ -31,6 +31,20 @@ footer #viewStatus > [hidden] { display:none; }
 .studioEditor { position:relative; height:calc(100vh - 72px); display:grid; grid-template-columns:auto auto minmax(0,1fr) auto auto; grid-template-rows:minmax(0,1fr); }
 .studioEditor > * { grid-row:1; }
 .studioEditor > .studioMain { grid-column:3; min-width:0; min-height:0; }
+/* Every editor's main area is a column filling its cell: this overrides the
+   page's generic main, which wraps, pads and top-aligns its children. */
+.studioEditor > .studioMain { display:flex; flex-direction:column; flex-wrap:nowrap; align-items:stretch; padding:0; gap:0; overflow:hidden; }
+/* The stage every canvas sits on, and every empty state, look the same in
+   each editor: a dark field with a faint dot grid. The art on it — a canvas,
+   the palette swatches' frame — has a hairline edge and a drop shadow. */
+.studioStage, .studioEmpty { background-color:#101113; background-image:radial-gradient(#22252b 1px, transparent 1px); background-size:12px 12px; }
+.studioArt { box-shadow:0 0 0 1px #3a3f4a, 0 8px 40px #0008; }
+/* The Preview panel: the art at a small size, floating at the stage's
+   top-right, shown or hidden with the Preview button in the top bar. */
+.canvasPreview { position:absolute; right:12px; top:12px; z-index:3; padding:10px 12px; background:var(--panel); border:1px solid var(--line); border-radius:5px; box-shadow:0 6px 20px #0008; display:flex; flex-direction:column; align-items:center; gap:8px; font-size:10px; color:var(--text-dim); pointer-events:none; }
+.canvasPreview[hidden] { display:none; }
+.canvasPreview strong { font-size:11px; color:var(--text); }
+.canvasPreview canvas { image-rendering:pixelated; }
 .studioEditor > .studioDock { position:relative; min-width:0; min-height:0; padding:38px 12px 12px; background:var(--panel); display:flex; flex-direction:column; overflow:auto; box-shadow:none; border:0; border-radius:0; }
 .studioEditor > .studioDockLeft { grid-column:2; width:285px; border-right:1px solid var(--line); }
 .studioEditor > .studioDockRight { grid-column:4; width:260px; border-left:1px solid var(--line); }
@@ -84,10 +98,11 @@ header .projectIcon svg { width:25px; height:25px; }
    makes it — the same in every editor. */
 .studioEmpty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px; text-align:center; }
 .studioEmpty[hidden] { display:none; }
-.studioEmpty p { margin:0; font-size:14px; color:var(--text); max-width:460px; line-height:1.6; }
+.studioIsEmpty > .studioAssetDock { display:none !important; }
+/* The same message in every editor, whatever the editor's own text styles. */
+.studioEmpty p, #workspace .studioEmpty p { margin:0; font-size:14px; color:var(--text); max-width:460px; line-height:1.6; }
 .studioEmptyActions { display:flex; gap:8px; }
 .studioEmptyActions button { padding:7px 14px; }
-#scViewport .studioEmpty { position:absolute; inset:0; z-index:1; background:#111318; }
 
 /* Right-click menus on library rows. */
 .studioMenu { position:fixed; z-index:10001; min-width:170px; padding:4px; display:flex; flex-direction:column; background:var(--panel2); border:1px solid var(--line); border-radius:5px; box-shadow:0 8px 24px #000a; }

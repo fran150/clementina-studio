@@ -26,12 +26,17 @@ model mutation, undo and canvas geometry stay in each editor.
   rule — panel toggles, then tools — and edit actions (copy, paste, undo, redo)
   pinned to the bottom. A right rail holds the selection's panel toggle and its
   transforms: flips, rotation, priority, arrangement, delete.
-- `bindPanel({panel, button, closeId, closeClass, group, closeGroups})` binds a
+- `bindPanel({panel, button, closeId, closeClass, group, closeGroups, asset})` binds a
   dock and its trigger. It sets `aria-controls` and `aria-expanded`, adds a close
   button, and supports Escape inside the panel with focus returning to the trigger.
   `closeGroups` explicitly names groups to close on opening, keeping every trigger
   synchronized: each editor's left docks are mutually exclusive, and a right dock
   is independent of them. The palette library and bank configs are independent.
+  `asset: true` marks a dock that shows a part of the open asset — its tile
+  map, the tiles it draws from, its properties — rather than the list of
+  assets. `emptyEditor(host, empty)`, called from each editor's render, hides
+  those docks and disables their buttons while nothing is open, keeping
+  whether each was open for when something is.
 - Project-action icon styling, tooltips, navigation/header sizing, and global status
   presentation belong to the shell. Status messages are announced politely.
 - `renderList(container, items, {selected, choose, rename, render, content, maxLength})`
@@ -84,7 +89,10 @@ model mutation, undo and canvas geometry stay in each editor.
   Redo buttons call `ProjectHistory.undo` and `redo`. A step restores those
   parts, fires `studiohistory` on `document` for editors to clamp indices and
   drop transient state, and redraws everything. Ctrl/Cmd+Z and Edit ▸ Undo are
-  handled once, here and in `runCommand`.
+  handled once, here and in `runCommand`. The Undo and Redo buttons and Edit ▸
+  Undo and Redo name the step they would take ("Undo Paint"); the page sends
+  the menu labels to the main process, which rebuilds the menu, and sends
+  plain, enabled ones while a text field has focus, whose own undo they run.
 - `editActions(view, {copy, cut, paste})` registers the commands a view's
   clipboard keys run, so Edit ▸ Cut, Copy and Paste clicked in the menu do the
   same outside a text field.
@@ -105,14 +113,24 @@ model mutation, undo and canvas geometry stay in each editor.
   `#configPicker` beside the editor tabs. Editors do not carry their own.
 - `.studioEmpty` with `.studioEmptyActions` is the empty state every editor
   shows when it has nothing to edit: what is missing, and the button that
-  makes it.
+  makes it. It fills the main area, centered, and the editor's top bar and
+  stage hide while it shows.
+- `.studioEditor > .studioMain` is a column filling its grid cell in every
+  editor: top bar, stage, palette dock.
+- `.studioStage` is the field every canvas sits on — the same dark dot grid
+  as the empty state — and `.studioArt` gives the art on it a hairline edge
+  and a drop shadow. A canvas that draws its own camera (Shapes) clears
+  around the art so the stage shows through.
+- `.canvasPreview` is the Preview panel: the art at a small size at the
+  stage's top-right, toggled by a Preview button (the `miniature` icon) in the
+  top bar. Tilesets and Shapes both have it, shown by default.
 
 Future scene and music editors should compose these primitives and own their
 canvas/timeline/inspector content. Keep selection and panel visibility out of portable
 asset files. A shared shell does not require identical editor-specific layouts.
 
-Run `npm test`, `npm run test:desktop`, `npm run test:desktop:shell` and
-`npm run test:desktop:navigation`.
+Run `npm test` and `npm run test:ui` (every Electron suite), or one suite
+such as `npm run test:desktop:conventions`.
 When launched from a host that sets `ELECTRON_RUN_AS_NODE`, unset that variable for
 Electron tests. Development Electron security notices may be suppressed for the
 smoke runner using `ELECTRON_DISABLE_SECURITY_WARNINGS=1`; this does not change app

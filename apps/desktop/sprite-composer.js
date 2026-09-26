@@ -3,12 +3,12 @@
 (() => {
  const host=document.createElement('section');host.id='spriteComposer';host.className='studioEditor';host.hidden=true;
  host.innerHTML=`<aside class="scLibrary studioDock studioDockLeft"><h2>Shapes</h2><div id="scShapeActions" class="assetToolbar"></div><div id="scSprites" role="listbox" aria-label="Shapes"></div><p>Double-click a shape to rename it.</p></aside><aside class="scTileLibrary studioDock studioDockLeft"><h2>Tileset</h2><div id="scBank" role="listbox" aria-label="Source tileset"></div><p id="scTilesetNote">A shape draws from one tileset: Clementina has a single sprite CHR bank.</p><h2>Tile picker</h2><label id="scPlaneLabel">Plane <select id="scPlane" aria-label="Which 1bpp page the tile picker shows"><option>0</option><option>1</option><option>2</option></select></label><canvas id="scBankMap" width="256" height="256"></canvas><h2>Objects</h2><div id="scObjectList" role="listbox" aria-label="Tileset objects"></div><p>Click an object to pick its tiles. Objects are named and edited in the Tilesets editor.</p><p>Drag to select tiles — Place tiles takes over — then click the canvas to place them.</p><button id="scPlace"></button></aside>
- <main class="studioMain"><div class="scTop"><div class="studioBarStart"></div><div id="scZoomGroup"><button id="scFit">Fit</button><button id="scActualSize">100%</button><button id="scZoomOut">−</button><span id="scZoomLabel"></span><button id="scZoomIn">+</button></div><div class="studioBarEnd"><label>Canvas <input id="scWidth" type="number" min="1" max="128" value="4" aria-label="Editing width in tiles"> × <input id="scHeight" type="number" min="1" max="128" value="4" aria-label="Editing height in tiles"> <select id="scUnits" aria-label="Canvas units"><option value="tiles">tiles</option><option value="pixels">pixels</option></select></label></div></div>
+ <main class="studioMain"><div id="scEmpty" class="studioEmpty" hidden><p id="scEmptyMessage"></p><div class="studioEmptyActions"><button id="scEmptyNew">New shape</button><button id="scEmptyTileset">Go to Tilesets</button></div></div><div class="scTop"><div class="studioBarStart"></div><div id="scZoomGroup"><button id="scFit">Fit</button><button id="scActualSize">100%</button><button id="scZoomOut">−</button><span id="scZoomLabel"></span><button id="scZoomIn">+</button></div><div class="studioBarEnd"><label>Canvas <input id="scWidth" type="number" min="1" max="128" value="4" aria-label="Editing width in tiles"> × <input id="scHeight" type="number" min="1" max="128" value="4" aria-label="Editing height in tiles"> <select id="scUnits" aria-label="Canvas units"><option value="tiles">tiles</option><option value="pixels">pixels</option></select></label></div></div>
  <div class="scOrigin">Origin <button data-origin="top-left">Top-left</button><button data-origin="center">Center</button><button data-origin="bottom-center">Bottom-center</button><button id="scOriginTool">Place origin</button><label id="scSnapRow" hidden><input id="scSnap" type="checkbox">Snap</label><details id="scDisplaySettings"><summary></summary><div><label id="scGridRow"><span>Grid</span><input id="scGrid" type="checkbox" checked></label><label id="scBackgroundRow"><span>Background</span><input type="color" id="scBackground" value="#252830"></label></div></details></div>
- <div id="scViewport"><div id="scEmpty" class="studioEmpty" hidden><p id="scEmptyMessage"></p><div class="studioEmptyActions"><button id="scEmptyNew">New shape</button><button id="scEmptyTileset">Go to Tilesets</button></div></div><canvas id="scCanvas" tabindex="0" aria-label="Sprite composition canvas"></canvas><canvas id="scMini" width="144" height="112" title="Sprite miniature"></canvas></div><div id="scStatus"></div><section id="scPaletteDock"><div class="paletteDockHead"><span id="scPaletteHint">Click a bank to set it on the selected sprites.</span></div><div id="scPalettes"></div></section></main>
+ <div id="scViewport" class="studioStage"><canvas id="scCanvas" tabindex="0" aria-label="Sprite composition canvas"></canvas><aside id="scPreview" class="canvasPreview"><strong>Preview</strong><canvas id="scMini" width="144" height="112"></canvas><span id="scMiniSize"></span></aside></div><div id="scStatus"></div><section id="scPaletteDock"><div class="paletteDockHead"><span id="scPaletteHint">Click a bank to set it on the selected sprites.</span></div><div id="scPalettes"></div></section></main>
  <aside class="scInspector studioDock studioDockRight"><button id="scRemove">Remove</button><h2>Draw order</h2><p>Later sprites draw on top. Position in this list is the offset from wherever the shape is loaded into OAM. Flip and reorder the selected sprites from the rail on the right.</p><div id="scParts"></div><p>Shift-click or drag empty space to select multiple parts. Arrows nudge 1 px. Scroll or Space-drag pans; pinch or Ctrl/Cmd+scroll zooms. Escape cancels placement.</p></aside>`;
  $('spritePanel').after(host);
- const style=document.createElement('style');style.textContent=`#spriteComposer .studioDock h2:not(:first-of-type){margin-top:12px}#spriteComposer p{font-size:10px;line-height:1.5;color:var(--text-dim)}#spriteComposer select{width:100%;margin:5px 0}#spriteComposer button{margin:3px 1px;padding:5px 8px}#spriteComposer input[type=number]{width:65px;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:4px}#scName{display:block;padding:7px;cursor:text}#scName input{width:100%}#scBankMap{width:100%;touch-action:none;image-rendering:pixelated}#scSource{display:block;max-width:100%;max-height:128px;image-rendering:pixelated;cursor:grab;border:1px solid var(--line);margin:8px 0}#spriteComposer main{padding:0;gap:0;align-items:stretch;display:flex;flex-direction:column;min-width:0;min-height:0}.scTop,.scOrigin{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:5px 10px;background:var(--panel);font-size:11px}#scViewport{position:relative;flex:1;min-height:100px;background:#17191e;overflow:hidden}#scCanvas{width:100%;height:100%;touch-action:none;outline:none}#scMini{position:absolute;right:12px;top:12px;background:#202329;border:1px solid var(--line);pointer-events:none}#scStatus{padding:6px 10px;font-size:10px;color:var(--text-dim)}#scPaletteDock{width:100%;align-self:stretch;background:var(--panel);border-top:1px solid var(--line);padding:10px 18px;box-sizing:border-box}#scPaletteHint{font-size:10px;color:var(--text-dim);margin-left:auto}#scPalettes{box-sizing:border-box;max-height:220px;overflow:auto}#scBank,#scObjectList{border:1px solid var(--line);background:var(--bg);max-height:180px;overflow:auto;margin:5px 0}#scObjectList{min-height:60px}#scParts{max-height:45vh;overflow:auto}#scParts button{display:block;width:100%;text-align:left;font-size:10px}#spriteComposer .on{outline:1px solid #36c9d6}#spriteComposer .missing{color:#ff7777}`;
+ const style=document.createElement('style');style.textContent=`#spriteComposer .studioDock h2:not(:first-of-type){margin-top:12px}#spriteComposer p{font-size:10px;line-height:1.5;color:var(--text-dim)}#spriteComposer select{width:100%;margin:5px 0}#spriteComposer button{margin:3px 1px;padding:5px 8px}#spriteComposer input[type=number]{width:65px;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:4px}#scName{display:block;padding:7px;cursor:text}#scName input{width:100%}#scBankMap{width:100%;touch-action:none;image-rendering:pixelated}#scSource{display:block;max-width:100%;max-height:128px;image-rendering:pixelated;cursor:grab;border:1px solid var(--line);margin:8px 0}#spriteComposer main{padding:0;gap:0;align-items:stretch;display:flex;flex-direction:column;min-width:0;min-height:0}.scTop,.scOrigin{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:5px 10px;background:var(--panel);font-size:11px}#scViewport{position:relative;flex:1;min-height:100px;overflow:hidden}#scCanvas{width:100%;height:100%;touch-action:none;outline:none}#scStatus{padding:6px 10px;font-size:10px;color:var(--text-dim)}#scPaletteDock{width:100%;align-self:stretch;background:var(--panel);border-top:1px solid var(--line);padding:10px 18px;box-sizing:border-box}#scPaletteHint{font-size:10px;color:var(--text-dim);margin-left:auto}#scPalettes{box-sizing:border-box;max-height:220px;overflow:auto}#scBank,#scObjectList{border:1px solid var(--line);background:var(--bg);max-height:180px;overflow:auto;margin:5px 0}#scObjectList{min-height:60px}#scParts{max-height:45vh;overflow:auto}#scParts button{display:block;width:100%;text-align:left;font-size:10px}#spriteComposer .on{outline:1px solid #36c9d6}#spriteComposer .missing{color:#ff7777}`;
  document.head.append(style);
  // Built this early, before anything below wires up onclick handlers by id,
  // since these buttons don't exist in the static template above.
@@ -20,7 +20,7 @@
  for(const [id,label,icon] of [['scUndo','Undo (Ctrl/Cmd+Z)','undo'],['scRedo','Redo (Ctrl/Cmd+Shift+Z)','redo']])host.append(iconButton(id,label,icon));
  // Box select likewise moves into the left rail once it exists.
  host.append(iconButton('scBoxSelect','Box select (S) — drag to select every sprite the box touches, even starting on one','select'));
- let units='tiles',ghostPoint=null;
+ let units='tiles',ghostPoint=null,previewVisible=true;
  let selected=new Set(),sourceRect={x:0,y:0,width:1,height:1},sourceAnchor=null,zoom=8,camera={x:16,y:16},drag=null,placing=false,originTool=false,boxSelect=false,panMode=false,space=false,lastSprite=null,scPlane=0,zoomControls=null;
  const shape=()=>shapes[shapeIndex],spritesOf=()=>shape()?.sprites??[],source=()=>shapeTileset();
  const byId=id=>tilesets.find(t=>t.id===id);
@@ -37,7 +37,7 @@
  function render(){
   host.hidden=currentView!=='shapes';document.body.classList.toggle('spriteCompose',!host.hidden);if(host.hidden){hideGhost();return;}$('spritePanel').hidden=true;
   const a=shape();$('scGroupTitle').textContent=a?.name??'No shapes';
-  $('scEmpty').hidden=!!a;$('scEmptyMessage').textContent=tilesets.length?'No shapes yet. A shape arranges sprites from one tileset.':'Create a tileset first. A shape arranges sprites from one tileset.';$('scEmptyNew').hidden=!tilesets.length;$('scEmptyTileset').hidden=!!tilesets.length;if(lastSprite!==a){selected=new Set();lastSprite=a;drag=null;placing=false;hideGhost();}
+  $('scEmpty').hidden=!!a;StudioShell.emptyEditor(host,!a);for(const el of [host.querySelector('.scTop'),host.querySelector('.scOrigin'),$('scViewport'),$('scPaletteDock')])el.hidden=!a;$('scEmptyMessage').textContent=tilesets.length?'No shapes yet. A shape arranges sprites from one tileset.':'Create a tileset first. A shape arranges sprites from one tileset.';$('scEmptyNew').hidden=!tilesets.length;$('scEmptyTileset').hidden=!!tilesets.length;if(lastSprite!==a){selected=new Set();lastSprite=a;drag=null;placing=false;hideGhost();}
   selected=new Set([...selected].filter(i=>i<spritesOf().length));
   renderShapeList();renderTilesetPicker();renderPaletteDock();
   $('scWidth').value=units==='pixels'?width():width()/8;$('scHeight').value=units==='pixels'?height():height()/8;$('scWidth').max=units==='pixels'?320:40;$('scHeight').max=units==='pixels'?200:25;$('scWidth').step=$('scHeight').step=1;zoomControls?.sync();
@@ -61,12 +61,12 @@
  function viewport(){return {w:canvas.clientWidth||500,h:canvas.clientHeight||400};}
  function screen(x,y){const {w,h}=viewport();return [(x-camera.x)*zoom+w/2,(y-camera.y)*zoom+h/2];}
  function world(e){const r=canvas.getBoundingClientRect(),{w,h}=viewport();return {x:Math.floor((e.clientX-r.left-w/2)/zoom+camera.x),y:Math.floor((e.clientY-r.top-h/2)/zoom+camera.y)};}
- function draw(){if(host.hidden)return;canvas.style.cursor=placing?'copy':originTool||boxSelect?'crosshair':drag?.kind==='pan'?'grabbing':panMode?'grab':'default';const {w,h}=viewport();canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d');ctx.fillStyle='#111318';ctx.fillRect(0,0,w,h);const a=shape();if(!a){$('scStatus').textContent='';ctx.fillStyle='#ccc';return;}
-  const [left,top]=screen(0,0);ctx.fillStyle=$('scBackground').value;ctx.fillRect(left,top,width()*zoom,height()*zoom);ctx.save();ctx.beginPath();ctx.rect(left,top,width()*zoom,height()*zoom);ctx.clip();
+ function draw(){if(host.hidden)return;canvas.style.cursor=placing?'copy':originTool||boxSelect?'crosshair':drag?.kind==='pan'?'grabbing':panMode?'grab':'default';const {w,h}=viewport();canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d');ctx.clearRect(0,0,w,h);const a=shape();if(!a){$('scStatus').textContent='';ctx.fillStyle='#ccc';return;}
+  const [left,top]=screen(0,0);ctx.save();ctx.shadowColor='#0008';ctx.shadowBlur=40;ctx.shadowOffsetY=8;ctx.fillStyle=$('scBackground').value;ctx.fillRect(left,top,width()*zoom,height()*zoom);ctx.restore();ctx.save();ctx.beginPath();ctx.rect(left,top,width()*zoom,height()*zoom);ctx.clip();
   if($('scGrid').checked&&zoom>=2){ctx.strokeStyle='#ffffff16';ctx.beginPath();for(let x=Math.floor((camera.x-w/2/zoom)/8)*8;x<camera.x+w/2/zoom;x+=8){const [sx]=screen(x,0);ctx.moveTo(sx,0);ctx.lineTo(sx,h);}for(let y=Math.floor((camera.y-h/2/zoom)/8)*8;y<camera.y+h/2/zoom;y+=8){const [,sy]=screen(0,y);ctx.moveTo(0,sy);ctx.lineTo(w,sy);}ctx.stroke();}
   const [ax,ay]=screen(0,0);ctx.strokeStyle='#ffffff60';ctx.setLineDash([5,5]);ctx.strokeRect(ax,ay,width()*zoom,height()*zoom);ctx.setLineDash([]);
   const preview=drag?.kind==='move'?drag.sprites:spritesOf();preview.map((p,i)=>({p,i})).forEach(({p,i})=>{const [x,y]=screen(p.x+ox(),p.y+oy());tile(ctx,shapeTileset(),p,x,y,zoom);if(selected.has(i)){ctx.strokeStyle='#36c9d6';ctx.lineWidth=2;ctx.strokeRect(x+.5,y+.5,8*zoom-1,8*zoom-1);}});
-  ctx.restore();ctx.strokeStyle='#687482';ctx.strokeRect(left+.5,top+.5,width()*zoom-1,height()*zoom-1);ctx.fillStyle='#36c9d6';ctx.fillRect(left+width()*zoom-5,top+height()*zoom-5,10,10);
+  ctx.restore();ctx.strokeStyle='#3a3f4a';ctx.strokeRect(left+.5,top+.5,width()*zoom-1,height()*zoom-1);ctx.fillStyle='#36c9d6';ctx.fillRect(left+width()*zoom-5,top+height()*zoom-5,10,10);
   // Drawn after the clip is lifted, so a box that starts or ends outside the
   // canvas still shows — only its selection test, not its outline, cares about
   // where the tiles actually are.
@@ -74,6 +74,7 @@
   const origin=drag?.kind==='origin'?drag.point:{x:ox(),y:oy()},[cx,cy]=screen(origin.x,origin.y);ctx.save();ctx.setLineDash([]);ctx.lineWidth=4;ctx.strokeStyle='#111';ctx.beginPath();ctx.moveTo(cx-11,cy);ctx.lineTo(cx+11,cy);ctx.moveTo(cx,cy-11);ctx.lineTo(cx,cy+11);ctx.stroke();ctx.lineWidth=2;ctx.strokeStyle='#ffcb52';ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,4,0,Math.PI*2);ctx.stroke();ctx.fillStyle='#ffcb52';ctx.fillText('0,0',cx+8,cy-8);ctx.restore();
 
   const outside=spritesOf().filter(p=>p.x+ox()<0||p.y+oy()<0||p.x+ox()+8>width()||p.y+oy()+8>height()).length;const b=bounds();$('scStatus').textContent=`${width()} × ${height()} px · ${spritesOf().length}/64 sprites · ${selected.size} selected · Bounds ${b.width} × ${b.height} px at (${b.x}, ${b.y})`+(outside?` · ${outside} outside canvas`:'')+(placing?' · Click to place tiles':originTool?' · Click to position origin':'');
+  $('scPreview').hidden=!previewVisible;$('scMiniSize').textContent=width()+' × '+height()+' pixels';if(!previewVisible)return;
   const mini=$('scMini'),mc=mini.getContext('2d');mc.fillStyle=$('scBackground').value;mc.fillRect(0,0,mini.width,mini.height);const scale=Math.min(4,128/width(),96/height());mc.save();mc.beginPath();mc.rect(8,8,width()*scale,height()*scale);mc.clip();preview.map((p,i)=>({p,i})).forEach(({p})=>tile(mc,shapeTileset(),p,8+(p.x+ox())*scale,8+(p.y+oy())*scale,scale));mc.restore();
  }
  function fit(){if(!shape())return;const {w,h}=viewport();camera={x:width()/2,y:height()/2};zoom=StudioShell.fitZoom(w-64,h-64,width(),height(),.25,32);render();}
@@ -176,6 +177,11 @@
  const syncSnap=()=>{snapToggle.classList.toggle('on',$('scSnap').checked);snapToggle.setAttribute('aria-pressed',String($('scSnap').checked));};
  snapToggle.onclick=()=>{$('scSnap').checked=!$('scSnap').checked;syncSnap();};
  syncSnap();$('scSnapRow').after(snapToggle);
+ // The Preview panel, shown or hidden with the same button as the tileset
+ // editor's.
+ const previewToggle=iconButton('scPreviewToggle','Preview','miniature');
+ const syncPreview=()=>{previewToggle.classList.toggle('on',previewVisible);previewToggle.setAttribute('aria-expanded',String(previewVisible));};
+ previewToggle.onclick=()=>{previewVisible=!previewVisible;syncPreview();draw();};syncPreview();$('scDisplaySettings').after(previewToggle);
  // "Display settings" popover, matching the tileset editor's gear-icon popup.
  const settingsSummary=$('scDisplaySettings').querySelector('summary');
  StudioShell.setIcon(settingsSummary,'settings','Display settings');
@@ -186,11 +192,11 @@
  // the page's own 13px base, rather than inheriting .scTop's smaller 11px.
  const groupTitle=document.createElement('strong');groupTitle.id='scGroupTitle';groupTitle.style.color='var(--ink)';groupTitle.style.fontSize='13px';host.querySelector('.scTop .studioBarStart').append(groupTitle);
  const library=host.querySelector('.scLibrary'),tileLibrary=host.querySelector('.scTileLibrary'),inspector=host.querySelector('.scInspector');
- const panelToggle=(panel,id,label,icon,group)=>{const b=iconButton(id,label,icon);StudioShell.bindPanel({panel,button:b,group,closeGroups:[group]});return b;};
+ const panelToggle=(panel,id,label,icon,group,asset=false)=>{const b=iconButton(id,label,icon);StudioShell.bindPanel({panel,button:b,group,closeGroups:[group],asset});return b;};
  const tool=(id,label,icon,mode)=>{const b=$(id)??iconButton(id,label,icon);StudioShell.setIcon(b,icon,label);if(mode)b.onclick=()=>setMode(mode);return b;};
  const rail=StudioShell.toolRail('scRail','Shape tools');host.prepend(rail);
  StudioShell.railLayout(rail,[
-  [panelToggle(library,'scLibraryToggle','Shapes','shape','shapeLeft'),panelToggle(tileLibrary,'scTileLibraryToggle','Tileset and tile picker','tilePicker','shapeLeft')],
+  [panelToggle(library,'scLibraryToggle','Shapes','shape','shapeLeft'),panelToggle(tileLibrary,'scTileLibraryToggle','Tileset and tile picker','tilePicker','shapeLeft',true)],
   [tool('scMoveTool','Select and move (V) — click a sprite, drag to move it, drag empty space to box-select','move','move'),
    tool('scBoxSelect','Box select (S) — drag to select every sprite the box touches, even starting on one','select'),
    tool('scPlace','Place tiles — click the canvas to add the tiles selected in the tile picker','place'),
@@ -202,7 +208,7 @@
  const action=(id,label,icon,fn)=>{const b=iconButton(id,label,icon);b.onclick=fn;return b;};
  {const old=$('scRemove');old.replaceWith(action('scRemove','Remove selected sprites (Delete)','delete',old.onclick));}
  StudioShell.railLayout(orderRail,[
-  [panelToggle(inspector,'scInspectorToggle','Draw order','drawOrder','shapeRight')],
+  [panelToggle(inspector,'scInspectorToggle','Draw order','drawOrder','shapeRight',true)],
   [action('scFlipX','Flip horizontally (Shift+H)','flipH',()=>flip('x')),action('scFlipY','Flip vertically (Shift+V)','flipV',()=>flip('y'))],
   [action('scFront','Bring to front — draws last, in front of everything','front',()=>moveToEnd(true)),
    action('scMoveUp','Move up — draws later, in front of the next sprite','forward',()=>moveSelection(1)),
@@ -211,7 +217,7 @@
   [$('scRemove')],
  ]);
  inspector.hidden=true;library.hidden=true;tileLibrary.hidden=true;for(const id of ['scLibraryToggle','scTileLibraryToggle','scInspectorToggle'])$(id).setAttribute('aria-expanded','false');
- const groupStyle=document.createElement('style');groupStyle.textContent='#scUnits{width:auto!important;margin:0!important}#scOriginTool.on{background:var(--ink)}#scViewport{background:#111318}';document.head.append(groupStyle);
+ const groupStyle=document.createElement('style');groupStyle.textContent='#scUnits{width:auto!important;margin:0!important}#scOriginTool.on{background:var(--ink)}';document.head.append(groupStyle);
  const oldRestore=restoreStudioProject;restoreStudioProject=function(...args){selected.clear();placing=false;originTool=false;oldRestore(...args);};const oldNew=newProject;newProject=function(...args){selected.clear();placing=false;originTool=false;oldNew(...args);};
  const oldRender=renderAnimations;renderAnimations=function(){oldRender();render();};const oldShow=showView;showView=function(v){oldShow(v);render();if(v==='shapes')fit();};const oldRedraw=redrawAll;redrawAll=function(){oldRedraw();render();};
 
@@ -266,7 +272,7 @@
  // matching the tileset editor's own top-bar controls.
  const topStyle=document.createElement('style');topStyle.textContent=`
  .scTop{position:relative}
-  #scSnapToggle,#scDisplaySettings summary{display:inline-flex;align-items:center;justify-content:center;padding:4px;cursor:pointer;border:1px solid var(--line);border-radius:4px;background:var(--panel)}#scSnapToggle svg,#scDisplaySettings summary svg{width:20px;height:20px}#scSnapToggle.on{background:var(--ink);color:#111}
+  #scSnapToggle,#scPreviewToggle,#scDisplaySettings summary{display:inline-flex;align-items:center;justify-content:center;padding:4px;cursor:pointer;border:1px solid var(--line);border-radius:4px;background:var(--panel)}#scSnapToggle svg,#scPreviewToggle svg,#scDisplaySettings summary svg{width:20px;height:20px}#scSnapToggle.on,#scPreviewToggle.on{background:var(--ink);color:#111}
  .scOrigin{justify-content:flex-end}
  #scDisplaySettings{position:relative;list-style:none}#scDisplaySettings summary{list-style:none}#scDisplaySettings summary::-webkit-details-marker{display:none}#scDisplaySettings[open]>summary{border-color:var(--sel)}
  #scDisplaySettings>div{position:absolute;right:0;top:36px;width:230px;padding:12px;border:1px solid var(--line);background:var(--panel);box-shadow:0 8px 20px #0008;font-size:11px;z-index:7}

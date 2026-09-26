@@ -15,7 +15,7 @@
    <div id="palConfigRamPane"><h3>Palette RAM</h3><div id="palBankGrid"></div></div>
   </div></aside>
  <main class="studioMain"><div id="palTop"><strong id="palName"></strong></div>
-  <div id="palStage"><div id="palColors"></div></div>
+  <div id="palStage" class="studioStage"><div id="palColors"></div></div>
   <div id="palStatus"></div></main>
  <input id="palColorInput" type="color" style="position:absolute;opacity:0;width:1px;height:1px">`;
  // Inserted before the footer, not appended to #workspace, so the status bar
@@ -34,10 +34,9 @@
  #paletteWorkspace{grid-template-columns:auto auto auto minmax(0,1fr) auto auto}
  #paletteWorkspace>#palConfigs{grid-column:3;width:auto}
  #paletteWorkspace>.studioMain{grid-column:4}
- #paletteWorkspace main{display:flex;flex-direction:column}
- #palTop{display:flex;align-items:center;gap:14px;padding:9px 18px;background:var(--panel);font-size:11px}
+  #palTop{display:flex;align-items:center;gap:14px;padding:9px 18px;background:var(--panel);font-size:11px}
  #palName{color:var(--ink);font-size:12px}
- #palStage{flex:1;min-height:0;overflow:auto;display:flex;align-items:safe center;justify-content:safe center;padding:28px;background:#101113;background-image:radial-gradient(#22252b 1px,transparent 1px);background-size:12px 12px}
+ #palStage{flex:1;min-height:0;overflow:auto;display:flex;align-items:safe center;justify-content:safe center;padding:28px}
  #palColors{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
  .palColor{display:flex;flex-direction:column;align-items:center;gap:6px}
  .palColor button{width:86px;height:86px;padding:0;border-radius:6px;border:1px solid #0006;box-shadow:0 6px 18px #0007;cursor:pointer}

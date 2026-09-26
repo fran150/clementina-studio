@@ -50,7 +50,7 @@
     <div class="studioBarEnd"><label>Size <input id="bgWidth" type="number" min="1" max="1024" aria-label="Background width in tiles"> × <input id="bgHeight" type="number" min="1" max="1024" aria-label="Background height in tiles"><button id="bgResize">Resize</button></label>
     <label id="bgPreviewModeWrap">Viewport preview <select id="bgPreviewMode" aria-label="Viewport preview size"></select></label></div>
    </div>
-   <div id="bgStage"><div id="bgCanvasWrap"><canvas id="bgCanvas"></canvas><div id="bgMarquee" class="cellMarquee" hidden></div><div id="bgViewportOverlay" hidden><div id="bgViewportHandle" title="Drag to move the loaded window"></div></div><div id="bgScrollClip" hidden><div class="bgScrollRect"></div><div class="bgScrollRect"></div><div class="bgScrollRect"></div><div class="bgScrollRect"></div><div id="bgScrollHandle" title="Drag to preview scroll position (SCROLL_X/SCROLL_Y)"></div></div></div></div>
+   <div id="bgStage" class="studioStage"><div id="bgCanvasWrap" class="studioArt"><canvas id="bgCanvas"></canvas><div id="bgMarquee" class="cellMarquee" hidden></div><div id="bgViewportOverlay" hidden><div id="bgViewportHandle" title="Drag to move the loaded window"></div></div><div id="bgScrollClip" hidden><div class="bgScrollRect"></div><div class="bgScrollRect"></div><div class="bgScrollRect"></div><div class="bgScrollRect"></div><div id="bgScrollHandle" title="Drag to preview scroll position (SCROLL_X/SCROLL_Y)"></div></div></div></div>
    <div id="bgStampBar">
     <span>Tile <b id="bgStampTile"></b></span>
     <span id="bgGroupLabel" hidden></span>
@@ -74,8 +74,8 @@
  #bgTitle{color:var(--ink);font-size:13px}
  #bgWidth,#bgHeight{width:64px;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:5px}
  #bgPreviewModeWrap{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--text-dim)}
- #bgStage{flex:1;min-width:0;min-height:0;overflow:auto;background:#101113;padding:24px;display:flex;align-items:safe center;justify-content:safe center}
- #bgCanvasWrap{position:relative;flex:none;border:1px solid var(--text-dim);box-shadow:0 6px 24px #0008}
+ #bgStage{flex:1;min-width:0;min-height:0;overflow:auto;padding:24px;display:flex;align-items:safe center;justify-content:safe center}
+ #bgCanvasWrap{position:relative;flex:none}
  #bgCanvas{image-rendering:pixelated;display:block;touch-action:none;cursor:crosshair;background:#000}
  #bgViewportOverlay{position:absolute;border:1px dashed #fff;box-shadow:0 0 0 1px #111,0 0 0 2px #fff inset;pointer-events:none}
  /* Anchored at the loaded window's top-left corner, not its center: at the
@@ -627,7 +627,7 @@
   if(host.hidden)return;
   backgroundIndex=Math.min(backgroundIndex,Math.max(0,backgrounds.length-1));
   const a=background();
-  $('bgEmpty').hidden=!!a;
+  $('bgEmpty').hidden=!!a;StudioShell.emptyEditor(host,!a);
   $('bgEmptyMessage').textContent=!tilesets.length?'Create a tileset first. A background draws from two tilesets.':'No backgrounds yet. A background draws from two tilesets.';$('bgEmptyNew').hidden=!tilesets.length;
   $('bgCreateTileset').hidden=!!tilesets.length;
   $('bgWork').hidden=!a;
@@ -683,11 +683,11 @@
  // selection's panel, then the flips and priority that the next stamp — or
  // an active selection — takes.
  const library=host.querySelector('.bgLibrary'),tileLibrary=host.querySelector('.bgTileLibrary'),statusPanel=host.querySelector('.bgStatusPanel');
- const panelToggle=(panel,id,label,icon,group)=>{const b=StudioShell.iconButton(id,label,icon);StudioShell.bindPanel({panel,button:b,group,closeGroups:[group]});return b;};
+ const panelToggle=(panel,id,label,icon,group,asset=false)=>{const b=StudioShell.iconButton(id,label,icon);StudioShell.bindPanel({panel,button:b,group,closeGroups:[group],asset});return b;};
  const tool=(id,label,icon,name)=>{const b=StudioShell.iconButton(id,label,icon);b.onclick=()=>setTool(name);return b;};
  const rail=StudioShell.toolRail('bgRail','Background tools');host.prepend(rail);
  StudioShell.railLayout(rail,[
-  [panelToggle(library,'bgLibraryToggle','Backgrounds','background','bgLeft'),panelToggle(tileLibrary,'bgTileLibraryToggle','Tilesets and tile picker','tilePicker','bgLeft')],
+  [panelToggle(library,'bgLibraryToggle','Backgrounds','background','bgLeft'),panelToggle(tileLibrary,'bgTileLibraryToggle','Tilesets and tile picker','tilePicker','bgLeft',true)],
   [tool('bgSelectTool','Select (S) — drag over cells, then flip, set Priority or click a palette bank to edit them in place','select','select'),
    tool('bgPencilTool','Pencil (B)','pencil','pencil'),tool('bgEraserTool','Eraser (E)','eraser','eraser'),tool('bgFillTool','Fill (G)','fill','fill'),
    tool('bgRectangleTool','Rectangle (R)','rectangle','rectangle'),tool('bgPickerTool','Pick tile (I)','picker','picker'),
@@ -697,7 +697,7 @@
   Object.assign(StudioShell.iconButton('bgUndo','Undo (Ctrl/Cmd+Z)','undo'),{onclick:ProjectHistory.undo}),Object.assign(StudioShell.iconButton('bgRedo','Redo (Ctrl/Cmd+Shift+Z)','redo'),{onclick:ProjectHistory.redo})]);
  const sideRail=StudioShell.toolRail('bgSideRail','Selection','right');host.append(sideRail);
  for(const [id,icon,label] of [['bgFlipX','flipH','Flip horizontally (Shift+H) — the selection, or the next stamp'],['bgFlipY','flipV','Flip vertically (Shift+V) — the selection, or the next stamp'],['bgPriority','priority','Priority, drawn in front of sprites — the selection, or the next stamp']])StudioShell.setIcon($(id),icon,label);
- StudioShell.railLayout(sideRail,[[panelToggle(statusPanel,'bgStatusToggle','Status — loaded window and screen position','camera','bgRight')],[$('bgFlipX'),$('bgFlipY'),$('bgPriority')],
+ StudioShell.railLayout(sideRail,[[panelToggle(statusPanel,'bgStatusToggle','Status — loaded window and screen position','camera','bgRight',true)],[$('bgFlipX'),$('bgFlipY'),$('bgPriority')],
   [Object.assign(StudioShell.iconButton('bgDeleteSelection','Clear the selected cells (Delete)','delete'),{onclick:()=>selection.remove()})]]);
  StudioShell.editActions('backgrounds',{copy:()=>selection.copy(),cut:()=>selection.cut(),paste:()=>{if(selection.startPaste()){setTool('select');setStatus('Click to place the paste. Escape cancels.');}}});
  // Copy, Paste and Delete follow the selection and the clipboard.

@@ -3,7 +3,7 @@
 (() => {
  const host=document.createElement('section');host.id='namedBankEditor';
  host.innerHTML=`<aside class="bankLibrary"><h2>Tilesets</h2><div id="bankFileActions" class="assetToolbar"></div><div id="bankFiles" role="listbox" aria-label="Tilesets"></div></aside>
- <aside class="bankLibrary objectLibrary"><h2>Objects</h2><div id="compositionList" role="listbox" aria-label="Objects"></div><div class="bankActions"><button id="saveComposition">New</button><button id="deleteComposition">Delete</button></div></aside><div class="bankWork"><p id="emptyBank">Create or import a tileset to start drawing.</p><div id="bankEditorContents"><div class="bankActions"><label>Mode <select id="bankFileMode"><option value="3">3 bpp · 8 colors</option><option value="1">1 bpp · 2 colors</option></select></label><label id="bankFilePlaneLabel">Plane <select id="bankFilePlane"><option>0</option><option>1</option><option>2</option></select></label><button id="bankUndo">Undo</button><button id="bankRedo">Redo</button></div>
+ <aside class="bankLibrary objectLibrary"><h2>Objects</h2><div id="compositionList" role="listbox" aria-label="Objects"></div><div class="bankActions"><button id="saveComposition">New</button><button id="deleteComposition">Delete</button></div></aside><div class="bankWork"><div id="emptyBank"></div><div id="bankEditorContents"><div class="bankActions"><label>Mode <select id="bankFileMode"><option value="3">3 bpp · 8 colors</option><option value="1">1 bpp · 2 colors</option></select></label><label id="bankFilePlaneLabel">Plane <select id="bankFilePlane"><option>0</option><option>1</option><option>2</option></select></label><button id="bankUndo">Undo</button><button id="bankRedo">Redo</button></div>
  <div class="bankCanvases"><div><h2>Tile map · drag to select tiles</h2><canvas id="bankMap" width="384" height="384"></canvas><p id="bankSelectionInfo"></p></div>
  <div class="selectionWork"><h2>Selected tiles</h2><div class="bankActions"><button id="pencilTool">Pencil</button><button id="fillTool">Fill</button><button id="zoomOut">−</button><span id="zoomLabel"></span><button id="zoomIn">+</button><label><input id="cellGrid" type="checkbox" checked>Tile grid</label></div><div class="selectionScroll"><canvas id="bankSelection"></canvas></div><p>Hover a tile to highlight the bank it was drawn against. Click a swatch to record that bank on the tile and choose your drawing color.</p></div></div>
  <section class="inlinePalettes"><div class="paletteDockHead"></div><div id="bankSwatches"></div><input id="bankColor" type="color" style="position:absolute;opacity:0;width:1px;height:1px"></section><div class="bankActions"><label>Preview background (color 0 / transparent) <input id="previewBackground" type="color" value="#252830"></label><span>Preview only — does not change exported palette colors.</span></div></div></div>`;
@@ -20,7 +20,7 @@
  let fillPattern='solid';
  let usagePalette=null,resizeDrag=null;
  let moveDrag=null,spaceHeld=false,panDrag=null,panToolActive=false;
- let shapeStart=null,shapeEnd=null,miniVisible=false;
+ let shapeStart=null,shapeEnd=null,miniVisible=true;
  let erasing=false,hovering=false,objectIndex=-1,targetTile=0,zoom=8,fittedArea=null,colorEdit={bank:0,ink:1};
  let plane=0,zoomControls=null;
  // Color 0 is a background tile’s background color and transparent for sprites.
@@ -48,7 +48,7 @@
   host.hidden=currentView!=='tiles';document.body.classList.toggle('drawingView',!host.hidden);if(host.hidden){hovering=false;return;}
   const list=tilesets;if(reference!==list){pixelSelection=null;pasteAnchor=null;selectStart=null;index=Math.min(index,list.length-1);reference=list;}
   if(index<0)index=0;const a=asset();if(a&&objectIndex>=a.compositions.length)objectIndex=-1;
-  $('emptyBank').hidden=!!a;$('miniaturePanel').hidden=!a||!miniVisible;
+  $('emptyBank').hidden=!!a;StudioShell.emptyEditor(host,!a);$('miniaturePanel').hidden=!a||!miniVisible;
   for(const id of ['copyBankFile','deleteBankFile','saveComposition','importBankImage'])$(id).disabled=!a;
   $('deleteComposition').disabled=!a||objectIndex<0;
   if(!a){if($('drawingStatus'))$('drawingStatus').textContent='';$('canvasStage').hidden=true;$('paletteDock').hidden=true;$('canvasTop').hidden=true;$('bankFiles').replaceChildren();$('compositionList').replaceChildren();return;}
@@ -201,8 +201,8 @@
  objects.prepend(mapPanel);mapPanel.querySelector('h2').textContent='Tile map';
  for(const panel of [banks,objects])panel.classList.add('studioDock','studioDockLeft');
  banks.hidden=true;objects.hidden=false;
- const panelToggle=(panel,id,label,icon)=>{const b=StudioShell.iconButton(id,label,icon);StudioShell.bindPanel({panel,button:b,group:'tilesLeft',closeGroups:['tilesLeft']});return b;};
- const libraryToggle=panelToggle(banks,'bankLibraryToggle','Tilesets','tileset'),mapToggle=panelToggle(objects,'bankMapToggle','Tile map and objects','tilePicker');
+ const panelToggle=(panel,id,label,icon,asset=false)=>{const b=StudioShell.iconButton(id,label,icon);StudioShell.bindPanel({panel,button:b,group:'tilesLeft',closeGroups:['tilesLeft'],asset});return b;};
+ const libraryToggle=panelToggle(banks,'bankLibraryToggle','Tilesets','tileset'),mapToggle=panelToggle(objects,'bankMapToggle','Tile map and objects','tilePicker',true);
  // Objects' New and Delete join the icon toolbar every library has.
  const objectActions=document.createElement('div');objectActions.className='assetToolbar';
  StudioShell.setIcon($('saveComposition'),'newItem','New object from the selected tiles');StudioShell.setIcon($('deleteComposition'),'delete','Delete object');
@@ -216,13 +216,13 @@
  zeroSelect.append(new Option('Transparent','transparent'),new Option('Background color','background'));
  zeroSelect.onchange=()=>{zeroAsColor=zeroSelect.value==='background';render();};zeroRow.append(zeroSelect);
  properties.append($('bankFileMode').parentElement,$('bankFilePlaneLabel'),zeroRow,backgroundRow);top.append(properties);
- const stage=document.createElement('div');stage.id='canvasStage';const scroll=host.querySelector('.selectionScroll');stage.append(scroll);
+ const stage=document.createElement('div');stage.id='canvasStage';stage.className='studioStage';const scroll=host.querySelector('.selectionScroll');stage.append(scroll);
  const dock=document.createElement('section');dock.id='paletteDock';
  dock.append(palettePanel);
  const hint=host.querySelector('.selectionWork p');if(hint)hint.remove();
  center.append(top,$('emptyBank'),stage,dock);
  host.replaceChildren(rail,banks,objects,center);host.classList.add('studioEditor');center.classList.add('studioMain');
- $('emptyBank').classList.add('studioEmpty');$('emptyBank').innerHTML='<p>No tilesets yet. A tileset is one CHR bank of 256 tiles.</p><div class="studioEmptyActions"><button id="emptyNew">New tileset</button><button id="emptyImport">Import tileset…</button></div>';
+ $('emptyBank').classList.add('studioEmpty');$('bankSelection').classList.add('studioArt');$('emptyBank').innerHTML='<p>No tilesets yet. A tileset is one CHR bank of 256 tiles.</p><div class="studioEmptyActions"><button id="emptyNew">New tileset</button><button id="emptyImport">Import tileset…</button></div>';
  $('emptyNew').onclick=()=>$('addBankFile').click();$('emptyImport').onclick=()=>$('importBankFile').click();
  // View switching must not repaint the hidden legacy tile editor on keyboard input.
  window.addEventListener('keydown',event=>{
@@ -248,7 +248,7 @@
  },true);
  const centered=document.createElement('style');centered.textContent=`
 
- #drawingCenter{min-width:0;min-height:0;display:flex;flex-direction:column}#canvasTop{display:flex;align-items:center;gap:10px;padding:8px 18px;background:var(--panel)}#canvasAssetLabel{margin-right:auto;color:var(--ink)}#canvasTop details{position:relative}#canvasTop details[open]{position:absolute;right:12px;top:5px;padding:12px;background:var(--panel);border:1px solid var(--line);z-index:4;max-width:500px}#canvasStage{flex:1;min-height:0;display:flex;overflow:hidden;background:#101113}#canvasStage .selectionScroll{width:100%;max-width:none;max-height:none;height:100%;overflow:auto;display:flex;align-items:safe center;justify-content:safe center;padding:24px;background:radial-gradient(#22252b 1px,transparent 1px);background-size:12px 12px}#bankSelection{flex:none;box-shadow:0 8px 40px #0008;max-width:none}
+ #drawingCenter{min-width:0;min-height:0;display:flex;flex-direction:column}#canvasTop{display:flex;align-items:center;gap:10px;padding:8px 18px;background:var(--panel)}#canvasAssetLabel{margin-right:auto;color:var(--ink)}#canvasTop details{position:relative}#canvasTop details[open]{position:absolute;right:12px;top:5px;padding:12px;background:var(--panel);border:1px solid var(--line);z-index:4;max-width:500px}#canvasStage{position:relative;flex:1;min-height:0;display:flex;overflow:hidden}#canvasStage .selectionScroll{width:100%;max-width:none;max-height:none;height:100%;overflow:auto;display:flex;align-items:safe center;justify-content:safe center;padding:24px;background:none}#bankSelection{flex:none;max-width:none}
  #paletteDock{background:var(--panel);border-top:1px solid var(--line);display:flex;align-items:center;gap:18px;padding:10px 18px;max-height:210px;overflow:auto;flex-shrink:0}#drawingColor{width:145px;flex-shrink:0;display:flex;align-items:center;flex-direction:column;gap:7px;font-size:11px}#activeInk{width:40px;height:40px;border:3px solid white;box-shadow:0 0 0 1px black}#activeInkLabel{font-size:11px}#paletteDock .inlinePalettes{margin:0;border:0;padding:0;width:auto;flex:1}#paletteDock h2{margin:0 0 5px;font-size:10px}#bankSwatches{grid-template-columns:repeat(4,max-content);gap:1px 10px}
 
  `;document.head.append(centered);
@@ -270,11 +270,11 @@
  function icon(button,name,label){StudioShell.setIcon(button,paths[name]??name,label);}
  for(const [id,name,label] of [['pencilTool','pencil','Pencil (B)'],['eraserTool','eraser','Eraser (E)'],['fillTool','fill','Fill (G)'],['pickerTool','picker','Pick color (I)'],['panTool','pan','Pan (H) — drag to scroll; Space or the middle button pan with any other tool active'],['bankUndo','undo','Undo (Ctrl/Cmd+Z)'],['bankRedo','redo','Redo (Ctrl/Cmd+Shift+Z)']])icon($(id),name,label);
  for(const [kind,label] of [['line','Line (L)'],['rectangle','Rectangle (R) — Shift draws a square'],['ellipse','Ellipse (O) — Shift draws a circle']]){const button=document.createElement('button');button.id=kind+'Tool';icon(button,kind,label);button.onclick=()=>{shapeStart=null;tool=kind;render();};rail.insertBefore(button,$('bankUndo'));}
- const miniButton=document.createElement('button');miniButton.id='miniatureToggle';miniButton.setAttribute('aria-expanded','false');icon(miniButton,'miniature','Object miniature');top.insertBefore(miniButton,properties);
- const mini=document.createElement('aside');mini.id='miniaturePanel';mini.hidden=true;mini.innerHTML='<strong>Object preview</strong><canvas id="miniatureCanvas"></canvas><span id="miniatureSize"></span>';center.append(mini);
+ const miniButton=document.createElement('button');miniButton.id='miniatureToggle';miniButton.setAttribute('aria-expanded','true');miniButton.classList.add('on');icon(miniButton,'miniature','Preview');top.insertBefore(miniButton,properties);
+ const mini=document.createElement('aside');mini.id='miniaturePanel';mini.className='canvasPreview';mini.innerHTML='<strong>Preview</strong><canvas id="miniatureCanvas"></canvas><span id="miniatureSize"></span>';stage.append(mini);
  miniButton.onclick=()=>{miniVisible=!miniVisible;mini.hidden=!miniVisible;miniButton.classList.toggle('on',miniVisible);miniButton.setAttribute('aria-expanded',String(miniVisible));drawMiniature();};
  function drawMiniature(){if(!miniVisible||!asset())return;const canvas=$('miniatureCanvas'),w=selection.width*8,h=selection.height*8;canvas.width=w;canvas.height=h;const ctx=canvas.getContext('2d');for(let y=0;y<h;y++)for(let x=0;x<w;x++){const t=(selection.y+Math.floor(y/8))*16+selection.x+Math.floor(x/8);ctx.fillStyle=pixelColor(asset(),t,x%8,y%8);ctx.fillRect(x,y,1,1);}const factor=Math.min(4,180/Math.max(w,h));canvas.style.width=w*factor+'px';canvas.style.height=h*factor+'px';$('miniatureSize').textContent=w+' × '+h+' pixels';}
- const polish=document.createElement('style');polish.textContent=`#compositionList{border:1px solid var(--line);background:var(--bg);max-height:220px;overflow:auto;min-height:60px}#bankFiles{border:1px solid var(--line);background:var(--bg);flex:1;min-height:120px;overflow:auto}.assetRow{padding:9px;cursor:pointer;border:1px solid transparent;min-height:34px}.assetRow[aria-selected="true"]{background:#423623;border-color:var(--ink)}.assetRow input{width:100%;margin:0!important;padding:2px!important;font:inherit}.assetRow:focus{outline:1px solid var(--sel)}#namedBankEditor .objectLibrary>h2{margin-top:14px}#namedBankEditor #bankMap{width:100%;height:auto;aspect-ratio:1}#drawingCenter{position:relative}#miniatureToggle{padding:3px;display:flex;align-items:center}#miniatureToggle svg{width:22px;height:22px}#miniaturePanel{position:absolute;right:14px;top:52px;z-index:3;padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:5px;box-shadow:0 6px 20px #0008;display:flex;flex-direction:column;align-items:center;gap:10px}#miniatureCanvas{image-rendering:pixelated}#miniatureSize{font-size:10px;color:var(--text-dim)}#paletteDock{gap:0}#paletteDock .inlinePalettes{width:100%}`;document.head.append(polish);
+ const polish=document.createElement('style');polish.textContent=`#compositionList{border:1px solid var(--line);background:var(--bg);max-height:220px;overflow:auto;min-height:60px}#bankFiles{border:1px solid var(--line);background:var(--bg);flex:1;min-height:120px;overflow:auto}.assetRow{padding:9px;cursor:pointer;border:1px solid transparent;min-height:34px}.assetRow[aria-selected="true"]{background:#423623;border-color:var(--ink)}.assetRow input{width:100%;margin:0!important;padding:2px!important;font:inherit}.assetRow:focus{outline:1px solid var(--sel)}#namedBankEditor .objectLibrary>h2{margin-top:14px}#namedBankEditor #bankMap{width:100%;height:auto;aspect-ratio:1}#drawingCenter{position:relative}#miniatureToggle{padding:3px;display:flex;align-items:center}#miniatureToggle svg{width:22px;height:22px}#miniatureCanvas{image-rendering:pixelated}#miniatureSize{font-size:10px;color:var(--text-dim)}#paletteDock{gap:0}#paletteDock .inlinePalettes{width:100%}`;document.head.append(polish);
 
  function updatePixelSelection(p){pixelSelection={x:Math.min(selectStart[0],p[0]),y:Math.min(selectStart[1],p[1]),width:Math.abs(p[0]-selectStart[0])+1,height:Math.abs(p[1]-selectStart[1])+1};}
  function drawPixelOverlay(){

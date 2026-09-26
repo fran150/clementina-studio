@@ -38,7 +38,10 @@ app.whenReady().then(()=>{
  });
  // Menu shortcuts reach the page as commands (see runCommand in editor.html).
  const command=(name:string)=>()=>win.webContents.send('studio:command',name);
- Menu.setApplicationMenu(Menu.buildFromTemplate([
+ // The menu is rebuilt whenever the page's undo history changes, so Edit ▸
+ // Undo and Redo name the step they would take (see history.js).
+ type HistoryItem={label:string,enabled:boolean};
+ const menu=(history:{undo:HistoryItem,redo:HistoryItem})=>Menu.buildFromTemplate([
   {label:'Clementina Studio',submenu:[{role:'about'},{type:'separator'},{label:'Quit Clementina Studio',accelerator:'CommandOrControl+Q',click:()=>win.close()}]},
   {label:'File',submenu:[
    {label:'New Project',accelerator:'CommandOrControl+N',click:command('newProject')},
@@ -55,8 +58,8 @@ app.whenReady().then(()=>{
  // registerAccelerator:false leaves the keys to the page on Windows and
  // Linux, which handles them first everywhere.
  {label:'Edit',submenu:[
-  {label:'Undo',accelerator:'CommandOrControl+Z',registerAccelerator:false,click:command('undo')},
-  {label:'Redo',accelerator:'Shift+CommandOrControl+Z',registerAccelerator:false,click:command('redo')},
+  {...history.undo,accelerator:'CommandOrControl+Z',registerAccelerator:false,click:command('undo')},
+  {...history.redo,accelerator:'Shift+CommandOrControl+Z',registerAccelerator:false,click:command('redo')},
   {type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{type:'separator'},{role:'selectAll'}
  ]},
   // Replaces the default View menu, whose page zoom scaled the whole interface
@@ -75,7 +78,15 @@ app.whenReady().then(()=>{
   ]},
   {role:'windowMenu'},
  {role:'help',submenu:[{label:'Keyboard Shortcuts',accelerator:'CommandOrControl+/',registerAccelerator:false,click:command('shortcuts')}]}
- ]));
+ ]);
+ Menu.setApplicationMenu(menu({undo:{label:'Undo',enabled:true},redo:{label:'Redo',enabled:true}}));
+ const historyItem=(item:unknown,fallback:string):HistoryItem=>{
+  const {label,enabled}=(item??{}) as Partial<HistoryItem>;
+  return {label:typeof label==='string'&&label.length<=120?label:fallback,enabled:enabled!==false};
+ };
+ ipcMain.on('menu:history',(_event,history:{undo?:unknown,redo?:unknown})=>{
+  if(!win.isDestroyed())Menu.setApplicationMenu(menu({undo:historyItem(history?.undo,'Undo'),redo:historyItem(history?.redo,'Redo')}));
+ });
  win.webContents.on('before-input-event',(event,input)=>{if(input.type==='keyDown'&&input.key.toLowerCase()==='q'&&(input.control||input.meta)){event.preventDefault();win.close();}});
  void win.loadFile(path.resolve(here,'../../../apps/desktop/editor.html'));
  win.webContents.once('did-finish-load',()=>{void (async()=>{

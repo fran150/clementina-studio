@@ -15,6 +15,9 @@ app.whenReady().then(async()=>{
   // The file actions moved into the tab bar; the row below the tabs is gone.
   assert.deepEqual(state,{current:view,nav:44,header:0,fileActionsInTabs:true,currentTabMarked:true,status:'status',tooltips:1});
  }
+ // An asset's own docks wait for an asset: their buttons are disabled while the editor is empty.
+ assert.deepEqual(await run(`showView('animations');return ['anShapeLibraryToggle','anFramePanelToggle','anLibraryToggle'].map(id=>$(id).disabled);`),[true,true,false]);
+ await run(`showView('tiles');$('addBankFile').click();showView('shapes');$('scNew').click();showView('animations');$('anNew').click();showView('overlays');$('ovNewAction').click();`);
  for(const [view,first,second] of [['animations','anLibraryToggle','anShapeLibraryToggle'],['shapes','scLibraryToggle','scTileLibraryToggle'],['overlays','ovLibraryToggle','ovTileLibraryToggle']]){
   const states=await run(`showView('${view}');const a=$('${first}'),b=$('${second}');a.click();b.click();const panel=$(b.getAttribute('aria-controls'));const state={first:a.getAttribute('aria-expanded'),second:b.getAttribute('aria-expanded'),hidden:panel.hidden};panel.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));return {...state,closed:panel.hidden,expanded:b.getAttribute('aria-expanded'),focus:document.activeElement.id};`);
   assert.deepEqual(states,{first:'false',second:'true',hidden:false,closed:true,expanded:'false',focus:second});

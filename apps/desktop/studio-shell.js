@@ -99,8 +99,12 @@
  // sits with the tabs rather than in each editor.
  $('workflowNav').append($('configPickerWrap'),projectActions);
  const panels=new Map();
- function bindPanel({panel,button,closeId=button.id+'Close',closeClass='panelClose',group,closeGroups=[]}){
+ // asset: the dock shows a part of the open asset (its map, the tiles it
+ // draws from, its properties) rather than the list of assets, so it steps
+ // aside while the editor has nothing open (see emptyEditor).
+ function bindPanel({panel,button,closeId=button.id+'Close',closeClass='panelClose',group,closeGroups=[],asset=false}){
   if(!panel.id)panel.id=button.id+'Panel';
+  if(asset){panel.classList.add('studioAssetDock');button.classList.add('studioAssetDockToggle');}
   button.setAttribute('aria-controls',panel.id);
   const setOpen=(open,restoreFocus=false)=>{
    panel.hidden=!open;button.setAttribute('aria-expanded',String(open));
@@ -118,6 +122,13 @@
   });
   panels.set(panel,{panel,button,group,setOpen});setOpen(!panel.hidden);
   return {setOpen};
+ }
+ // An editor with nothing open shows only its empty state and the list of
+ // assets: the asset's own docks hide, keeping whether they were open for
+ // when there is something to show, and their buttons are disabled.
+ function emptyEditor(host,empty){
+  host.classList.toggle('studioIsEmpty',empty);
+  for(const b of host.querySelectorAll('.studioAssetDockToggle'))b.disabled=empty;
  }
  // Each editor's status line — sizes, counts, what is under the pointer —
  // shows in the one status bar, beside the app's messages.
@@ -410,5 +421,5 @@
   if((e.key==='?'&&!e.ctrlKey&&!e.metaKey)||((e.ctrlKey||e.metaKey)&&e.key==='/')){e.preventDefault();e.stopImmediatePropagation();showShortcuts();}
  },true);
 
- window.StudioShell=Object.freeze({icons,clipboard,editActions,viewStatus,contextMenu,showShortcuts,helpButton,bankDock,syncBankDock,TRANSPARENT_ZERO,iconButton,setIcon,toolRail,railLayout,bindPanel,selectView,renderList,startRename,fitZoom,zoomScrolled,canvasZoom,canvasCommand});
+ window.StudioShell=Object.freeze({icons,clipboard,editActions,viewStatus,contextMenu,showShortcuts,helpButton,bankDock,syncBankDock,TRANSPARENT_ZERO,iconButton,setIcon,toolRail,railLayout,bindPanel,emptyEditor,selectView,renderList,startRename,fitZoom,zoomScrolled,canvasZoom,canvasCommand});
 })();

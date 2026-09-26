@@ -39,7 +39,7 @@
  <main class="studioMain"><div id="ovEmpty" class="studioEmpty" role="status"><p id="ovEmptyMessage"></p><div class="studioEmptyActions"><button id="ovEmptyNew">New overlay</button><button id="ovCreateTileset">Go to Tilesets</button></div></div>
   <div id="ovWork">
    <div class="ovTop"><div class="studioBarStart"><strong id="ovTitle"></strong></div><div class="studioBarEnd"></div></div>
-   <div id="ovStage"><div id="ovCanvasWrap"><canvas id="ovCanvas"></canvas><div id="ovMarquee" class="cellMarquee" hidden></div><div id="ovPlaceholderOverlay"></div></div></div>
+   <div id="ovStage" class="studioStage"><div id="ovCanvasWrap" class="studioArt"><canvas id="ovCanvas"></canvas><div id="ovMarquee" class="cellMarquee" hidden></div><div id="ovPlaceholderOverlay"></div></div></div>
    <div id="ovStampBar">
     <span>Tile <b id="ovStampTile"></b></span>
     <span id="ovGroupLabel" hidden></span>
@@ -60,8 +60,8 @@
  #ovWork{flex:1;width:100%;max-width:100%;min-width:0;min-height:0;display:flex;flex-direction:column}
  .ovTop{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:8px 18px;background:var(--panel)}
  #ovTitle{color:var(--ink);font-size:13px}
- #ovStage{flex:1;min-width:0;min-height:0;overflow:auto;background:#101113;padding:24px;display:flex;align-items:safe center;justify-content:safe center}
- #ovCanvasWrap{position:relative;flex:none;border:1px solid var(--text-dim);box-shadow:0 6px 24px #0008}
+ #ovStage{flex:1;min-width:0;min-height:0;overflow:auto;padding:24px;display:flex;align-items:safe center;justify-content:safe center}
+ #ovCanvasWrap{position:relative;flex:none}
  #ovCanvas{image-rendering:pixelated;display:block;touch-action:none;cursor:crosshair;background:#000}
  #ovPlaceholderOverlay{position:absolute;inset:0;pointer-events:none}
  .ovPlaceholderRect{position:absolute;border:1px dashed #ffcf40;box-shadow:0 0 0 1px #111,0 0 0 2px #ffcf40 inset;display:flex;align-items:flex-start;justify-content:flex-start;overflow:hidden}
@@ -441,7 +441,7 @@
   if(host.hidden)return;
   overlayIndex=Math.min(overlayIndex,Math.max(0,overlays.length-1));
   const a=overlay();
-  $('ovEmpty').hidden=!!a;
+  $('ovEmpty').hidden=!!a;StudioShell.emptyEditor(host,!a);
   $('ovEmptyMessage').textContent=!tilesets.length?'Create a tileset first. An overlay draws from two tilesets.':'No overlays yet. An overlay draws from two tilesets.';$('ovEmptyNew').hidden=!tilesets.length;
   $('ovCreateTileset').hidden=!!tilesets.length;
   $('ovWork').hidden=!a;
@@ -520,11 +520,11 @@
  // Left rail: the panels to pick from, then the tools. Right rail: the flips
  // and priority the next stamp takes.
  const library=host.querySelector('.ovLibrary'),tileLibrary=host.querySelector('.ovTileLibrary'),placeholderLibrary=host.querySelector('.ovPlaceholderLibrary');
- const panelToggle=(panel,id,label,icon)=>{const b=StudioShell.iconButton(id,label,icon);StudioShell.bindPanel({panel,button:b,group:'ovLeft',closeGroups:['ovLeft']});return b;};
+ const panelToggle=(panel,id,label,icon,asset=false)=>{const b=StudioShell.iconButton(id,label,icon);StudioShell.bindPanel({panel,button:b,group:'ovLeft',closeGroups:['ovLeft'],asset});return b;};
  const tool=(id,label,icon,name)=>{const b=StudioShell.iconButton(id,label,icon);b.onclick=()=>setTool(name);return b;};
  const rail=StudioShell.toolRail('ovRail','Overlay tools');host.prepend(rail);
  StudioShell.railLayout(rail,[
-  [panelToggle(library,'ovLibraryToggle','Overlays','overlay'),panelToggle(tileLibrary,'ovTileLibraryToggle','Tilesets and tile picker','tilePicker'),panelToggle(placeholderLibrary,'ovPlaceholderLibraryToggle','Placeholders','placeholder')],
+  [panelToggle(library,'ovLibraryToggle','Overlays','overlay'),panelToggle(tileLibrary,'ovTileLibraryToggle','Tilesets and tile picker','tilePicker',true),panelToggle(placeholderLibrary,'ovPlaceholderLibraryToggle','Placeholders','placeholder',true)],
   [tool('ovSelectTool','Select (S) — drag over cells, then flip, set Priority, click a palette bank, copy or move them','select','select'),
    tool('ovPencilTool','Pencil (B)','pencil','pencil'),tool('ovEraserTool','Eraser (E)','eraser','eraser'),tool('ovFillTool','Fill (G)','fill','fill'),
    tool('ovRectangleTool','Rectangle (R)','rectangle','rectangle'),tool('ovPickerTool','Pick tile (I)','picker','picker'),
@@ -538,7 +538,7 @@
  const placeholderPropsToggle=StudioShell.iconButton('ovPlaceholderPropsToggle','Placeholder — the selected one\'s position and size','properties');
  // Open from the start, like the animation editor's frame panel: a panel that
  // opened itself on selection would shift the centered canvas under the pointer.
- StudioShell.bindPanel({panel:host.querySelector('.ovPlaceholderProps'),button:placeholderPropsToggle,group:'ovRight',closeGroups:['ovRight']});
+ StudioShell.bindPanel({panel:host.querySelector('.ovPlaceholderProps'),button:placeholderPropsToggle,group:'ovRight',closeGroups:['ovRight'],asset:true});
  StudioShell.railLayout(sideRail,[[placeholderPropsToggle],[$('ovFlipX'),$('ovFlipY'),$('ovPriority')],[Object.assign(StudioShell.iconButton('ovDeleteSelection','Clear the selected cells (Delete)','delete'),{onclick:()=>selection.remove()})]]);
  StudioShell.editActions('overlays',{copy:()=>selection.copy(),cut:()=>selection.cut(),paste:()=>{if(selection.startPaste()){setTool('select');setStatus('Click to place the paste. Escape cancels.');}}});
  // Copy, Paste and Delete follow the selection and the clipboard.

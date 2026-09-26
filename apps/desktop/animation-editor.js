@@ -8,7 +8,7 @@
  <aside class="anShapeLibrary studioDock studioDockLeft"><h2>Shapes</h2><div id="anShapeList" role="listbox" aria-multiselectable="true" aria-label="Shapes to append"></div><p id="anShapeNote"></p><button id="anAppend">Append selected frames</button><p>Ctrl/Cmd-click to select shapes; Shift-click for a range. They append in library order.</p></aside>
  <main class="studioMain"><div class="anTop"><div class="studioBarStart"><strong id="anGroupTitle"></strong></div><div class="studioBarEnd"></div></div>
  <div id="anEmpty" class="studioEmpty" role="status"><p id="anEmptyMessage"></p><div class="studioEmptyActions"><button id="anEmptyNew">New animation</button><button id="anCreateShape">Go to Shapes</button></div></div>
- <div id="anBody"><div id="anPreviewCol"><canvas id="anCanvas" width="320" height="200" aria-label="Animation preview at native 320 by 200 resolution" title="Drag the pose to adjust this frame’s offset"></canvas></div></div>
+ <div id="anBody" class="studioStage"><div id="anPreviewCol"><canvas id="anCanvas" class="studioArt" width="320" height="200" aria-label="Animation preview at native 320 by 200 resolution" title="Drag the pose to adjust this frame’s offset"></canvas></div></div>
  <div id="anTransport"><button id="anPrevious"></button><button id="anPlay" aria-pressed="false"></button><button id="anNext"></button><span id="anFrameCounter"></span></div>
  <div id="anTimeline" role="listbox" aria-label="Animation frames"></div>
  <div id="anStatus"></div></main>
@@ -22,9 +22,9 @@
  #animationEditor main{display:flex;flex-direction:column;flex-wrap:nowrap;align-items:stretch;padding:0;gap:0;overflow:hidden}
  .anTop{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel)}
  #anGroupTitle{color:var(--ink);font-size:13px}
- #anBody{flex:1;min-height:0;display:flex;background:#111318}
+ #anBody{flex:1;min-height:0;display:flex}
  #anPreviewCol{flex:1;min-width:0;min-height:0;overflow:auto;display:flex;align-items:safe center;justify-content:safe center;padding:12px}
- #anCanvas{flex:none;image-rendering:pixelated;background:#000;border:1px solid var(--line);touch-action:none;cursor:move}
+ #anCanvas{flex:none;image-rendering:pixelated;background:#000;touch-action:none;cursor:move}
  /* Playback sits above the timeline it steps through. */
  #anTransport{display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--panel);border-top:1px solid var(--line)}
  #anTransport button{padding:4px;display:flex;align-items:center;justify-content:center}
@@ -239,7 +239,7 @@
   document.body.classList.toggle('animationView',!host.hidden);
   if(host.hidden)return;
   const a=currentAnimation();frameIndex=Math.max(0,Math.min(frameIndex,(a?.frames.length??1)-1));
-  $('anEmpty').hidden=!!a;$('anBody').hidden=$('anTimeline').hidden=!a;
+  $('anEmpty').hidden=!!a;StudioShell.emptyEditor(host,!a);for(const el of [host.querySelector('.anTop'),$('anBody'),$('anTransport'),$('anTimeline')])el.hidden=!a;
   $('anEmptyMessage').textContent=!shapes.length?'Create a shape first. Animations sequence shapes as frames.':'No animations yet. An animation sequences shapes as frames.';
   $('anCreateShape').hidden=!!shapes.length;$('anEmptyNew').hidden=!shapes.length;
   $('anNew').disabled=animations.length>=255;
@@ -280,9 +280,9 @@
 
  host.querySelector('.anTop .studioBarEnd').append(StudioShell.helpButton());
  const library=host.querySelector('.anLibrary'),shapeLibrary=host.querySelector('.anShapeLibrary');
- const panelToggle=(panel,id,label,icon)=>{const b=StudioShell.iconButton(id,label,icon);StudioShell.bindPanel({panel,button:b,group:'animation',closeGroups:['animation']});return b;};
+ const panelToggle=(panel,id,label,icon,asset=false)=>{const b=StudioShell.iconButton(id,label,icon);StudioShell.bindPanel({panel,button:b,group:'animation',closeGroups:['animation'],asset});return b;};
  const rail=StudioShell.toolRail('anRail','Animation tools');host.prepend(rail);
- StudioShell.railLayout(rail,[[panelToggle(library,'anLibraryToggle','Animations','animation'),panelToggle(shapeLibrary,'anShapeLibraryToggle','Shapes to append','shape')]],[
+ StudioShell.railLayout(rail,[[panelToggle(library,'anLibraryToggle','Animations','animation'),panelToggle(shapeLibrary,'anShapeLibraryToggle','Shapes to append','shape',true)]],[
   Object.assign(StudioShell.iconButton('anCopy','Copy frame (Ctrl/Cmd+C)','copy'),{onclick:copyFrame}),Object.assign(StudioShell.iconButton('anPaste','Paste frame after this one (Ctrl/Cmd+V)','paste'),{onclick:pasteFrames}),
   Object.assign(StudioShell.iconButton('anUndo','Undo (Ctrl/Cmd+Z)','undo'),{onclick:ProjectHistory.undo}),
   Object.assign(StudioShell.iconButton('anRedo','Redo (Ctrl/Cmd+Shift+Z)','redo'),{onclick:ProjectHistory.redo})]);
@@ -297,7 +297,7 @@
  StudioShell.setIcon($('anPrevious'),'previous','Previous frame (←)');StudioShell.setIcon($('anNext'),'next','Next frame (→)');
  const frameRail=StudioShell.toolRail('anFrameRail','Frame actions','right');host.append(frameRail);
  const framePanel=host.querySelector('.anFramePanel');
- const framePanelToggle=StudioShell.iconButton('anFramePanelToggle','Frame properties','properties');StudioShell.bindPanel({panel:framePanel,button:framePanelToggle,group:'animationRight',closeGroups:['animationRight']});
+ const framePanelToggle=StudioShell.iconButton('anFramePanelToggle','Frame properties','properties');StudioShell.bindPanel({panel:framePanel,button:framePanelToggle,group:'animationRight',closeGroups:['animationRight'],asset:true});
  for(const [id,icon,label] of [['anDuplicateFrame','duplicate','Duplicate frame (Ctrl/Cmd+D)'],['anMoveEarlier','earlier','Move frame earlier'],['anMoveLater','later','Move frame later']])StudioShell.setIcon($(id),icon,label);
  StudioShell.railLayout(frameRail,[[framePanelToggle],[$('anDuplicateFrame'),$('anMoveEarlier'),$('anMoveLater')],[Object.assign(StudioShell.iconButton('anRemoveFrame','Remove frame (Delete)','delete'),{onclick:removeFrame})]]);
  library.hidden=true;shapeLibrary.hidden=true;
