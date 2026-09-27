@@ -13,7 +13,7 @@ import * as audio from '../../dist/packages/assets/audio.js';
 import {scenarios, runEngine, scenarioText, hash} from './audio-scenarios.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url)), studio = path.resolve(here, '../..');
-const mia = [process.env.MIA_DIR, '../clementina-mia', '../../pico/clementina-mia'].filter(Boolean).map(p => path.resolve(studio, p)).find(p => existsSync(path.join(p, 'src/mia/audio/audio.c')));
+const mia = [process.env.MIA_DIR, '../clementina-mia'].filter(Boolean).map(p => path.resolve(studio, p)).find(p => existsSync(path.join(p, 'src/mia/audio/audio.c')));
 if (!mia) { console.error('Cannot find clementina-mia; set MIA_DIR.'); process.exit(2); }
 const binary = path.join(mkdtempSync(path.join(tmpdir(), 'mia-audio-')), 'audio-harness');
 execFileSync('cc', ['-O2', '-std=c11', '-w', '-I', path.join(here, 'stubs'), '-I', path.join(mia, 'src/mia'), path.join(here, 'audio-harness.c'), '-o', binary, '-lm'], {stdio: 'inherit'});

@@ -1,6 +1,8 @@
 // MIA audio as Studio authors it: the voice model, instruments, songs and
-// sound effects; the engine that previews them; and the compiler that turns a
-// song into the MIA background sequencer's bytecode. See docs/audio.md.
+// sound effects, and the engine that previews them. The compiler that turns a
+// song into the MIA background sequencer's bytecode, and a sound into its
+// register writes, is @clementina/assets' - the SDK builds the game's files
+// with the same code Studio previews. See docs/audio.md.
 //
 // The engine is clementina-mia src/mia/audio/audio.c, bit for bit: the same
 // sine table, oscillators and noise generator, envelope rate and level
@@ -8,13 +10,17 @@
 // same sequencer, timing included. The sequencer holds a NOTE or REST for its
 // duration field *plus one* sample: audio_seq_step decodes the next event on
 // the sample after its countdown reaches zero (clementina-6502's
-// audio_sequencer_test.go asserts the same), so the compiler below writes one
-// less than the samples an event should last. A preview is what the chip
+// audio_sequencer_test.go asserts the same), so the compiler writes one less
+// than the samples an event should last. A preview is what the chip
 // plays, sample for sample, before its PWM output stage.
 //
-// No runtime imports: the renderer loads this module as it is (editor.html).
+// The renderer loads this module as it is; editor.html's import map resolves
+// @clementina/assets/audio, which itself imports nothing.
+import { AUDIO_SAMPLE_RATE, AUDIO_VOICE_COUNT, SEQ_OP, VOICE_REG, VOICE_CONTROL_GATE, VOICE_CONTROL_RESET_PHASE, compileSong, noteFrequency, soundWrites, stepSample } from '@clementina/assets/audio';
+export { compileSong, noteFrequency, soundWrites, stepSample };
+export type { CompiledSong, CompiledVoice } from '@clementina/assets/audio';
 
-export const SAMPLE_RATE = 24000, VOICE_COUNT = 4, FRAME_RATE = 60, FRAME_SAMPLES = SAMPLE_RATE / FRAME_RATE;
+export const SAMPLE_RATE = AUDIO_SAMPLE_RATE, VOICE_COUNT = AUDIO_VOICE_COUNT, FRAME_RATE = 60, FRAME_SAMPLES = SAMPLE_RATE / FRAME_RATE;
 /** C0 to B7: the ROM's `NOTE` range, and all of it fits the 12.4 frequency register. */
 export const NOTE_COUNT = 96, MAX_FREQ = 0xFFFF;
 export const WAVE_SINE = 0, WAVE_PULSE = 1, WAVE_SAW = 2, WAVE_TRIANGLE = 3, WAVE_NOISE = 4;
@@ -28,12 +34,10 @@ export const STEPS_PER_BEAT = [1, 2, 3, 4, 6, 8];
 export const MAX_AUDIO_ASSETS = 255;
 
 /** Sequencer opcodes (audio.h MIA_SEQ_OP_*). */
-export const OP = { END: 0, NOTE: 1, REST: 2, SET_WAVE: 3, SET_ADSR: 4, SET_PAN: 5, SET_VOL: 6, SET_PULSE: 7, JUMP: 8 } as const;
+export const OP = SEQ_OP;
 /** Offsets in a voice's 16-byte register record. */
-export const REG = { FREQ_L: 0, FREQ_H: 1, PULSE_WIDTH: 2, ATTACK_DECAY: 3, SUSTAIN_RELEASE: 4, WAVEFORM: 5, PAN: 6, CONTROL: 7, VOLUME: 8 } as const;
-export const CONTROL_GATE = 1, CONTROL_RESET_PHASE = 2;
-/** The longest event one NOTE or REST can hold: a 24-bit duration field, plus the sequencer's extra sample. */
-const MAX_EVENT_SAMPLES = 0x1000000;
+export const REG = VOICE_REG;
+export const CONTROL_GATE = VOICE_CONTROL_GATE, CONTROL_RESET_PHASE = VOICE_CONTROL_RESET_PHASE;
 
 // ---------------------------------------------------------------------------
 // Model
@@ -75,74 +79,18 @@ export interface Sound {
 }
 
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-/** The frequency register value (Hz × 16) of a semitone, equal temperament with A4 = 440 Hz. */
-export function noteFrequency(note: number): number { return Math.min(MAX_FREQ, Math.max(0, Math.round(440 * 2 ** ((note - 57) / 12) * 16))); }
 export function noteName(note: number): string { const n = Math.round(note); return NAMES[((n % 12) + 12) % 12] + Math.floor(n / 12); }
 /** The fractional semitone a frequency register value sounds, C0 = 0; -Infinity for 0 Hz. */
 export function frequencyNote(freq: number): number { return freq > 0 ? 57 + 12 * Math.log2(freq / 16 / 440) : -Infinity; }
 export function frequencyHz(freq: number): number { return freq / 16; }
 export function hzToFrequency(hz: number): number { return Math.min(MAX_FREQ, Math.max(0, Math.round(hz * 16))); }
 
-const IDENTIFIER = /^[A-Za-z][A-Za-z0-9_]{0,31}$/;
-function range(n: unknown, min: number, max: number): boolean { return Number.isInteger(n) && Number(n) >= min && Number(n) <= max; }
-function named(list: Array<{ id: string; name: string }>, what: string): void {
- const ids = new Set<string>(), names = new Set<string>();
- for (const item of list) {
-  if (!item || typeof item.id !== 'string' || !item.id.length || ids.has(item.id)) throw Error(`${what} identities must be unique`);
-  ids.add(item.id);
-  if (typeof item.name !== 'string' || !IDENTIFIER.test(item.name) || names.has(item.name.toUpperCase())) throw Error(`${what} names must be unique assembly identifiers (1–32 characters)`);
-  names.add(item.name.toUpperCase());
- }
-}
-function envelope(e: { attack: number; decay: number; sustain: number; release: number }): boolean {
- return range(e.attack, 0, 15) && range(e.decay, 0, 15) && range(e.sustain, 0, 15) && range(e.release, 0, 15);
-}
-
-export function validateInstruments(instruments: Instrument[]): void {
- if (!Array.isArray(instruments) || instruments.length > MAX_AUDIO_ASSETS) throw Error(`At most ${MAX_AUDIO_ASSETS} instruments are supported`);
- named(instruments, 'Instrument');
- for (const i of instruments) {
-  if (!range(i.wave, 0, 4) || !range(i.pulse, 0, 255) || !envelope(i) || !range(i.volume, 0, 255)) throw Error(`Invalid instrument "${i.name}"`);
- }
-}
-
-export function validateSongs(songs: Song[], instruments: Instrument[] = []): void {
- if (!Array.isArray(songs) || songs.length > MAX_AUDIO_ASSETS) throw Error(`At most ${MAX_AUDIO_ASSETS} songs are supported`);
- named(songs, 'Song');
- const instrumentIds = new Set(instruments.map(i => i.id));
- for (const song of songs) {
-  if (!range(song.bpm, MIN_BPM, MAX_BPM) || !STEPS_PER_BEAT.includes(song.stepsPerBeat) || !range(song.beatsPerBar, 1, 16)) throw Error(`Invalid tempo in "${song.name}"`);
-  if (!range(song.length, 1, MAX_SONG_STEPS)) throw Error(`A song is 1 to ${MAX_SONG_STEPS} steps long`);
-  if (song.loopStart !== undefined && !range(song.loopStart, 0, song.length - 1)) throw Error(`The loop in "${song.name}" starts outside the song`);
-  // MIA has four voices, so a song has four: a voice without notes is left
-  // free for sound effects.
-  if (!Array.isArray(song.voices) || song.voices.length !== VOICE_COUNT) throw Error(`A song has exactly ${VOICE_COUNT} voices`);
-  for (const voice of song.voices) {
-   if (!voice || !range(voice.pan, PAN_MIN, PAN_MAX) || !Array.isArray(voice.notes) || voice.notes.length > MAX_SONG_STEPS) throw Error(`Invalid voice in "${song.name}"`);
-   let end = 0;
-   for (const note of voice.notes) {
-    if (!note || !range(note.step, 0, song.length - 1) || !range(note.length, 1, song.length - note.step) || !range(note.pitch, 0, NOTE_COUNT - 1)) throw Error(`Invalid note in "${song.name}"`);
-    if (!instrumentIds.has(note.instrumentId)) throw Error(`A note in "${song.name}" names an instrument that is not in the project`);
-    if (note.legato !== undefined && typeof note.legato !== 'boolean') throw Error(`Invalid note in "${song.name}"`);
-    // A voice plays one note at a time.
-    if (note.step < end) throw Error(`Notes on one voice of "${song.name}" overlap or are out of order`);
-    end = note.step + note.length;
-   }
-  }
- }
-}
-
-export function validateSounds(sounds: Sound[]): void {
- if (!Array.isArray(sounds) || sounds.length > MAX_AUDIO_ASSETS) throw Error(`At most ${MAX_AUDIO_ASSETS} sounds are supported`);
- named(sounds, 'Sound');
- for (const sound of sounds) {
-  if (!envelope(sound) || !range(sound.pan, PAN_MIN, PAN_MAX)) throw Error(`Invalid sound "${sound.name}"`);
-  if (!Array.isArray(sound.frames) || sound.frames.length < 1 || sound.frames.length > MAX_SOUND_FRAMES) throw Error(`A sound holds 1 to ${MAX_SOUND_FRAMES} frames`);
-  for (const f of sound.frames) {
-   if (!f || !range(f.freq, 0, MAX_FREQ) || !range(f.volume, 0, 255) || !range(f.pulse, 0, 255) || !range(f.wave, 0, 4) || typeof f.gate !== 'boolean') throw Error(`Invalid frame in "${sound.name}"`);
-  }
- }
-}
+// Validation shares the SDK's browser-safe audio contract with the project validator.
+export {
+ validateStudioInstruments as validateInstruments,
+ validateStudioSongs as validateSongs,
+ validateStudioSounds as validateSounds,
+} from '@clementina/assets/audio';
 
 /** A starting set, so a first song has something to draw with. */
 export function defaultInstruments(id: () => string): Instrument[] {
@@ -184,6 +132,8 @@ interface Voice {
  sample: number; adsr: number; vol: number; phase: number; noise1: number; noise2: number;
 }
 interface Sequencer {
+ /** Whether a track base was set; without one, AUDIO_SEQ_START leaves the voice stopped. */
+ hasTrack: boolean;
  running: boolean; taken: boolean; catchingUp: boolean; bytes: Uint8Array;
  cursor: number; countdown: number; eventDuration: number; catchupRemaining: number; takenAt: number; noteIndex: number;
 }
@@ -270,8 +220,8 @@ export class MiaEngine {
  }
 
  /** A track's bytes, as if written at its voice's track_base, then AUDIO_SEQ_LOAD. */
- loadTrack(voice: number, bytes: Uint8Array): void { this.seqs[voice] = { ...emptySequencer(), bytes }; }
- start(mask: number): void { this.each(mask, s => { s.running = true; s.taken = false; s.catchingUp = false; }); }
+ loadTrack(voice: number, bytes: Uint8Array): void { this.seqs[voice] = { ...emptySequencer(), bytes, hasTrack: true }; }
+ start(mask: number): void { this.each(mask, s => { if (!s.hasTrack) return; s.running = true; s.taken = false; s.catchingUp = false; }); }
  stop(mask: number): void { this.each(mask, (s, v) => { s.running = false; s.taken = false; s.catchingUp = false; this.gate(v, false); }); }
  /** AUDIO_VOICE_TAKE: freeze a voice's track without silencing it. */
  take(mask: number): void { this.each(mask, s => { s.taken = true; s.takenAt = this.clock; }); }
@@ -377,7 +327,7 @@ export class MiaEngine {
   }
  }
 }
-function emptySequencer(): Sequencer { return { running: false, taken: false, catchingUp: false, bytes: new Uint8Array(0), cursor: 0, countdown: 0, eventDuration: 0, catchupRemaining: 0, takenAt: 0, noteIndex: 0 }; }
+function emptySequencer(): Sequencer { return { hasTrack: false, running: false, taken: false, catchingUp: false, bytes: new Uint8Array(0), cursor: 0, countdown: 0, eventDuration: 0, catchupRemaining: 0, takenAt: 0, noteIndex: 0 }; }
 /** A JUMP's signed 24-bit offset is relative to the byte after its own record. */
 function jumpTarget(b: Uint8Array, at: number): number { return at + 4 + ((read24(b, at + 1) << 8) >> 8); }
 function next(s: Voice): number {
@@ -409,13 +359,9 @@ function envelopeStep(s: Voice): void {
 }
 
 // ---------------------------------------------------------------------------
-// Songs: steps to samples, and the sequencer bytecode
+// Songs: samples back to steps (stepSample and compileSong are the SDK's)
 // ---------------------------------------------------------------------------
 
-/** The sample a step starts on. Rounding each boundary, not each duration, keeps every voice on the same clock. */
-export function stepSample(song: Pick<Song, 'bpm' | 'stepsPerBeat'>, step: number): number {
- return Math.round(step * SAMPLE_RATE * 60 / (song.bpm * song.stepsPerBeat));
-}
 /** The fractional step a sample falls on. */
 export function sampleStep(song: Pick<Song, 'bpm' | 'stepsPerBeat'>, sample: number): number {
  return sample * song.bpm * song.stepsPerBeat / (SAMPLE_RATE * 60);
@@ -427,117 +373,6 @@ export function songSample(song: Pick<Song, 'bpm' | 'stepsPerBeat' | 'length' | 
  if (song.loopStart === undefined) return end;
  const loop = stepSample(song, song.loopStart);
  return loop + (sample - loop) % (end - loop);
-}
-
-export interface CompiledVoice {
- /** The track, as it would be written at the voice's track_base. */
- bytes: Uint8Array;
- /** Offset of the byte the song's closing JUMP returns to, or null when it ends. */
- loop: number | null;
- notes: number;
-}
-export interface CompiledSong {
- /** One per MIA voice; null where the song leaves the voice free. */
- voices: Array<CompiledVoice | null>;
- samples: number;
- loopSample: number | null;
-}
-
-/**
- * A song as four sequencer tracks. Per voice, in time order: a SET_PAN, then
- * for each note the SET_* opcodes its instrument changes, a one-sample REST
- * when the note must restart the envelope, and the NOTE; RESTs fill the
- * gaps; a JUMP back to the loop start, or END.
- *
- * The one-sample REST exists because the sequencer's NOTE sets the gate, and
- * an envelope only restarts on the gate's rising edge (audio_apply_register):
- * two NOTEs in a row slide from one pitch to the next under one envelope.
- * That slide is what a legato note asks for, so it skips the REST.
- */
-export function compileSong(song: Song, instruments: Instrument[]): CompiledSong {
- const byId = new Map(instruments.map(i => [i.id, i]));
- const at = (step: number) => stepSample(song, step), end = at(song.length);
- const loop = song.loopStart;
- const voices = song.voices.map(voice => voice.notes.length ? compileVoice(voice, byId, at, song.length, loop) : null);
- return { voices, samples: end, loopSample: loop === undefined ? null : at(loop) };
-}
-
-type Segment = { from: number; to: number; note?: SongNote; continued?: boolean };
-function compileVoice(voice: SongVoice, byId: Map<string, Instrument>, at: (step: number) => number, length: number, loop: number | undefined): CompiledVoice {
- // Notes and the rests between them, split where the loop begins.
- const segments: Segment[] = [];
- let cursor = 0;
- for (const note of voice.notes) {
-  if (note.step > cursor) segments.push({ from: cursor, to: note.step });
-  segments.push({ from: note.step, to: note.step + note.length, note });
-  cursor = note.step + note.length;
- }
- if (cursor < length) segments.push({ from: cursor, to: length });
- let body = 0;
- if (loop !== undefined) {
-  const i = segments.findIndex(s => s.from < loop && s.to > loop);
-  if (i >= 0) segments.splice(i, 1, { ...segments[i], to: loop }, { ...segments[i], from: loop, continued: true });
-  body = segments.findIndex(s => s.from >= loop);
- }
-
- const out: number[] = [];
- const push24 = (n: number) => out.push(n & 255, (n >> 8) & 255, (n >> 16) & 255);
- // An event that lasts `samples` holds for its duration field plus one.
- const rest = (samples: number) => { for (; samples > 0; samples -= MAX_EVENT_SAMPLES) { out.push(OP.REST); push24(Math.min(samples, MAX_EVENT_SAMPLES) - 1); } };
- const tone = (freq: number, samples: number) => { for (; samples > 0; samples -= MAX_EVENT_SAMPLES) { out.push(OP.NOTE, freq & 255, freq >> 8); push24(Math.min(samples, MAX_EVENT_SAMPLES) - 1); } };
- out.push(OP.SET_PAN, voice.pan & 255);
- // What the voice holds, as far as the track knows. Nothing is known at the
- // start — a sound effect may have left the voice gated — nor where playback
- // arrives from two places, the loop start.
- let state: Record<string, number> = {}, gate: boolean | undefined, loopOffset: number | null = null, notes = 0;
- segments.forEach((segment, i) => {
-  if (loop !== undefined && i === body) { loopOffset = out.length; state = {}; gate = undefined; }
-  const samples = at(segment.to) - at(segment.from);
-  if (!segment.note) { rest(samples); gate = false; return; }
-  const note = segment.note, instrument = byId.get(note.instrumentId);
-  const retrigger = !segment.continued && !note.legato && gate !== false;
-  if (retrigger) rest(1);
-  if (instrument) for (const [key, op, ...values] of instrumentOps(instrument)) {
-   if (state[key] === values[0] * 256 + (values[1] ?? 0)) continue;
-   state[key] = values[0] * 256 + (values[1] ?? 0); out.push(op, ...values);
-  }
-  tone(noteFrequency(note.pitch), samples - (retrigger ? 1 : 0));
-  gate = true; if (!segment.continued) notes++;
- });
- if (loopOffset !== null) { out.push(OP.JUMP); push24(loopOffset - (out.length + 3)); } else out.push(OP.END);
- return { bytes: Uint8Array.from(out), loop: loopOffset, notes };
-}
-/** The SET_* opcodes that put an instrument on a voice. */
-function instrumentOps(i: Instrument): Array<[string, number, ...number[]]> {
- return [['wave', OP.SET_WAVE, i.wave], ['adsr', OP.SET_ADSR, i.attack << 4 | i.decay, i.sustain << 4 | i.release], ['pulse', OP.SET_PULSE, i.pulse], ['volume', OP.SET_VOL, i.volume]];
-}
-
-// ---------------------------------------------------------------------------
-// Sound effects: what a 60 Hz driver writes to the voice it takes
-// ---------------------------------------------------------------------------
-
-/**
- * The register writes a sound makes, per frame, as a program driving a
- * voice it has taken (VTAKE) writes them: the whole record on the first
- * frame, then only what changes. Gating on also resets the phase, as the
- * ROM's NOTE does. The entry after the last frame releases the gate.
- */
-export function soundWrites(sound: Sound): Array<Array<[number, number]>> {
- const out: Array<Array<[number, number]>> = [];
- let last: SoundFrame | null = null;
- for (const f of sound.frames) {
-  const w: Array<[number, number]> = [];
-  if (!last || last.freq !== f.freq) w.push([REG.FREQ_L, f.freq & 255], [REG.FREQ_H, f.freq >> 8]);
-  if (!last || last.pulse !== f.pulse) w.push([REG.PULSE_WIDTH, f.pulse]);
-  if (!last) w.push([REG.ATTACK_DECAY, sound.attack << 4 | sound.decay], [REG.SUSTAIN_RELEASE, sound.sustain << 4 | sound.release]);
-  if (!last || last.wave !== f.wave) w.push([REG.WAVEFORM, f.wave]);
-  if (!last) w.push([REG.PAN, sound.pan & 255]);
-  if (!last || last.volume !== f.volume) w.push([REG.VOLUME, f.volume]);
-  if (!last || last.gate !== f.gate) w.push([REG.CONTROL, f.gate ? CONTROL_GATE | CONTROL_RESET_PHASE : 0]);
-  out.push(w); last = f;
- }
- out.push(last?.gate ? [[REG.CONTROL, 0]] : []);
- return out;
 }
 
 // ---------------------------------------------------------------------------

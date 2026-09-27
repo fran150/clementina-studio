@@ -4,15 +4,30 @@ import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {spawn} from 'node:child_process';
+import {startEmulatorProcess, type EmulatorProcess} from '@clementina/emulator-client/node';
+import {defaultAssets, inspectBuilder, readBuilderFolder, readPortableStudioProject, writeBuilderProject, writePortableStudioProject, buildStudioProject, type ConfirmRemoval, type RemovedAsset} from './builder.js';
+import type {ProjectAssetsBuild} from '@clementina/project';
 import { encodeProject, decodeProject, importTilesetFile, type StudioProject } from '../../packages/assets/index.js';
 const here=path.dirname(fileURLToPath(import.meta.url));
 let win: BrowserWindow;
 let projectPath: string | undefined;
+let portableRoot: string | undefined;
+let builderRoot: string | undefined;
+let pendingBuilderRoot: string | undefined;
+let builderEmulator: EmulatorProcess | undefined;
+let builderBusy=false;
+const builderTools={emulator:'clementina-automation',renderer:'clementina-render'};
+let confirmRemoval:ConfirmRemoval=async()=>false;
 function representFile(file:string){if(process.platform==='darwin'&&win&&!win.isDestroyed())win.setRepresentedFilename(file);}
 async function saveProject(p:StudioProject,saveAs=false):Promise<string|null>{
+ if(portableRoot&&!saveAs){
+  const saved=await writePortableStudioProject(portableRoot,p,p.builder??defaultAssets(),path.basename(portableRoot),confirmRemoval);
+  return saved?path.basename(portableRoot):null;
+ }
  const bytes=encodeProject(p);let target=projectPath;
  if(!target||saveAs){const r=await dialog.showSaveDialog(win,{defaultPath:target??'project.cstudio',filters:[{name:'Studio project',extensions:['cstudio']}]});if(r.canceled||!r.filePath)return null;target=r.filePath;}
- await writeFile(target,bytes);projectPath=target;representFile(target);return path.basename(target);
+ await writeFile(target,bytes);projectPath=target;if(saveAs){portableRoot=undefined;builderRoot=undefined;}representFile(target);return path.basename(target);
 }
 app.whenReady().then(()=>{
  const recovery=new RecoveryStore(path.join(app.getPath('userData'),'recovery'),String(process.pid)+'-'+Date.now());
@@ -64,10 +79,10 @@ app.whenReady().then(()=>{
  ]},
   // Replaces the default View menu, whose page zoom scaled the whole interface
   // and whose Reload dropped the open project. These zoom the canvas.
-  // Ctrl/Cmd+1–8 switch editors, the way they switch tabs in a browser, in
+  // Ctrl/Cmd+1–9 switch editors, the way they switch tabs in a browser, in
   // the tabs' order; Actual Size takes Photoshop's Ctrl/Cmd+Alt+0 instead.
   {label:'View',submenu:[
-   ...([['Palettes','palettes'],['Tilesets','tiles'],['Shapes','shapes'],['Animations','animations'],['Backgrounds','backgrounds'],['Overlays','overlays'],['Sounds','sounds'],['Music','music']] as const)
+   ...([['Palettes','palettes'],['Tilesets','tiles'],['Shapes','shapes'],['Animations','animations'],['Backgrounds','backgrounds'],['Overlays','overlays'],['Sounds','sounds'],['Music','music'],['Builder','builder']] as const)
     .map(([label,view],i)=>({label,accelerator:`CommandOrControl+${i+1}`,click:command('view:'+view)})),
    {type:'separator'},
    {label:'Zoom In',accelerator:'CommandOrControl+=',click:command('zoomIn')},
@@ -118,16 +133,81 @@ app.whenReady().then(()=>{
   return {name:path.basename(selected),dataUrl:'data:'+mime+';base64,'+bytes.toString('base64'),format:ext.slice(1)};
  });
  ipcMain.handle('project:open',async()=>{
-  const result=await dialog.showOpenDialog(win,{filters:[{name:'Studio project',extensions:['cstudio']}],properties:['openFile']});
+  const result=await dialog.showOpenDialog(win,{filters:[{name:'Studio or portable project',extensions:['cstudio','yaml']}],properties:['openFile']});
   if(result.canceled)return null;
   const selected=result.filePaths[0];
-  return {path:selected,name:path.basename(selected),project:decodeProject(await readFile(selected,'utf8'))};
+  if(path.basename(selected)==='clementina.yaml'){
+   const opened=await readPortableStudioProject(path.dirname(selected));
+   return {path:selected,kind:'portable',name:opened.portable.manifest.name,root:path.dirname(selected),project:opened.project};
+  }
+  if(path.extname(selected)!=='.cstudio')throw Error('Choose a .cstudio file or clementina.yaml.');
+  return {path:selected,kind:'studio',name:path.basename(selected),project:decodeProject(await readFile(selected,'utf8'))};
  });
- ipcMain.handle('project:opened',(_event,selected:string)=>{projectPath=selected;representFile(selected);});
+ ipcMain.handle('project:opened',(_event,selected:string,kind:'studio'|'portable'='studio')=>{
+  portableRoot=kind==='portable'?path.dirname(selected):undefined;
+  builderRoot=portableRoot;
+  pendingBuilderRoot=undefined;
+  projectPath=kind==='studio'?selected:undefined;
+  representFile(selected);
+ });
  // macOS shows unsaved edits as a dot in the close button, and the file as
  // the title's proxy icon.
  ipcMain.on('project:edited',(_event,edited:boolean)=>{if(process.platform==='darwin'&&!win.isDestroyed())win.setDocumentEdited(!!edited);});
- ipcMain.handle('project:new',()=>{projectPath=undefined;representFile('');});
+ ipcMain.handle('project:new',()=>{projectPath=undefined;portableRoot=undefined;builderRoot=undefined;representFile('');});
  ipcMain.handle('project:save',(_event,p:StudioProject,saveAs:boolean)=>saveProject(p,saveAs));
+ ipcMain.handle('builder:plan',(_event,p:StudioProject,settings:ProjectAssetsBuild,name:string)=>inspectBuilder(p,settings,name));
+ ipcMain.handle('builder:folder',async()=>{
+  const chosen=await dialog.showOpenDialog(win,{title:'Portable SDK project — choose an assembly project or an empty folder',properties:['openDirectory','createDirectory']});
+  if(chosen.canceled)return null;
+  const root=chosen.filePaths[0],info=await readBuilderFolder(root);pendingBuilderRoot=root;
+  return {root,...info};
+ });
+ ipcMain.handle('builder:folder-selected',(_event,root:string)=>{if(root!==pendingBuilderRoot)throw Error('Choose a project folder first.');builderRoot=root;pendingBuilderRoot=undefined;});
+ ipcMain.handle('builder:tool',async(_event,kind:'emulator'|'renderer')=>{
+  if(kind!=='emulator'&&kind!=='renderer')throw Error('Unknown Builder tool');
+  const chosen=await dialog.showOpenDialog(win,{title:kind==='emulator'?'Choose clementina-automation':'Choose clementina-render',properties:['openFile']});
+  if(chosen.canceled)return null;return builderTools[kind]=chosen.filePaths[0];
+ });
+ // Studio writes only the assets it holds. A save that would take others out
+ // of the folder's clementina.yaml asks first, and Cancel is the default.
+ confirmRemoval=async(removed:RemovedAsset[])=>{
+  const kinds:Record<string,string>={palettes:'palette',paletteConfigs:'palette config',tilesets:'tileset',backgrounds:'background',overlays:'overlay',shapes:'shape',animations:'animation',instruments:'instrument',sounds:'sound',songs:'song'};
+  const names=removed.slice(0,8).map(a=>`${a.name} (${kinds[a.kind]??a.kind})`).join(', ')+(removed.length>8?` and ${removed.length-8} more`:'');
+  const {response}=await dialog.showMessageBox(win,{type:'warning',buttons:['Cancel','Remove and Save'],defaultId:0,cancelId:0,
+   message:`Remove ${removed.length} ${removed.length===1?'asset':'assets'} from clementina.yaml?`,
+   detail:`The project folder lists assets this Studio project doesn't have: ${names}. Saving takes them out of clementina.yaml; their files stay in the folder.`});
+  return response===1;
+ };
+ const declined={ok:false,diagnostics:[],message:'Nothing saved. The project folder keeps its assets.'};
+ ipcMain.handle('builder:action',async(_event,action:string,p:StudioProject,settings:ProjectAssetsBuild,name:string)=>{
+  if(!['save','build','run','stop'].includes(action))throw Error('Unknown Builder action');
+  if(builderBusy)throw Error('A Builder operation is already running.');
+  builderBusy=true;
+  try {
+   if(action==='stop'){await builderEmulator?.close();builderEmulator=undefined;return {ok:true,diagnostics:[]};}
+   if(!builderRoot)throw Error('Choose a portable project folder first.');
+   if(action==='save')return await writeBuilderProject(builderRoot,p,settings,name,confirmRemoval)?{ok:true,diagnostics:[],message:'Saved clementina.yaml and portable assets.'}:declined;
+   const result=await buildStudioProject(builderRoot,p,settings,name,confirmRemoval);
+   if(!result)return declined;
+   if(!result.ok)return result;
+   if(action==='run'){
+    await builderEmulator?.close();builderEmulator=undefined;
+    const session=await startEmulatorProcess({executable:builderTools.emulator,sdRoot:path.resolve(builderRoot,result.value.sdRoot)});
+    try{await session.client.launchLoadPlan(result.value.loadPlan);builderEmulator=session;}catch(error){await session.close();throw error;}
+   }
+   return {ok:true,diagnostics:result.diagnostics,sdRoot:path.resolve(builderRoot,result.value.sdRoot),report:result.value.assets?.report,moduleSizes:result.value.assets?.report.runtimeCode,running:!!builderEmulator};
+  } finally {builderBusy=false;}
+ });
+ ipcMain.handle('builder:frame',async()=>{
+  if(!builderEmulator)return null;
+  const video=await builderEmulator.client.video();
+  return new Promise<string>((resolve,reject)=>{
+   const child=spawn(builderTools.renderer,[],{stdio:['pipe','pipe','pipe']});const chunks:Buffer[]=[],errors:Buffer[]=[];
+   child.stdout.on('data',b=>chunks.push(b));child.stderr.on('data',b=>errors.push(b));child.on('error',reject);
+   child.on('close',code=>code===0?resolve('data:image/png;base64,'+Buffer.concat(chunks).toString('base64')):reject(Error(Buffer.concat(errors).toString()||'Renderer failed')));
+   child.stdin.on('error',reject);child.stdin.end(JSON.stringify(video));
+  });
+ });
+ win.on('closed',()=>{void builderEmulator?.close();builderEmulator=undefined;});
 });
 app.on('window-all-closed',()=>app.quit());

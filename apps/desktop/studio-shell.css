@@ -12,7 +12,7 @@ body.studioWorkspace footer { left:0; height:28px; padding:6px 12px; font-size:1
 /* The current editor's tab, and the project's file actions at the end of the tabs. */
 body.studioWorkspace #workflowNav button[aria-current="page"] { color:var(--ink); border-color:var(--ink); background:#322a1d; box-shadow:inset 0 -2px 0 var(--ink); }
 /* The audio editors follow the graphics ones, past a rule. */
-body.studioWorkspace #workflowNav .navAudio { display:block; width:1px; height:22px; margin:0 6px; padding:0; background:var(--line); font-size:0; overflow:hidden; }
+body.studioWorkspace #workflowNav .navRule { display:block; width:1px; height:22px; margin:0 6px; padding:0; background:var(--line); font-size:0; overflow:hidden; }
 #workflowNav #configPickerWrap { margin-left:auto; font-size:11px; }
 /* Eight tabs, the config picker and the file actions share one row down to a
    1024-pixel window: below 1320 the tabs pad less and the picker drops its
@@ -20,7 +20,7 @@ body.studioWorkspace #workflowNav .navAudio { display:block; width:1px; height:2
 @media (max-width:1320px) {
  body.studioWorkspace #workflowNav { gap:4px; }
  body.studioWorkspace #workflowNav button[data-view] { padding:6px 7px; }
- body.studioWorkspace #workflowNav .navAudio { margin:0 3px; }
+ body.studioWorkspace #workflowNav .navRule { margin:0 3px; }
  #workflowNav #configPickerWrap { font-size:0; gap:0; }
  #workflowNav #configPicker { font-size:11px; }
 }

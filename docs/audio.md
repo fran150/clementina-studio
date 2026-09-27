@@ -173,7 +173,7 @@ track unloaded.
 
 Stored in the project: instruments, songs and sounds.
 
-To be exported, once the build step exists:
+Exported by the Builder tab, through the SDK's copy of the compiler:
 
 - each song's tracks, with the bytes `compileSong` produces;
 - each sound's frames, with a driver that writes them as `soundWrites` does.
@@ -183,7 +183,7 @@ snap. They are editor state.
 
 ## Build step
 
-Designed, not built yet. See
+Built: the Builder tab includes songs and sounds like any other asset. See
 [`clementina-sdk/docs/gamedev/builder.md`](../../clementina-sdk/docs/gamedev/builder.md).
 For audio:
 

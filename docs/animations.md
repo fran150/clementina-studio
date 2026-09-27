@@ -77,6 +77,8 @@ and palette edits.
 
 ## Export
 
-There is none yet. The build step that will write shape and animation data
-with assembly symbols comes after maps, scenes and music, so that it lays out
-a whole project at once. See [model.md](model.md).
+The Builder tab writes one sprite file per tileset: its shapes, then its
+animations, each found through a location table. The generated `assets.inc`
+numbers them as `SHAPE_<NAME>` and `ANIM_<NAME>` for the runtime's
+`LoadShape`, `DrawShape`, `StartAnimation` and `TickAnimation`. See "Build
+step" in [model.md](model.md).

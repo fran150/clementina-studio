@@ -157,8 +157,8 @@ rectangle currently touches — computed the same way
 does, so the numbers match what the real renderer would show. All of this is
 editor state, not exported, the same way the active bank config is a preview
 choice; the one exception is that CHR bank *numbers* can never be shown here
-regardless, since a tileset is not assigned to a physical CHR bank until the
-build step exists — the panel names tilesets, not banks.
+regardless, since a tileset reaches a physical CHR bank only when the game
+calls `UseTileset` — the panel names tilesets, not banks.
 
 Turning an authored background into something that streams onto real hardware
 — chunked across the eight physical nametable/attribute tables, with runtime
@@ -187,10 +187,9 @@ A **placeholder** is a named rectangular region on the grid —
 `{id, name, col, row, width, height}` — and nothing else. It carries no
 content of its own: whatever is painted in its cells with the normal tools
 *is* the overlay's real initial data, not a discardable mockup. Placeholders
-may not overlap and must lie within the 40×25 grid. Their purpose is for a
-future build step to generate a primitive per placeholder — something like
-`SetPlaceholder_<Name>(tileIds)` — that overwrites just the tile-ID bytes in
-that region, left to right then top to bottom, leaving every other attribute
+may not overlap and must lie within the 40×25 grid. The build numbers
+them as `OVL_<OVERLAY>_<PLACEHOLDER>` constants, and the runtime's
+`FillPlaceholder` overwrites just the tile-ID bytes in that region, left to right then top to bottom, leaving every other attribute
 (palette, flips, priority, `CHR_ALT`) as authored. Mapping a value — a score,
 a string — to a tile-ID stream is the programmer's problem, not Studio's.
 
@@ -266,7 +265,7 @@ hold their own plane choice independently, none of it stored on the tileset.
 
 ## Build step
 
-Designed, not built yet. The design lives in the SDK, which owns the build,
+Built as the Builder tab. The design lives in the SDK, which owns the build,
 the file formats and the runtime routines:
 [`clementina-sdk/docs/gamedev/builder.md`](../../clementina-sdk/docs/gamedev/builder.md).
 

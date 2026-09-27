@@ -33,7 +33,7 @@ app.whenReady().then(async()=>{
   await run(`showView('tiles');$('addBankFile').click();const t=tilesets[0];for(let tile=1;tile<=4;tile++)for(let y=0;y<8;y++)for(let x=0;x<8;x++)setTilePixel(t,tile,x,y,(x+tile)%8);redrawAll();`);
 
   // ---- The tabs, their shortcuts, and the one config picker ----
-  assert.deepEqual(await run(`return [...document.querySelectorAll('#workflowNav [data-view]')].map(b=>b.dataset.view);`),['palettes','tiles','shapes','animations','backgrounds','overlays','sounds','music']);
+  assert.deepEqual(await run(`return [...document.querySelectorAll('#workflowNav [data-view]')].map(b=>b.dataset.view);`),['palettes','tiles','shapes','animations','backgrounds','overlays','sounds','music','builder']);
   for(const view of ['shapes','overlays','sounds','music','palettes']){await command('view:'+view);assert.equal(await run(`return currentView;`),view,`the ${view} shortcut must switch editors`);}
   assert.deepEqual(await run(`return {inTabs:!!$('configPicker').closest('#workflowNav'),perEditor:['bankConfigPicker','bgConfigPicker','ovConfigPicker','scConfigPicker','anConfigPicker'].filter(id=>$(id)).length};`),{inTabs:true,perEditor:0},'one config picker, with the tabs');
 

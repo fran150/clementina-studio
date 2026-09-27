@@ -5,6 +5,7 @@
 // is labeled with where the edit happened for the status message.
 (() => {
  const parts={
+  builder:{get:()=>builderSettings,set:v=>{builderSettings=v;}},
   palettes:{get:()=>({paletteLibrary,paletteConfigs,activeConfigId}),set:v=>{paletteLibrary=v.paletteLibrary;paletteConfigs=v.paletteConfigs;activeConfigId=v.activeConfigId;}},
   tilesets:{get:()=>tilesets,set:v=>{tilesets=v;}},
   shapes:{get:()=>shapes,set:v=>{shapes=v;}},
@@ -19,7 +20,7 @@
  let undo=[],redo=[];
  const capture=names=>JSON.stringify(Object.fromEntries(names.map(name=>[name,parts[name].get()])));
  // Every Undo and Redo button says which step it would take.
- const BUTTONS={undo:['bankUndo','palUndo','scUndo','anUndo','bgUndo','ovUndo','sfUndo','muUndo'],redo:['bankRedo','palRedo','scRedo','anRedo','bgRedo','ovRedo','sfRedo','muRedo']};
+ const BUTTONS={undo:['bankUndo','palUndo','scUndo','anUndo','bgUndo','ovUndo','sfUndo','muUndo','buUndo'],redo:['bankRedo','palRedo','scRedo','anRedo','bgRedo','ovRedo','sfRedo','muRedo','buRedo']};
  function changed(){
   for(const [kind,ids] of Object.entries(BUTTONS)){
    const entry=(kind==='undo'?undo:redo).at(-1),keys=kind==='undo'?'Ctrl/Cmd+Z':'Ctrl/Cmd+Shift+Z';

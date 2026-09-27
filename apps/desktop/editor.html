@@ -98,9 +98,9 @@ header h1, header .sep, header .lbl, header #bankSel, header #mode1, header #mod
 </head>
 <body>
 <aside id="workflowNav"><div class="brand">CLEMENTINA STUDIO</div><div class="navGroup">GRAPHICS</div>
-<button data-view="palettes" title="Palettes (Ctrl/Cmd+1)">Palettes</button><button data-view="tiles" title="Tilesets (Ctrl/Cmd+2)">Tilesets</button><button data-view="shapes" title="Shapes (Ctrl/Cmd+3)">Shapes</button><button data-view="animations" title="Animations (Ctrl/Cmd+4)">Animations</button><button data-view="backgrounds" title="Backgrounds (Ctrl/Cmd+5)">Backgrounds</button><button data-view="overlays" title="Overlays (Ctrl/Cmd+6)">Overlays</button><div class="navGroup navAudio">AUDIO</div>
-<button data-view="sounds" title="Sounds (Ctrl/Cmd+7)">Sounds</button><button data-view="music" title="Music (Ctrl/Cmd+8)">Music</button>
-<div class="navNote">Define palettes and bank configs, draw tilesets, build shapes from their tiles, sequence shapes into animations, paint backgrounds, then design the overlay. Make sound effects, then compose music.</div></aside>
+<button data-view="palettes" title="Palettes (Ctrl/Cmd+1)">Palettes</button><button data-view="tiles" title="Tilesets (Ctrl/Cmd+2)">Tilesets</button><button data-view="shapes" title="Shapes (Ctrl/Cmd+3)">Shapes</button><button data-view="animations" title="Animations (Ctrl/Cmd+4)">Animations</button><button data-view="backgrounds" title="Backgrounds (Ctrl/Cmd+5)">Backgrounds</button><button data-view="overlays" title="Overlays (Ctrl/Cmd+6)">Overlays</button><div class="navGroup navRule">AUDIO</div>
+<button data-view="sounds" title="Sounds (Ctrl/Cmd+7)">Sounds</button><button data-view="music" title="Music (Ctrl/Cmd+8)">Music</button><div class="navGroup navRule">BUILD</div><button data-view="builder" title="Builder (Ctrl/Cmd+9)">Builder</button>
+<div class="navNote">Define palettes and bank configs, draw tilesets, build shapes from their tiles, sequence shapes into animations, paint backgrounds, then design the overlay. Make sound effects, then compose music. Last, choose which assets a game's SD card holds and where each loads by default.</div></aside>
 <div id="workspace"><div id="workflowHeading"><h1 id="viewTitle">Tilesets</h1><p id="viewHelp"></p></div>
 <header>
   <h1>Clementina Studio <small>· 8×8 tiles · 1/3 bpp · 16 palette banks</small></h1>
@@ -133,6 +133,7 @@ const statusEl = $('status'), dirtyEl = $('dirty'), nameInput = $('nameInput');
 
 // ===== state =====
 let paletteLibrary = [], paletteConfigs = [], activeConfigId = null, tilesets = [], backgrounds = [], overlays = [];
+let builderSettings={folder:'ASSETS',checks:true,slots:[],include:[]};
 let currentView = 'tiles', shapes = [], animations = [];
 // Audio: instruments are what songs' notes play; see docs/audio.md.
 let instruments = [], sounds = [], songs = [];
@@ -269,8 +270,10 @@ $('configPicker').onchange = () => { activeConfigId = $('configPicker').value; r
 function newProject() {
   if (dirty && !confirm('Discard unsaved changes?')) return;
   window.studio?.newProject();
+  window.resetBuilderFolder?.();
   tilesets = []; backgrounds = []; overlays = []; animations = []; shapes = []; shapeIndex = 0; animationIndex = 0; frameIndex = 0;
   instruments = []; sounds = []; songs = [];
+  builderSettings={folder:'ASSETS',checks:true,slots:[],include:[]};
   playing = false; window.ProjectHistory?.clear();
   loadDefaultPalettes();
   nameInput.value = 'tiles'; projectFile = null;
@@ -281,9 +284,11 @@ function studioProject() {
   return {paletteLibrary:structuredClone(paletteLibrary),paletteConfigs:structuredClone(paletteConfigs),
    activeConfigId,tilesets:structuredClone(tilesets),backgrounds:structuredClone(backgrounds),overlays:structuredClone(overlays),
    shapes:structuredClone(shapes),animations:structuredClone(animations),
-   instruments:structuredClone(instruments),sounds:structuredClone(sounds),songs:structuredClone(songs)};
+   builder:structuredClone(builderSettings),instruments:structuredClone(instruments),sounds:structuredClone(sounds),songs:structuredClone(songs)};
 }
 function restoreStudioProject(p,name='Recovered project') {
+  window.resetBuilderFolder?.();
+  builderSettings=structuredClone(p.builder??{folder:'ASSETS',checks:true,slots:[],include:[]});
   paletteLibrary=structuredClone(p.paletteLibrary??[]);paletteConfigs=structuredClone(p.paletteConfigs??[]);
   activeConfigId=p.activeConfigId??paletteConfigs[0]?.id??null;tilesets=structuredClone(p.tilesets??[]);
   backgrounds=structuredClone(p.backgrounds??[]);overlays=structuredClone(p.overlays??[]);
@@ -297,9 +302,9 @@ $('newBtn').onclick = () => newProject();
 $('nativeOpen').onclick=()=>studioAction(async()=>{
  if(dirty&&!confirm('Discard unsaved changes?'))return;
  const file=await window.studio.open();if(!file)return;
- restoreStudioProject(file.project,file.name);await window.studio.opened(file.path);setStatus('Opened '+file.name);
+ restoreStudioProject(file.project,file.name);await window.studio.opened(file.path,file.kind);if(file.kind==='portable')window.setBuilderFolder?.(file.root);setStatus('Opened '+file.name);
 });
-async function nativeSave(saveAs) { const snapshot=studioProject();const name=await window.studio.save(snapshot,saveAs);if(name){projectFile=name;dirty=JSON.stringify(snapshot)!==JSON.stringify(studioProject());setDirtyLabel();setStatus('Saved '+name);} }
+async function nativeSave(saveAs) { const snapshot=studioProject();const name=await window.studio.save(snapshot,saveAs);if(name){if(saveAs)window.resetBuilderFolder?.();projectFile=name;dirty=JSON.stringify(snapshot)!==JSON.stringify(studioProject());setDirtyLabel();setStatus('Saved '+name);} }
 $('nativeSave').onclick=()=>studioAction(()=>nativeSave(false));
 $('nativeSaveAs').onclick=()=>studioAction(()=>nativeSave(true));
 if(!window.studio)for(const id of ['nativeOpen','nativeSave','nativeSaveAs'])$(id).disabled=true;
@@ -319,6 +324,7 @@ window.studio?.onCommand?.(runCommand);
 
 // ===== views =====
 const descriptions={
+ builder:['Builder','Choose asset files and memory slots, build a portable SD card, and run your assembly program.'],
  palettes:['Palettes','Palettes hold eight colors. A bank config places sixteen of them in palette RAM; a game loads one config at a time.'],
  tiles:['Tilesets','Each tileset fills one CHR bank. Draw tiles and record which palette bank each was drawn against.'],
  overlays:['Overlays','Paint the fixed 40 × 25 text/HUD layer. Placeholders mark regions the build step can fill at runtime; whatever you paint there is the default content.'],
@@ -345,9 +351,11 @@ window.bootStudio=()=>{newProject();showView('tiles');};
 <script src="history.js"></script>
 <script src="image-import-ui.js"></script><script src="bank-editor.js"></script><script src="overlay-editor.js"></script><script src="background-editor.js"></script><script src="palette-library.js"></script><script src="animation-editor.js"></script><script src="sprite-composer.js"></script>
 <script src="audio-shared.js"></script><script src="sound-editor.js"></script><script src="music-editor.js"></script>
+<script src="builder-editor.js"></script>
 <script>bootStudio();</script>
 <!-- The MIA audio engine and song compiler, built from packages/assets/audio.ts.
      A module runs after the scripts above, before the page finishes loading. -->
+<script type="importmap">{"imports":{"@clementina/assets/audio":"../../node_modules/@clementina/assets/dist/audio.js"}}</script>
 <script type="module">import * as MiaAudio from '../../dist/packages/assets/audio.js';window.MiaAudio=MiaAudio;document.dispatchEvent(new Event('miaaudioready'));</script>
 </body>
 </html>

@@ -60,16 +60,17 @@
  function usableShapes(a){const pinned=a&&animationTileset(a);return shapes.filter(s=>!a||s.tilesetId===pinned);}
 
  function freshName(){let n=1;while(animations.some(a=>a.name.toLowerCase()==='animation_'+n))n++;return 'animation_'+n;}
+ function freshId(name){const stem='animation:'+name;let id=stem,n=2;while(animations.some(a=>a.id===id))id=stem+'-'+n++;return id;}
  $('anCreateShape').onclick=()=>{showView('shapes');if($('scLibraryToggle').getAttribute('aria-expanded')!=='true')$('scLibraryToggle').click();$('scNew').focus();};
  $('anNew').onclick=()=>{
   if(animations.length>=255){setStatus('A project holds at most 255 animations.');return;}
   if(!shapes.length){$('anCreateShape').focus();setStatus('Create a shape first. Use Go to Shapes to get started.');return;}
-  edit('New animation',()=>{animations.push({name:freshName(),frames:[{shapeId:shapes[0].id,ticks:6}]});animationIndex=animations.length-1;frameIndex=0;selectedShapeId=null;selectedShapeIds.clear();shapeAnchor=null;});
+  edit('New animation',()=>{const name=freshName();animations.push({id:freshId(name),name,frames:[{shapeId:shapes[0].id,ticks:6}]});animationIndex=animations.length-1;frameIndex=0;selectedShapeId=null;selectedShapeIds.clear();shapeAnchor=null;});
   setStatus('Created '+currentAnimation().name+'.');
  };
  $('anDuplicateAnim').onclick=()=>{
   if(!currentAnimation()||animations.length>=255)return;
-  edit('Duplicate '+currentAnimation().name,()=>{const copy=structuredClone(currentAnimation());copy.name=freshName();animations.push(copy);animationIndex=animations.length-1;frameIndex=0;});
+  edit('Duplicate '+currentAnimation().name,()=>{const copy=structuredClone(currentAnimation());copy.name=freshName();copy.id=freshId(copy.name);animations.push(copy);animationIndex=animations.length-1;frameIndex=0;});
  };
  $('anEmptyNew').onclick=()=>$('anNew').click();
  $('anDelete').onclick=()=>{if(!currentAnimation())return;setStatus(`Deleted ${currentAnimation().name}. Ctrl/Cmd+Z brings it back.`);edit('Delete '+currentAnimation().name,()=>{animations.splice(animationIndex,1);animationIndex=Math.max(0,animationIndex-1);frameIndex=0;});};

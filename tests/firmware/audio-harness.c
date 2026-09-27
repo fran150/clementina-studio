@@ -46,10 +46,12 @@ int main(void) {
             int used;
             sscanf(line + 5, "%u%n", &voice, &used);
             const char *hex = line + 5 + used;
-            uint32_t at = MIA_SEQ_DEFAULT_BASE(voice);
+            // Any free MIA RAM works; the sequencer has no default address.
+            uint32_t base = 0x20000u + voice * 0x1000u, at = base;
             unsigned byte;
             int n;
             while (sscanf(hex, "%2x%n", &byte, &n) == 1) { mem[at++] = (uint8_t)byte; hex += n; }
+            mia_audio_seq_set_base((uint8_t)voice, base);
             mia_audio_seq_load_track((uint8_t)voice);
         } else if (!strcmp(cmd, "start") || !strcmp(cmd, "stop") || !strcmp(cmd, "take") || !strcmp(cmd, "give")) {
             unsigned mask;

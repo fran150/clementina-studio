@@ -34,15 +34,16 @@ drawn against them.
 
 Define palettes and the bank configs that place them in palette RAM, draw
 tilesets, build shapes from their tiles, sequence shapes into animations, paint
-backgrounds, design the overlay, then make sound effects and compose music —
-the order of the editor tabs. The active
+backgrounds, design the overlay, make sound effects and compose music, then
+choose in the Builder what the game's SD card holds — the order of the editor
+tabs. The active
 config is a preview choice, switched from the one Config picker beside the tabs;
 it does not change what a project stores.
 
-A later build step will lay out Clementina's memory, choose files and emit a
-loader. It is deliberately last, so that it handles maps, scenes and music too
-rather than being rewritten for each. **There is no export path today**, and
-the half-finished one was removed rather than carried.
+The Builder tab is the export path. It edits an SDK project's
+`build.assets` settings, and the SDK does the rest: asset files, the ca65
+runtime library, the game's link and the SD card folder. Studio never decides
+when anything loads; the game's code does.
 
 PRG files use Clementina's CPU-memory load format. Assets destined for MIA
 memory use the existing runtime loading formats; do not assume that a PRG
@@ -62,10 +63,10 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   `music-editor.js` (songs and instruments), which share `audio-shared.js`.
   They load after the shell and wrap its `showView`/`redrawAll`, so the shell
   boots them via `bootStudio()`.
-- `packages/assets`: the project format, its validators, and the attribute
-  encoders. `audio.ts` is the audio model, the MIA audio engine and the song
-  compiler; it has no runtime imports, so `editor.html` loads its compiled
-  module into the page as `window.MiaAudio`.
+- `packages/assets`: Studio project persistence and attribute encoders. Its
+  validators delegate to the SDK. `audio.ts` holds the audio model and MIA
+  preview engine and imports the browser-safe SDK audio module through the
+  import map in `editor.html`, which exposes it as `window.MiaAudio`.
 - `tests/firmware`: the harness that runs clementina-mia's `audio.c` on the
   desktop to check Studio's engine against it (`npm run test:firmware`).
 - `apps/vscode`, `packages/basic`, `packages/cli`, `examples`: planned.
@@ -74,13 +75,13 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
 
 Paths below are relative to this checkout in the development directory layout:
 
-- `../../assembler/clementina-rom`: kernel, BASIC, and runtime file-format
+- `../clementina-rom`: kernel, BASIC, and runtime file-format
   documentation. `docs/basic-video.md` and `docs/memory-map.md` are where the
   register and attribute layouts come from.
-- `../../pico/clementina-mia`: authoritative hardware definitions and
+- `../clementina-mia`: authoritative hardware definitions and
   graphics/audio memory layouts.
-- `../../go/clementina-6502`: emulator and CPU-visible behavior verification.
-- `../../go/clementina-video-client`: the renderer. `internal/render/renderer.go`
+- `../clementina-6502`: emulator and CPU-visible behavior verification.
+- `../clementina-video-client`: the renderer. `internal/render/renderer.go`
   is the authority on compositing order and priority.
 
 Verify generated BASIC files against the actual ROM tokenizer and SAVE/LOAD
@@ -118,8 +119,8 @@ the zoomed pixel canvas instead of drawing.
 scroll, its own `OVLBANK`/`OVLALT` primary and alternate tileset pair. Same
 cell shape, tile picker, Objects list, paint and Select tools as backgrounds. A **placeholder** is a named
 rectangular region, nothing more; whatever is painted inside it is the
-overlay's real initial content, not a mockup — a future build step generates
-a primitive per placeholder that overwrites its tile IDs at runtime. Where
+overlay's real initial content, not a mockup — the runtime's
+`FillPlaceholder` overwrites a placeholder's tile IDs while the game runs. Where
 either assigned tileset is 1bpp, a plane selector picks which of its three
 pages the picker and canvas render from — preview state, never exported.
 
@@ -173,13 +174,35 @@ the firmware does. **[docs/audio.md](docs/audio.md)** is the reference: the
 hardware, why sound effects and music are separate editors, what a song
 compiles to, and three things found in the firmware and ROM along the way.
 
+**Builder.** Include assets, and give each a default slot: a named place in
+MIA RAM or in a CPU bank's `$8000–$BFFF` window. Assets sharing a slot are
+alternatives, such as two levels' maps; a game's call can load anything
+anywhere else. The map shows the built-in slots (palettes, `chr0`–`chr7`, the
+overlay), your MIA RAM slots and the CPU banks, each with how full it is.
+Open `clementina.yaml` with **Open project**, or choose an existing assembly
+project folder in Builder. Studio loads its portable assets into the editors;
+**Save project** writes them back to their original paths and keeps the
+manifest's program and build declarations. Builder can also create a project
+in an empty folder, with starter `src/main.s` and `link.cfg`, without replacing
+the game's own code. Saving asks before removing an asset listed on disk but
+absent from the editors (its file stays). **Build** calls the SDK build,
+putting the card in `build/sd`. **Run in Emulator** also starts
+`clementina-automation` on that folder, boots the game and previews its
+screen through `clementina-render`. Planning, building and running go
+through the main process, because the SDK's main entry points can't load in
+the renderer. The design is the SDK's
+[`docs/gamedev/builder.md`](../clementina-sdk/docs/gamedev/builder.md).
+
 ## Tests
 
 `npm test` compiles the TypeScript and runs the model tests: the project
 format, its validators, palette and config behavior, background and overlay
 validation, the two attribute bit layouts, image import, and audio — the song
 compiler's bytes and timing, sound-effect writes, generated sounds, and the
-engine held to the output hashes MIA's firmware produced.
+engine held to the output hashes MIA's firmware produced. It also covers
+the Builder's main-process side: settings surviving a save, planning through
+the SDK, writing a project folder without overwriting the game's source, and
+a real build (it needs cc65 on PATH).
 
 `npm run test:firmware` compiles clementina-mia's own `src/mia/audio/audio.c`
 on the desktop (it needs a C compiler and the clementina-mia checkout beside
@@ -194,8 +217,7 @@ project round trips through save and restore.
 
 ## Not yet built
 
-A scene editor, the build step, and the runtime
-routine library. `docs/model.md` records what each will need and which
+A scene editor. `docs/model.md` records what each will need and which
 hardware constraints they have to respect — notably that a scene is where
 co-residency and sprite-versus-background priority get decided, and where an
 authored background's mapping onto physical hardware tables and runtime
@@ -218,7 +240,7 @@ animation preview, a player, keeps fitting its space — fractionally — until 
 is zoomed by hand.
 
 The File menu holds New (Ctrl/Cmd+N), Open (Ctrl/Cmd+O), Save (Ctrl/Cmd+S) and
-Save As (Ctrl/Cmd+Shift+S); the View menu switches editors with Ctrl/Cmd+1–8, in
+Save As (Ctrl/Cmd+Shift+S); the View menu switches editors with Ctrl/Cmd+1–9, in
 the tabs' order, as a browser switches tabs, and holds Zoom In (Ctrl/Cmd+=), Zoom
 Out (Ctrl/Cmd+−), Zoom to Fit (Ctrl/Cmd+0) and Actual Size (Ctrl/Cmd+Alt+0). The menu
 owns these shortcuts, so they work while a field has focus. There is no page
@@ -411,6 +433,11 @@ Run `npm run test:desktop:audio` for the Sounds and Music editors: drawing
 lanes and notes with real pointer input, selection, the clipboard, transforms,
 undo, presets, song and instrument settings, playback, and docked layouts at
 1440- and 1024-pixel window widths.
+
+Run `npm run test:desktop:builder` for the Builder: including assets, new,
+copied and pasted slots with undo, dragging an asset onto a slot, the
+shortcut sheet, a build through stand-in IPC handlers that call the SDK (it
+needs cc65 on PATH), and the layout at 1024 pixels.
 
 Run `npm run test:ui` for every Electron renderer suite, or `npm run test:all`
 for unit tests plus UI tests. The workflow suite starts with an empty project and
