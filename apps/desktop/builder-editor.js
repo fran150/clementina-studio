@@ -459,7 +459,7 @@
       ? `${items.filter((d) => d.severity === 'error').length} errors · ${items.filter((d) => d.severity === 'warning').length} warnings`
       : `${builderSettings.include.length} ${builderSettings.include.length === 1 ? 'asset' : 'assets'} included`;
   }
-  async function refresh(input) {
+  async function refresh() {
     const id = ++request;
     try {
       const r = await window.studio.builderPlan(studioProject(), builderSettings, baseName());
@@ -484,7 +484,7 @@
     if (input !== lastInput && window.studio?.builderPlan) {
       lastInput = input;
       clearTimeout(timer);
-      timer = setTimeout(() => refresh(input), 80);
+      timer = setTimeout(() => refresh(), 80);
     }
     for (const id of ['buSave', 'buBuild', 'buRun']) $(id).disabled = busy || !root;
     $('buUndo').disabled = !ProjectHistory.canUndo();

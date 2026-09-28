@@ -103,12 +103,6 @@
       a.chr[pos] = (a.chr[pos] & ~(1 << x)) | (bit << x);
     }
   }
-  function selectedTiles() {
-    const out = [];
-    for (let y = selection.y; y < selection.y + selection.height; y++)
-      for (let x = selection.x; x < selection.x + selection.width; x++) out.push(y * 16 + x);
-    return out;
-  }
   function render() {
     host.hidden = currentView !== 'tiles';
     document.body.classList.toggle('drawingView', !host.hidden);
@@ -1113,11 +1107,11 @@
     const out = new Map(),
       add = (x, y) => out.set(x + ',' + y, [x, y]);
     const line = (x0, y0, x1, y1) => {
-      let dx = Math.abs(x1 - x0),
+      const dx = Math.abs(x1 - x0),
         sx = x0 < x1 ? 1 : -1,
         dy = -Math.abs(y1 - y0),
-        sy = y0 < y1 ? 1 : -1,
-        err = dx + dy;
+        sy = y0 < y1 ? 1 : -1;
+      let err = dx + dy;
       while (true) {
         add(x0, y0);
         if (x0 === x1 && y0 === y1) break;

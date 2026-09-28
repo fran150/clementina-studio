@@ -18,7 +18,6 @@ import {
   paletteUsage,
 } from '../dist/packages/assets/palettes.js';
 
-const flat = (fn) => Array.from({ length: 128 }, (_, i) => fn(Math.floor(i / 8), i % 8));
 const palette = (id, colors) => ({ id, name: 'Palette ' + id, colors });
 const config = (id, banks) => ({ id, name: 'Config ' + id, banks });
 
@@ -63,7 +62,6 @@ test('a new config fills banks from the library in order and names itself unique
 });
 
 test('deleting a palette either repoints every bank naming it or clears them', () => {
-  const library = [palette('a', Array(8).fill(1)), palette('b', Array(8).fill(2))];
   const configs = [
     config('x', ['a', 'a', ...Array(14).fill(null)]),
     config('y', ['b', ...Array(15).fill(null)]),

@@ -221,7 +221,7 @@ export function convertTilesetImage(
         reserved.add(palette);
         tileset.tilePaletteBanks[t] = palette;
       }
-      for (let p of planes) for (let y = 0; y < 8; y++) tileset.chr[p * 2048 + t * 8 + y] = 0;
+      for (const p of planes) for (let y = 0; y < 8; y++) tileset.chr[p * 2048 + t * 8 + y] = 0;
       words.forEach((word, i) => {
         let value = 0;
         if (word !== null) {

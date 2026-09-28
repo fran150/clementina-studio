@@ -28,8 +28,7 @@
   ])
     $('anAnimActions').append(StudioShell.iconButton(id, label, icon));
 
-  let selectedShapeId = null,
-    selectedShapeIds = new Set(),
+  let selectedShapeIds = new Set(),
     shapeAnchor = null;
   const currentAnimation = () => animations[animationIndex];
   const currentFrame = () => currentAnimation()?.frames[frameIndex];
@@ -85,7 +84,6 @@
       animations.push({ id: freshId(name), name, frames: [{ shapeId: shapes[0].id, ticks: 6 }] });
       animationIndex = animations.length - 1;
       frameIndex = 0;
-      selectedShapeId = null;
       selectedShapeIds.clear();
       shapeAnchor = null;
     });
@@ -117,7 +115,6 @@
     animationIndex = i;
     frameIndex = 0;
     playing = false;
-    selectedShapeId = null;
     selectedShapeIds.clear();
     shapeAnchor = null;
     renderAnimations();
@@ -159,7 +156,6 @@
     );
     if (!selectedShapeIds.size && usable.length && shapeAnchor === null)
       selectedShapeIds.add(usable[0].id);
-    selectedShapeId = [...selectedShapeIds][0] ?? null;
     const list = $('anShapeList');
     list.replaceChildren();
     usable.forEach((s, i) => {

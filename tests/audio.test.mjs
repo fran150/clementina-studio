@@ -184,8 +184,8 @@ test('a song compiles to the sequencer bytecode', () => {
 /** Samples each pass of a track takes: [first pass to the end, the loop body]. */
 function passes(bytes) {
   let at = 0,
-    total = 0,
-    marks = new Map();
+    total = 0;
+  const marks = new Map();
   for (;;) {
     marks.set(at, total);
     const op = bytes[at];

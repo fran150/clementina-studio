@@ -68,8 +68,8 @@
     cursor = 0,
     playhead = null,
     lastLength = 4,
-    mutes = [false, false, false, false],
     audition = null;
+  const mutes = [false, false, false, false];
   const song = () => songs[songIndex],
     instrument = () => instruments[instrumentIndex],
     notes = () => song()?.voices[voice].notes ?? [];
