@@ -8,9 +8,5 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": [
-    "apps/**/*.ts",
-    "apps/**/*.cts",
-    "packages/**/*.ts"
-  ]
+  "include": ["apps/**/*.ts", "apps/**/*.cts", "packages/**/*.ts"]
 }
