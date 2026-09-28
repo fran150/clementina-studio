@@ -419,7 +419,56 @@ function draw() {
     ctx.fillStyle = isBar ? '#3a3f4a' : beat ? '#262930' : '#1d1f24';
     ctx.fillRect(Math.round(stepX(k)), RULER_H, 1, h - RULER_H);
   }
-  // Other voices, dim, behind the one being drawn on.
+  drawNotes(ctx, s, w, h);
+  // The pencil's next note, where it would go.
+  if (hover && !drag && tool === 'pencil' && !hover.note && hover.step < s.length) {
+    ctx.strokeStyle = COLORS[voice];
+    ctx.setLineDash([3, 3]);
+    ctx.strokeRect(
+      stepX(hover.step) + 1.5,
+      pitchY(hover.pitch) + 1.5,
+      Math.min(lastLength, s.length - hover.step) * sw - 3,
+      ROW_H - 3,
+    );
+    ctx.setLineDash([]);
+  }
+  if (drag?.kind === 'marquee') {
+    const a = drag.a,
+      b = drag.b;
+    ctx.strokeStyle = '#36c9d6';
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(
+      Math.min(a.x, b.x) + 0.5,
+      Math.min(a.y, b.y) + 0.5,
+      Math.abs(b.x - a.x),
+      Math.abs(b.y - a.y),
+    );
+    ctx.setLineDash([]);
+  }
+  // Past the end of the song, and the loop's return point.
+  ctx.fillStyle = '#0b0c0ecc';
+  ctx.fillRect(end, RULER_H, Math.max(0, w - end), h - RULER_H);
+  ctx.fillStyle = '#8a8268';
+  ctx.fillRect(Math.round(end), RULER_H, 2, h - RULER_H);
+  if (s.loopStart !== undefined) {
+    const x = Math.round(stepX(s.loopStart));
+    ctx.strokeStyle = '#ffb000aa';
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x + 0.5, RULER_H);
+    ctx.lineTo(x + 0.5, h);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  const cursorX = Math.round(stepX(playhead ?? cursor));
+  ctx.fillStyle = playhead !== null ? '#ffb000' : '#ffb00066';
+  ctx.fillRect(cursorX, RULER_H, playhead !== null ? 2 : 1, h - RULER_H);
+  ctx.restore();
+  drawRuler(ctx, s, w, cursorX);
+  drawKeyboard(ctx, h, bottom, top);
+}
+// Other voices, dim, behind the one being drawn on.
+function drawNotes(ctx, s, w, h) {
   const lanes = [0, 1, 2, 3].filter((v) => v !== voice).concat(voice),
     moving = drag?.preview,
     moved = new Set(drag?.moved ?? []);
@@ -466,51 +515,11 @@ function draw() {
     }
   }
   ctx.globalAlpha = 1;
-  // The pencil's next note, where it would go.
-  if (hover && !drag && tool === 'pencil' && !hover.note && hover.step < s.length) {
-    ctx.strokeStyle = COLORS[voice];
-    ctx.setLineDash([3, 3]);
-    ctx.strokeRect(
-      stepX(hover.step) + 1.5,
-      pitchY(hover.pitch) + 1.5,
-      Math.min(lastLength, s.length - hover.step) * sw - 3,
-      ROW_H - 3,
-    );
-    ctx.setLineDash([]);
-  }
-  if (drag?.kind === 'marquee') {
-    const a = drag.a,
-      b = drag.b;
-    ctx.strokeStyle = '#36c9d6';
-    ctx.setLineDash([4, 4]);
-    ctx.strokeRect(
-      Math.min(a.x, b.x) + 0.5,
-      Math.min(a.y, b.y) + 0.5,
-      Math.abs(b.x - a.x),
-      Math.abs(b.y - a.y),
-    );
-    ctx.setLineDash([]);
-  }
-  // Past the end of the song, and the loop's return point.
-  ctx.fillStyle = '#0b0c0ecc';
-  ctx.fillRect(end, RULER_H, Math.max(0, w - end), h - RULER_H);
-  ctx.fillStyle = '#8a8268';
-  ctx.fillRect(Math.round(end), RULER_H, 2, h - RULER_H);
-  if (s.loopStart !== undefined) {
-    const x = Math.round(stepX(s.loopStart));
-    ctx.strokeStyle = '#ffb000aa';
-    ctx.setLineDash([6, 4]);
-    ctx.beginPath();
-    ctx.moveTo(x + 0.5, RULER_H);
-    ctx.lineTo(x + 0.5, h);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-  const cursorX = Math.round(stepX(playhead ?? cursor));
-  ctx.fillStyle = playhead !== null ? '#ffb000' : '#ffb00066';
-  ctx.fillRect(cursorX, RULER_H, playhead !== null ? 2 : 1, h - RULER_H);
-  ctx.restore();
-  // The ruler: bars, the loop from its return point to the end, the cursor.
+}
+// The ruler: bars, the loop from its return point to the end, the cursor.
+function drawRuler(ctx, s, w, cursorX) {
+  const sw = stepW(),
+    bar = stepsPerBar(s);
   ctx.fillStyle = '#1e1a14';
   ctx.fillRect(0, 0, w, RULER_H);
   ctx.save();
@@ -546,7 +555,9 @@ function draw() {
   ctx.restore();
   ctx.fillStyle = '#3a3022';
   ctx.fillRect(0, RULER_H - 1, w, 1);
-  // The keyboard.
+}
+// The keyboard.
+function drawKeyboard(ctx, h, bottom, top) {
   ctx.save();
   ctx.beginPath();
   ctx.rect(0, RULER_H, KEYS_W, h - RULER_H);
