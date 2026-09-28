@@ -12,6 +12,9 @@ app.whenReady().then(async () => {
   ipcMain.on('menu:history', () => {});
   const window = new BrowserWindow({
     show: false,
+    // macOS otherwise shrinks the window to a small CI screen, and the
+    // test's layout and pointer positions assume the size asked for.
+    enableLargerThanScreen: true,
     width: 1440,
     height: 1000,
     webPreferences: {

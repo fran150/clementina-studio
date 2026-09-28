@@ -12,6 +12,9 @@ app.whenReady().then(async () => {
   ipcMain.handle('tileset:import', () => ({ name: 'Imported', bpp: 3, chr: Array(6144).fill(42) }));
   const window = new BrowserWindow({
     show: false,
+    // macOS otherwise shrinks the window to a small CI screen, and the
+    // test's layout and pointer positions assume the size asked for.
+    enableLargerThanScreen: true,
     width: 1440,
     height: 1000,
     webPreferences: {

@@ -8,6 +8,9 @@ app.whenReady().then(async () => {
   ipcMain.handle('project:new', () => {});
   const window = new BrowserWindow({
     show: false,
+    // macOS otherwise shrinks the window to a small CI screen, and the
+    // test's layout and pointer positions assume the size asked for.
+    enableLargerThanScreen: true,
     width: 1440,
     height: 1000,
     webPreferences: {
@@ -166,8 +169,7 @@ app.whenReady().then(async () => {
       bankMapRect = next;
     }
     const bmCell = bankMapRect.width / 16;
-    const bmFrom = { x: bankMapRect.left + bmCell * 0.5, y: bankMapRect.top + bmCell * 2.5 },
-      bmTo = { x: bankMapRect.left + bmCell * 1.5, y: bankMapRect.top + bmCell * 2.5 };
+    const bmFrom = { x: bankMapRect.left + bmCell * 0.5, y: bankMapRect.top + bmCell * 2.5 };
     window.webContents.sendInputEvent({
       type: 'mouseDown',
       x: bmFrom.x,
@@ -176,6 +178,10 @@ app.whenReady().then(async () => {
       clickCount: 1,
     });
     await new Promise((r) => setTimeout(r, 30));
+    // Selecting updates the size readout under the map, which can re-center
+    // the map in a narrow panel, so aim the second tile at where it is now.
+    bankMapRect = await measureBankMap();
+    const bmTo = { x: bankMapRect.left + bmCell * 1.5, y: bankMapRect.top + bmCell * 2.5 };
     window.webContents.sendInputEvent({ type: 'mouseMove', x: bmTo.x, y: bmTo.y, button: 'left' });
     await new Promise((r) => setTimeout(r, 30));
     window.webContents.sendInputEvent({
@@ -187,7 +193,7 @@ app.whenReady().then(async () => {
     });
     await new Promise((r) => setTimeout(r, 60));
     const dragged = await run(
-      `const hit=p=>{const e=document.elementFromPoint(p.x,p.y);return e?(e.id||e.tagName):null;};return {selection:$('bankSelectionInfo').textContent.split(' tiles')[0],from:hit(${JSON.stringify(bmFrom)}),to:hit(${JSON.stringify(bmTo)}),viewport:[innerWidth,innerHeight]};`,
+      `const hit=p=>{const e=document.elementFromPoint(p.x,p.y);return e?(e.id||e.tagName):null;};return {selection:$('bankSelectionInfo').textContent.split(' tiles')[0],from:hit(${JSON.stringify(bmFrom)}),to:hit(${JSON.stringify(bmTo)}),viewport:[innerWidth,innerHeight],mapNow:(r=>[r.left,r.top,r.width,r.height])($('bankMap').getBoundingClientRect())};`,
     );
     assert.equal(
       dragged.selection,

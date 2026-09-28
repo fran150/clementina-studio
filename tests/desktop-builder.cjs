@@ -45,6 +45,9 @@ app.whenReady().then(async () => {
   });
   const win = new BrowserWindow({
     show: false,
+    // macOS otherwise shrinks the window to a small CI screen, and the
+    // test's layout and pointer positions assume the size asked for.
+    enableLargerThanScreen: true,
     width: 1440,
     height: 960,
     webPreferences: {
