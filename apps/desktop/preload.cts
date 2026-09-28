@@ -23,6 +23,16 @@ const studio = {
   onCommand: (listener: (command: string) => void) => {
     ipcRenderer.on('studio:command', (_event, command: string) => listener(command));
   },
+  // Answers the main process's questions about the page, such as the current project.
+  onRequest: (handler: (name: string, arg: unknown) => unknown) => {
+    ipcRenderer.on('studio:request', async (_event, id: number, name: string, arg: unknown) => {
+      try {
+        ipcRenderer.send('studio:response', id, null, await handler(name, arg));
+      } catch (error) {
+        ipcRenderer.send('studio:response', id, String(error));
+      }
+    });
+  },
 };
 contextBridge.exposeInMainWorld('studio', studio);
 

@@ -1,270 +1,55 @@
-'use strict';
-// ===== Model =====
-// A tileset is one CHR bank's worth of graphics: 3 planes * 2048 B, each plane
-// 256 tiles * 8 rows. 3bpp color index = p0|p1<<1|p2<<2; a 1bpp tileset holds
-// three independent mono pages, one per plane. Bit 0 is leftmost.
-// Palette RAM is 16 banks of 8 RGB565 colors, shared by every layer. A config
-// names the palette in each bank; the active one is a preview choice only.
-// See docs/model.md.
-const GH = 8,
-  TILES = 256,
-  PLANE = TILES * GH,
-  TILESET_BYTES = 3 * PLANE; // 2048, 6144
-const PAL_BANKS = 16,
-  PAL_COLORS = 8;
+// The studio's frame: the config picker, project commands, the application
+// menu and view switching. The editors attach to it.
+import { $ } from './dom.js';
+import { ProjectHistory } from './history.js';
+import {
+  newProject,
+  redrawAll,
+  renderAnimations,
+  renderBackgrounds,
+  renderBankEditor,
+  renderPaletteLibrary,
+  resetBuilderFolder,
+  restoreStudioProject,
+  setBuilderFolder,
+  showView,
+} from './lifecycle.js';
+import {
+  activeConfigId,
+  clearProject,
+  currentView,
+  loadDefaultPalettes,
+  loadProject,
+  paletteConfigs,
+  setActiveConfigId,
+  setCurrentView,
+  setFrameIndex,
+  setPlaying,
+  studioProject,
+} from './state.js';
+import {
+  dirty,
+  markDirty,
+  setDirty,
+  setDirtyLabel,
+  setNameFromFile,
+  setProjectFile,
+  setStatus,
+} from './status.js';
+import { StudioShell } from './studio-shell.js';
 
-const $ = (id) => document.getElementById(id);
-const statusEl = $('status'),
-  dirtyEl = $('dirty'),
-  nameInput = $('nameInput');
-
-// ===== state =====
-let paletteLibrary = [],
-  paletteConfigs = [],
-  activeConfigId = null,
-  tilesets = [],
-  backgrounds = [],
-  overlays = [];
-let builderSettings = { folder: 'ASSETS', checks: true, slots: [], include: [] };
-let currentView = 'tiles',
-  shapes = [],
-  animations = [];
-// Audio: instruments are what songs' notes play; see docs/audio.md.
-let instruments = [],
-  sounds = [],
-  songs = [];
-let shapeIndex = 0,
-  animationIndex = 0,
-  frameIndex = 0,
-  playing = false,
-  playFrame = 0,
-  playStart = 0;
-let dirty = false,
-  projectFile = null;
-
-// ===== RGB565 helpers =====
-const to565 = (r, g, b) => ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
-function css565(v) {
-  const r = (v >> 11) & 31,
-    g = (v >> 5) & 63,
-    b = v & 31;
-  return `rgb(${Math.round((r * 255) / 31)},${Math.round((g * 255) / 63)},${Math.round((b * 255) / 31)})`;
-}
-function css565ToInput(v) {
-  const r = Math.round((((v >> 11) & 31) * 255) / 31),
-    g = Math.round((((v >> 5) & 63) * 255) / 63),
-    b = Math.round(((v & 31) * 255) / 31);
-  return '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('');
-}
-function inputTo565(h) {
-  return to565(
-    parseInt(h.slice(1, 3), 16),
-    parseInt(h.slice(3, 5), 16),
-    parseInt(h.slice(5, 7), 16),
-  );
-}
-
-// ===== Palettes and bank configs =====
-// Nothing binds a palette to a bank except a config, so every color question
-// goes through the active one. A bank holding nothing reads as black.
-const BLACK_PALETTE = Object.freeze(Array(PAL_COLORS).fill(0));
-function libraryPalette(id) {
-  return paletteLibrary.find((p) => p.id === id);
-}
-function activeConfig() {
-  return paletteConfigs.find((c) => c.id === activeConfigId) ?? paletteConfigs[0];
-}
-/** The palette showing in a bank right now, or undefined when the bank is empty. */
-function bankPalette(bank) {
-  return libraryPalette(activeConfig()?.banks?.[bank]);
-}
-function bankColors(bank) {
-  return bankPalette(bank)?.colors ?? BLACK_PALETTE;
-}
-function bankColor(bank, ink) {
-  return bankColors(bank)[ink];
-}
-function setBankColor(bank, ink, value) {
-  const p = bankPalette(bank);
-  if (p) p.colors[ink] = value;
-}
-/** The active config flattened to the 128 words palette RAM holds. */
-function resolveActiveConfig() {
-  const out = [];
-  for (let b = 0; b < PAL_BANKS; b++) out.push(...bankColors(b));
-  return out;
-}
-
-function uniquePaletteName() {
-  const taken = new Set(paletteLibrary.map((p) => p.name.toLowerCase()));
-  let n = 1;
-  while (taken.has(`palette ${n}`)) n++;
-  return `Palette ${n}`;
-}
-function createPalette(colors, name) {
-  const palette = {
-    id: crypto.randomUUID(),
-    name: name ?? uniquePaletteName(),
-    colors: [...colors],
-  };
-  paletteLibrary.push(palette);
-  return palette;
-}
-/** Reuses a palette with the same colors so configs keep sharing it. */
-function internPalette(colors, name) {
-  return (
-    paletteLibrary.find((p) => p.colors.every((v, i) => v === colors[i])) ??
-    createPalette(colors, name)
-  );
-}
-function uniqueConfigName() {
-  const taken = new Set(paletteConfigs.map((c) => c.name.toLowerCase()));
-  let n = 1;
-  while (taken.has(`config ${n}`)) n++;
-  return `Config ${n}`;
-}
-/** A new config fills its banks from the library in order so drawing can start at once. */
-function createConfig(name, banks) {
-  const config = {
-    id: crypto.randomUUID(),
-    name: name ?? uniqueConfigName(),
-    banks: banks
-      ? [...banks]
-      : Array.from({ length: PAL_BANKS }, (_, i) => paletteLibrary[i]?.id ?? null),
-  };
-  paletteConfigs.push(config);
-  return config;
-}
-
-const BACKDROP_BLUE_565 = 0x1a1f;
-// A fresh palette starts as a rainbow so its colors are distinguishable while
-// drawing; color 0 keeps the backdrop, being the key rather than an ink.
-const RAINBOW_565 = [
-  BACKDROP_BLUE_565,
-  to565(255, 0, 0),
-  to565(255, 127, 0),
-  to565(255, 255, 0),
-  to565(0, 255, 0),
-  to565(0, 255, 255),
-  to565(0, 0, 255),
-  to565(139, 0, 255),
-];
-// Clementina's 16 startup colors: the text ink each of palette RAM's sixteen
-// banks holds by default at boot (clementina-text.palette.bin, loaded by
-// video.c video_load_default_palette / video.go videoLoadDefaultPalette),
-// in bank order 0-15 - white, red, orange, yellow, green, cyan, backdrop
-// blue, violet, magenta, black, gray, light gray, dark red/brown, dark
-// green, a brighter blue, bright white (docs/phase5-charset-keyboard.md
-// SS2.4, the startup text-ink table).
-const CLEMENTINA_16_565 = [
-  0xffff,
-  0xf800,
-  0xfc60,
-  0xfec0,
-  0x07e0,
-  0x075f,
-  BACKDROP_BLUE_565,
-  0xa81f,
-  0xfa7f,
-  0x0000,
-  0x8410,
-  0xc618,
-  0x7920,
-  0x03e0,
-  0x6aff,
-  0xffff,
-];
-/** The sixteen colors above, eight to a palette, in palette banks 0 and 1. */
-function loadDefaultPalettes() {
-  paletteLibrary = [];
-  paletteConfigs = [];
-  createPalette(CLEMENTINA_16_565.slice(0, 8), 'Bank 0');
-  createPalette(CLEMENTINA_16_565.slice(8, 16), 'Bank 1');
-  activeConfigId = createConfig('Default').id;
-}
-
-// ===== Tilesets =====
-function uniqueTilesetName() {
-  const taken = new Set(tilesets.map((t) => t.name.toLowerCase()));
-  let n = 1;
-  while (taken.has('tileset_' + n)) n++;
-  return 'Tileset_' + n;
-}
-function createTileset(name) {
-  const tileset = {
-    id: crypto.randomUUID(),
-    name: name ?? uniqueTilesetName(),
-    bpp: 3,
-    chr: Array(TILESET_BYTES).fill(0),
-    tilePaletteBanks: Array(TILES).fill(0),
-    compositions: [],
-  };
-  tilesets.push(tileset);
-  return tileset;
-}
-function tilesetById(id) {
-  return tilesets.find((t) => t.id === id);
-}
-/**
- * One pixel of a tile. A 1bpp tileset reads a single plane; `plane` is the page
- * being viewed, which belongs to the editor rather than the tileset.
- */
-function tilePixel(tileset, tile, x, y, plane = 0) {
-  const bit = (p) => (tileset.chr[p * PLANE + tile * GH + y] >> x) & 1;
-  return tileset.bpp === 1 ? bit(plane) : bit(0) | (bit(1) << 1) | (bit(2) << 2);
-}
-function setTilePixel(tileset, tile, x, y, value, plane = 0) {
-  for (const p of tileset.bpp === 1 ? [plane] : [0, 1, 2]) {
-    const i = p * PLANE + tile * GH + y,
-      bit = tileset.bpp === 1 ? (value ? 1 : 0) : (value >> p) & 1;
-    if (bit) tileset.chr[i] |= 1 << x;
-    else tileset.chr[i] &= ~(1 << x);
-  }
-}
-
-// ===== helpers =====
-function setStatus(s) {
-  statusEl.textContent = s;
-}
-function markDirty() {
-  dirty = true;
-  setDirtyLabel();
-}
-function setDirtyLabel() {
-  dirtyEl.className = dirty ? 'dirty' : '';
-  dirtyEl.textContent = dirty ? '● unsaved changes' : '';
-  updateTitle();
-}
-// The window shows the project's file, and whether it has unsaved edits the
-// way macOS does: "— Edited" in the title and the dot in the close button.
-function updateTitle() {
-  document.title =
-    (projectFile ?? 'Untitled') + (dirty ? ' — Edited' : '') + ' — Clementina Studio';
-  window.studio?.edited?.(dirty);
-}
-function baseName() {
-  return (nameInput.value.trim() || 'tiles').replace(/[^\w.-]+/g, '_');
-}
-function setNameFromFile(name) {
-  nameInput.value = (name || '').replace(/\.[^/.]+$/, '') || 'tiles';
-  projectFile = name || null;
-}
-/**
- * Every editor redraws on a config change, since all of them preview through it.
- * The four functions declared with let here are ones the editor scripts wrap.
- */
-let redrawAll = function () {
+redrawAll.after(() => {
   renderConfigPicker();
-  window.renderBankEditor?.();
-  window.renderBackgrounds?.();
-  window.renderPaletteLibrary?.();
+  renderBankEditor();
+  renderBackgrounds();
+  renderPaletteLibrary();
   renderAnimations();
-};
+});
 
 // ===== active config picker =====
 // Switching config is a constant part of drawing, not a setting, so it lives in
 // the header where every view can reach it.
-function renderConfigPicker() {
+export function renderConfigPicker() {
   const picker = $('configPicker');
   picker.replaceChildren(
     ...paletteConfigs.map((c) => new Option(c.name, c.id, false, c.id === activeConfigId)),
@@ -276,80 +61,35 @@ function renderConfigPicker() {
       : 'Preview only — it does not change what a project exports';
 }
 $('configPicker').onchange = () => {
-  activeConfigId = $('configPicker').value;
+  setActiveConfigId($('configPicker').value);
   redrawAll();
 };
 
 // ===== project =====
-let newProject = function () {
+newProject.after(() => {
   if (dirty && !confirm('Discard unsaved changes?')) return;
   window.studio?.newProject();
-  window.resetBuilderFolder?.();
-  tilesets = [];
-  backgrounds = [];
-  overlays = [];
-  animations = [];
-  shapes = [];
-  shapeIndex = 0;
-  animationIndex = 0;
-  frameIndex = 0;
-  instruments = [];
-  sounds = [];
-  songs = [];
-  builderSettings = { folder: 'ASSETS', checks: true, slots: [], include: [] };
-  playing = false;
-  window.ProjectHistory?.clear();
+  resetBuilderFolder();
+  clearProject();
+  ProjectHistory.clear();
   loadDefaultPalettes();
-  nameInput.value = 'tiles';
-  projectFile = null;
-  dirty = false;
+  $('nameInput').value = 'tiles';
+  setProjectFile(null);
+  setDirty(false);
   setDirtyLabel();
   redrawAll();
   setStatus('New project — create your first tileset.');
-};
-function studioProject() {
-  return {
-    paletteLibrary: structuredClone(paletteLibrary),
-    paletteConfigs: structuredClone(paletteConfigs),
-    activeConfigId,
-    tilesets: structuredClone(tilesets),
-    backgrounds: structuredClone(backgrounds),
-    overlays: structuredClone(overlays),
-    shapes: structuredClone(shapes),
-    animations: structuredClone(animations),
-    builder: structuredClone(builderSettings),
-    instruments: structuredClone(instruments),
-    sounds: structuredClone(sounds),
-    songs: structuredClone(songs),
-  };
-}
-let restoreStudioProject = function (p, name = 'Recovered project') {
-  window.resetBuilderFolder?.();
-  builderSettings = structuredClone(
-    p.builder ?? { folder: 'ASSETS', checks: true, slots: [], include: [] },
-  );
-  paletteLibrary = structuredClone(p.paletteLibrary ?? []);
-  paletteConfigs = structuredClone(p.paletteConfigs ?? []);
-  activeConfigId = p.activeConfigId ?? paletteConfigs[0]?.id ?? null;
-  tilesets = structuredClone(p.tilesets ?? []);
-  backgrounds = structuredClone(p.backgrounds ?? []);
-  overlays = structuredClone(p.overlays ?? []);
-  animations = structuredClone(p.animations ?? []);
-  shapes = structuredClone(p.shapes ?? []);
-  instruments = structuredClone(p.instruments ?? []);
-  sounds = structuredClone(p.sounds ?? []);
-  songs = structuredClone(p.songs ?? []);
-  shapeIndex = 0;
-  animationIndex = 0;
-  frameIndex = 0;
-  playing = false;
+});
+restoreStudioProject.after((p, name = 'Recovered project') => {
+  resetBuilderFolder();
+  loadProject(p);
   ProjectHistory.clear();
   setNameFromFile(name);
-  dirty = false;
+  setDirty(false);
   setDirtyLabel();
   redrawAll();
-};
-async function studioAction(action) {
+});
+export async function studioAction(action) {
   try {
     await action();
   } catch (e) {
@@ -365,16 +105,16 @@ $('nativeOpen').onclick = () =>
     if (!file) return;
     restoreStudioProject(file.project, file.name);
     await window.studio.opened(file.path, file.kind);
-    if (file.kind === 'portable') window.setBuilderFolder?.(file.root);
+    if (file.kind === 'portable') setBuilderFolder(file.root);
     setStatus('Opened ' + file.name);
   });
-async function nativeSave(saveAs) {
+export async function nativeSave(saveAs) {
   const snapshot = studioProject();
   const name = await window.studio.save(snapshot, saveAs);
   if (name) {
-    if (saveAs) window.resetBuilderFolder?.();
-    projectFile = name;
-    dirty = JSON.stringify(snapshot) !== JSON.stringify(studioProject());
+    if (saveAs) resetBuilderFolder();
+    setProjectFile(name);
+    setDirty(JSON.stringify(snapshot) !== JSON.stringify(studioProject()));
     setDirtyLabel();
     setStatus('Saved ' + name);
   }
@@ -416,6 +156,18 @@ function runCommand(command) {
   if (!document.querySelector('dialog[open]')) StudioShell.canvasCommand(currentView, command);
 }
 window.studio?.onCommand?.(runCommand);
+// The main process asks for the project to keep a recovery snapshot and to
+// guard closing, restores a recovered project and reports recovery errors.
+const pageRequests = {
+  snapshot: () => ({ dirty, project: studioProject() }),
+  projectJson: () => JSON.stringify(studioProject()),
+  recover: (project) => {
+    restoreStudioProject(project);
+    markDirty();
+  },
+  status: (text) => setStatus(text),
+};
+window.studio?.onRequest?.((name, arg) => pageRequests[name](arg));
 
 // ===== views =====
 const descriptions = {
@@ -456,26 +208,26 @@ const descriptions = {
     "A song plays up to four voices on MIA's background sequencer. Voices without notes stay free for sound effects.",
   ],
 };
-let showView = function (view) {
+showView.after((view) => {
   StudioShell.selectView(view);
-  currentView = view;
-  playing = false;
-  frameIndex = 0;
+  setCurrentView(view);
+  setPlaying(false);
+  setFrameIndex(0);
   window.scrollTo(0, 0);
   $('viewTitle').textContent = descriptions[view][0];
   $('viewHelp').textContent = descriptions[view][1];
   renderConfigPicker();
   renderAnimations();
-  window.renderBankEditor?.();
-  window.renderBackgrounds?.();
-};
+  renderBankEditor();
+  renderBackgrounds();
+});
 document
   .querySelectorAll('[data-view]')
   .forEach((button) => (button.onclick = () => showView(button.dataset.view)));
 
 // ===== boot =====
-// The editors below attach to the shell and wrap showView, so boot after them.
-window.bootStudio = () => {
+// The editors attach to the shell and add to showView, so boot after them.
+export function bootStudio() {
   newProject();
   showView('tiles');
-};
+}

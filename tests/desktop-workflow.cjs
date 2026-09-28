@@ -34,7 +34,9 @@ app.whenReady().then(async () => {
   window.webContents.on('render-process-gone', (_, details) =>
     errors.push(JSON.stringify(details)),
   );
-  const read = (expression) => window.webContents.executeJavaScript(expression);
+  // Page code runs against the studio's modules, found through window.__studio.
+  const read = (expression) =>
+    window.webContents.executeJavaScript(`with (__studio) ${expression}`);
   async function waitFor(expression) {
     const deadline = Date.now() + 4000;
     while (Date.now() < deadline) {

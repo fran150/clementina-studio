@@ -28,7 +28,9 @@ app.whenReady().then(async () => {
     if (event.level === 'error' && !event.message.startsWith('ResizeObserver loop'))
       errors.push(event.message);
   });
-  const run = (source) => window.webContents.executeJavaScript(`(()=>{${source}})()`);
+  // Page code runs against the studio's modules, found through window.__studio.
+  const run = (source) =>
+    window.webContents.executeJavaScript(`with (__studio) (()=>{${source}})()`);
   const key = async (keyCode, modifiers = []) => {
     window.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers });
     window.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers });

@@ -63,7 +63,8 @@ app.whenReady().then(async () => {
   win.webContents.on('console-message', (e) => {
     if (e.level === 'error') errors.push(e.message);
   });
-  const run = (source) => win.webContents.executeJavaScript(`(()=>{${source}})()`);
+  // Page code runs against the studio's modules, found through window.__studio.
+  const run = (source) => win.webContents.executeJavaScript(`with (__studio) (()=>{${source}})()`);
   const wait = async (condition) => {
     for (let n = 0; n < 100; n++) {
       if (await run(`return ${condition};`)) return;
