@@ -1,0 +1,161 @@
+<section id="backgroundEditor" class="studioEditor" hidden>
+  <aside class="bgLibrary studioDock studioDockLeft">
+    <h2>Backgrounds</h2>
+    <div id="bgActions" class="assetToolbar"></div>
+    <div id="bgList" role="listbox" aria-label="Backgrounds"></div>
+    <p>Double-click a background to rename it.</p>
+  </aside>
+  <aside class="bgTileLibrary studioDock studioDockLeft">
+    <h2>Tilesets</h2>
+    <strong>Primary — reads when CHR_ALT is 0</strong>
+    <div id="bgPrimaryList" role="listbox" aria-label="Primary tileset"></div>
+    <label id="bgPrimaryPlaneLabel"
+      >Plane
+      <select id="bgPrimaryPlane" aria-label="Which 1bpp page the primary tileset shows">
+        <option>0</option>
+        <option>1</option>
+        <option>2</option>
+      </select></label
+    >
+    <strong>Alternate — reads when CHR_ALT is 1</strong>
+    <div id="bgAltList" role="listbox" aria-label="Alternate tileset"></div>
+    <label id="bgAltPlaneLabel"
+      >Plane
+      <select id="bgAltPlane" aria-label="Which 1bpp page the alternate tileset shows">
+        <option>0</option>
+        <option>1</option>
+        <option>2</option>
+      </select></label
+    >
+    <h2>Tile picker</h2>
+    <label id="bgPickSlotWrap"
+      >Show
+      <select id="bgPickSlot" aria-label="Which tileset the tile picker shows">
+        <option value="primary">Primary</option>
+        <option value="alt">Alternate</option>
+      </select></label
+    >
+    <canvas id="bgTileMap" width="256" height="256"></canvas>
+    <p id="bgTileNote">Click a tile to paint with it, or drag to pick a group.</p>
+    <h2>Objects</h2>
+    <div id="bgObjectList" role="listbox" aria-label="Tileset objects"></div>
+    <p id="bgObjectNote">
+      Click an object to pick its tiles as a group. Objects are named and edited in the Tilesets
+      editor.
+    </p>
+  </aside>
+  <aside class="bgStatusPanel studioDock studioDockRight">
+    <h2>Status</h2>
+    <div class="bgLegendRow">
+      <span class="bgLegendSwatch bgLegendWindow"></span>
+      <p>
+        <strong>Loaded window</strong> — the BGMODE-sized region resident in the active BGSET's four
+        physical tables. Drag its handle on the canvas to move it.
+      </p>
+    </div>
+    <div class="bgLegendRow">
+      <span class="bgLegendSwatch bgLegendScreen"></span>
+      <p>
+        <strong>Screen</strong> — the fixed 320 × 200 visible area, positioned within the loaded
+        window by SCROLL_X/SCROLL_Y. Drag its handle to move it.
+      </p>
+    </div>
+    <h3>Loaded window</h3>
+    <span id="bgCamMode"></span>
+    <label id="bgSetWrap"
+      >BGSET
+      <select id="bgActiveSet" aria-label="Active BGSET (0 or 1)">
+        <option value="0">0</option>
+        <option value="1">1</option>
+      </select></label
+    >
+    <span id="bgCamWindow"></span>
+    <span id="bgCamTables"></span>
+    <h3>Screen</h3>
+    <label
+      >SCROLL_X
+      <input id="bgScrollX" type="number" min="0" max="65535" aria-label="Scroll X (SCROLL_X)"
+    /></label>
+    <label
+      >SCROLL_Y
+      <input id="bgScrollY" type="number" min="0" max="65535" aria-label="Scroll Y (SCROLL_Y)"
+    /></label>
+    <h3>Tilesets</h3>
+    <span id="bgCamTilesets"></span>
+    <h3>Overlay preview</h3>
+    <label id="bgOverlayPickWrap"
+      >Overlay
+      <select id="bgOverlayPick" aria-label="Which overlay to preview"></select
+    ></label>
+    <button id="bgToggleOverlay" aria-pressed="false">Show overlay</button>
+  </aside>
+  <main class="studioMain">
+    <div id="bgEmpty" class="studioEmpty" role="status">
+      <p id="bgEmptyMessage"></p>
+      <div class="studioEmptyActions">
+        <button id="bgEmptyNew">New background</button
+        ><button id="bgCreateTileset">Go to Tilesets</button>
+      </div>
+    </div>
+    <div id="bgWork">
+      <div class="bgTop">
+        <div class="studioBarStart"><strong id="bgTitle"></strong></div>
+        <div class="studioBarEnd">
+          <label
+            >Size
+            <input
+              id="bgWidth"
+              type="number"
+              min="1"
+              max="1024"
+              aria-label="Background width in tiles"
+            />
+            ×
+            <input
+              id="bgHeight"
+              type="number"
+              min="1"
+              max="1024"
+              aria-label="Background height in tiles"
+            /><button id="bgResize">Resize</button></label
+          >
+          <label id="bgPreviewModeWrap"
+            >Viewport preview
+            <select id="bgPreviewMode" aria-label="Viewport preview size"></select
+          ></label>
+        </div>
+      </div>
+      <div id="bgStage" class="studioStage">
+        <div id="bgCanvasWrap" class="studioArt">
+          <canvas id="bgCanvas"></canvas>
+          <div id="bgMarquee" class="cellMarquee" hidden></div>
+          <div id="bgViewportOverlay" hidden>
+            <div id="bgViewportHandle" title="Drag to move the loaded window"></div>
+          </div>
+          <div id="bgScrollClip" hidden>
+            <div class="bgScrollRect"></div>
+            <div class="bgScrollRect"></div>
+            <div class="bgScrollRect"></div>
+            <div class="bgScrollRect"></div>
+            <div
+              id="bgScrollHandle"
+              title="Drag to preview scroll position (SCROLL_X/SCROLL_Y)"
+            ></div>
+          </div>
+        </div>
+      </div>
+      <div id="bgStampBar">
+        <span>Tile <b id="bgStampTile"></b></span>
+        <span id="bgGroupLabel" hidden></span>
+        <span id="bgSelectionLabel" hidden></span
+        ><button id="bgSelectionClear" hidden>Clear selection</button>
+        <button id="bgFlipX">Flip X</button><button id="bgFlipY">Flip Y</button
+        ><button id="bgPriority">Priority</button>
+        <span id="bgStampSource"></span>
+        <span id="bgBankLabel"></span><button id="bgBankReset" hidden>Reset to default</button>
+      </div>
+      <section id="bgPaletteDock"><div id="bgSwatches"></div></section>
+      <div id="bgStatus"></div>
+    </div>
+  </main>
+</section>

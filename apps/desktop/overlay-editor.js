@@ -25,53 +25,7 @@ import {
 import { markDirty, setStatus } from './status.js';
 import { StudioShell } from './studio-shell.js';
 
-const host = document.createElement('section');
-host.id = 'overlayEditor';
-host.className = 'studioEditor';
-host.hidden = true;
-host.innerHTML = `<aside class="ovLibrary studioDock studioDockLeft"><h2>Overlays</h2><div id="ovActions" class="assetToolbar"></div><div id="ovList" role="listbox" aria-label="Overlays"></div><p>Double-click an overlay to rename it.</p></aside>
- <aside class="ovTileLibrary studioDock studioDockLeft"><h2>Tilesets</h2>
-  <strong>Primary — reads when CHR_ALT is 0</strong><div id="ovPrimaryList" role="listbox" aria-label="Primary tileset"></div>
-  <label id="ovPrimaryPlaneLabel">Plane <select id="ovPrimaryPlane" aria-label="Which 1bpp page the primary tileset shows"><option>0</option><option>1</option><option>2</option></select></label>
-  <strong>Alternate — reads when CHR_ALT is 1</strong><div id="ovAltList" role="listbox" aria-label="Alternate tileset"></div>
-  <label id="ovAltPlaneLabel">Plane <select id="ovAltPlane" aria-label="Which 1bpp page the alternate tileset shows"><option>0</option><option>1</option><option>2</option></select></label>
-  <h2>Tile picker</h2>
-  <label id="ovPickSlotWrap">Show <select id="ovPickSlot" aria-label="Which tileset the tile picker shows"><option value="primary">Primary</option><option value="alt">Alternate</option></select></label>
-  <canvas id="ovTileMap" width="256" height="256"></canvas>
-  <p id="ovTileNote">Click a tile to paint with it, or drag to pick a group.</p>
-  <h2>Objects</h2>
-  <div id="ovObjectList" role="listbox" aria-label="Tileset objects"></div>
-  <p id="ovObjectNote">Click an object to pick its tiles as a group. Objects are named and edited in the Tilesets editor.</p>
- </aside>
- <aside class="ovPlaceholderLibrary studioDock studioDockLeft"><h2>Placeholders</h2><div id="ovPlaceholderActions" class="assetToolbar"></div><div id="ovPlaceholderList" role="listbox" aria-label="Placeholders"></div>
-  <p>Drag one out with the Placeholder tool, or add one here. The selected placeholder's position and size are in the Placeholder panel on the right.</p>
- </aside>
- <aside class="ovPlaceholderProps studioDock studioDockRight"><h2>Placeholder</h2><p id="ovPhEmpty">Select a placeholder to edit its position and size.</p>
-  <div class="ovPhFields">
-   <label>Col <input id="ovPhCol" type="number" min="0" max="39" aria-label="Placeholder column"></label>
-   <label>Row <input id="ovPhRow" type="number" min="0" max="24" aria-label="Placeholder row"></label>
-   <label>Width <input id="ovPhWidth" type="number" min="1" max="40" aria-label="Placeholder width in tiles"></label>
-   <label>Height <input id="ovPhHeight" type="number" min="1" max="25" aria-label="Placeholder height in tiles"></label>
-  </div>
- </aside>
- <main class="studioMain"><div id="ovEmpty" class="studioEmpty" role="status"><p id="ovEmptyMessage"></p><div class="studioEmptyActions"><button id="ovEmptyNew">New overlay</button><button id="ovCreateTileset">Go to Tilesets</button></div></div>
-  <div id="ovWork">
-   <div class="ovTop"><div class="studioBarStart"><strong id="ovTitle"></strong></div><div class="studioBarEnd"></div></div>
-   <div id="ovStage" class="studioStage"><div id="ovCanvasWrap" class="studioArt"><canvas id="ovCanvas"></canvas><div id="ovMarquee" class="cellMarquee" hidden></div><div id="ovPlaceholderOverlay"></div></div></div>
-   <div id="ovStampBar">
-    <span>Tile <b id="ovStampTile"></b></span>
-    <span id="ovGroupLabel" hidden></span>
-    <span id="ovSelectionLabel" hidden></span><button id="ovSelectionClear" hidden>Clear selection</button>
-    <button id="ovFlipX">Flip X</button><button id="ovFlipY">Flip Y</button><button id="ovPriority">Priority</button>
-    <span id="ovStampSource"></span>
-    <span id="ovBankLabel"></span><button id="ovBankReset" hidden>Reset to default</button>
-   </div>
-   <section id="ovPaletteDock"><div id="ovSwatches"></div></section>
-   <div id="ovStatus"></div>
-  </div>
- </main>`;
-// Inserted before the footer, like every other editor host.
-$('spritePanel').after(host);
+const host = $('overlayEditor');
 
 // The overlay's fixed hardware size — specs/video.json's overlay entry
 // (columns:40, rows:25, scrolls:false).

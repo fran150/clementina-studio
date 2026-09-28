@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/apps/desktop/main.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/build-page.mjs",
     "lint": "eslint --max-warnings 0 .",
     "typecheck": "tsc -p apps/desktop",
     "format": "prettier --write .",

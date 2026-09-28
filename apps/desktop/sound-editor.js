@@ -11,28 +11,7 @@ import { currentView, sounds } from './state.js';
 import { markDirty, setStatus } from './status.js';
 import { StudioShell } from './studio-shell.js';
 
-const host = document.createElement('section');
-host.id = 'soundEditor';
-host.className = 'studioEditor';
-host.hidden = true;
-host.innerHTML = `<aside class="sfLibrary studioDock studioDockLeft"><h2>Sounds</h2><div id="sfActions" class="assetToolbar"></div><div id="sfList" role="listbox" aria-label="Sounds"></div><p>Double-click a sound to rename it.</p></aside>
- <main class="studioMain"><div id="sfEmpty" class="studioEmpty" role="status"><p>No sounds yet. A sound effect is one voice's registers, frame by frame at 60 Hz.</p><div class="studioEmptyActions"><button id="sfEmptyNew">New sound</button></div></div>
-  <div id="sfWork">
-   <div class="sfTop"><div class="studioBarStart"><strong id="sfTitle"></strong></div><div class="studioBarEnd"></div></div>
-   <div id="sfStage" class="studioStage audioStage"><canvas id="sfCanvas" tabindex="0" aria-label="Sound frames: pitch, volume, pulse width, waveform and gate"></canvas></div>
-   <div id="sfTransport" class="audioTransport"><button id="sfPlay" aria-pressed="false"></button><span id="sfPosition"></span></div>
-   <div id="sfStatus"></div>
-  </div>
- </main>
- <aside class="sfProps studioDock studioDockRight audioDock"><h2>Sound</h2>
-  <h3>Envelope</h3>${StudioAudio.envelopeRows('sfEnv_')}<canvas id="sfEnvelope" class="envelope" width="472" height="128" aria-label="The envelope while the gate is on, then its release"></canvas>
-  <h3>Voice</h3>
-  <label class="audioField"><span>Pan</span><input id="sfPan" type="range" min="-64" max="63" aria-label="Pan, -64 left to 63 right"><output id="sfPanOut"></output></label>
-  <label class="audioField"><span>Frames</span><input id="sfLength" type="number" min="1" max="600" aria-label="Length in 60 Hz frames"><output id="sfLengthOut"></output></label>
-  <h3>Generate</h3><div id="sfPresets"></div><p>Each click makes a new take on the idea and plays it, replacing this sound's frames and envelope. Undo brings the last one back.</p>
-  <h3>Frame</h3><div id="sfFrameInfo" class="audioReadout"></div>
- </aside>`;
-$('spritePanel').after(host);
+const host = $('soundEditor');
 
 const A = () => window.MiaAudio;
 const FRAME_W = 12,

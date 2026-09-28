@@ -1,0 +1,95 @@
+<section id="soundEditor" class="studioEditor" hidden>
+  <aside class="sfLibrary studioDock studioDockLeft">
+    <h2>Sounds</h2>
+    <div id="sfActions" class="assetToolbar"></div>
+    <div id="sfList" role="listbox" aria-label="Sounds"></div>
+    <p>Double-click a sound to rename it.</p>
+  </aside>
+  <main class="studioMain">
+    <div id="sfEmpty" class="studioEmpty" role="status">
+      <p>No sounds yet. A sound effect is one voice's registers, frame by frame at 60 Hz.</p>
+      <div class="studioEmptyActions"><button id="sfEmptyNew">New sound</button></div>
+    </div>
+    <div id="sfWork">
+      <div class="sfTop">
+        <div class="studioBarStart"><strong id="sfTitle"></strong></div>
+        <div class="studioBarEnd"></div>
+      </div>
+      <div id="sfStage" class="studioStage audioStage">
+        <canvas
+          id="sfCanvas"
+          tabindex="0"
+          aria-label="Sound frames: pitch, volume, pulse width, waveform and gate"
+        ></canvas>
+      </div>
+      <div id="sfTransport" class="audioTransport">
+        <button id="sfPlay" aria-pressed="false"></button><span id="sfPosition"></span>
+      </div>
+      <div id="sfStatus"></div>
+    </div>
+  </main>
+  <aside class="sfProps studioDock studioDockRight audioDock">
+    <h2>Sound</h2>
+    <h3>Envelope</h3>
+    <label class="audioField" title="How fast the note rises to full"
+      ><span>Attack</span
+      ><input id="sfEnv_attack" type="range" min="0" max="15" aria-label="Attack, 0 to 15" /><output
+        id="sfEnv_attackOut"
+      ></output></label
+    ><label class="audioField" title="How fast it falls to the sustain level"
+      ><span>Decay</span
+      ><input id="sfEnv_decay" type="range" min="0" max="15" aria-label="Decay, 0 to 15" /><output
+        id="sfEnv_decayOut"
+      ></output></label
+    ><label class="audioField" title="The level it holds while the gate is on, 0–15"
+      ><span>Sustain</span
+      ><input
+        id="sfEnv_sustain"
+        type="range"
+        min="0"
+        max="15"
+        aria-label="Sustain, 0 to 15" /><output id="sfEnv_sustainOut"></output></label
+    ><label class="audioField" title="How fast it fades once the gate goes off"
+      ><span>Release</span
+      ><input
+        id="sfEnv_release"
+        type="range"
+        min="0"
+        max="15"
+        aria-label="Release, 0 to 15" /><output id="sfEnv_releaseOut"></output></label
+    ><canvas
+      id="sfEnvelope"
+      class="envelope"
+      width="472"
+      height="128"
+      aria-label="The envelope while the gate is on, then its release"
+    ></canvas>
+    <h3>Voice</h3>
+    <label class="audioField"
+      ><span>Pan</span
+      ><input
+        id="sfPan"
+        type="range"
+        min="-64"
+        max="63"
+        aria-label="Pan, -64 left to 63 right" /><output id="sfPanOut"></output
+    ></label>
+    <label class="audioField"
+      ><span>Frames</span
+      ><input
+        id="sfLength"
+        type="number"
+        min="1"
+        max="600"
+        aria-label="Length in 60 Hz frames" /><output id="sfLengthOut"></output
+    ></label>
+    <h3>Generate</h3>
+    <div id="sfPresets"></div>
+    <p>
+      Each click makes a new take on the idea and plays it, replacing this sound's frames and
+      envelope. Undo brings the last one back.
+    </p>
+    <h3>Frame</h3>
+    <div id="sfFrameInfo" class="audioReadout"></div>
+  </aside>
+</section>
