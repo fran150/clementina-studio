@@ -38,7 +38,22 @@ app.whenReady().then(async () => {
     }
     throw new Error(`Timed out waiting for ${expression}`);
   }
+  // Input events land asynchronously, so the previous click may still be
+  // settling: wait until the target is clickable, and say what the page shows
+  // if it never becomes so.
   async function click(selector) {
+    const clickable = `(() => {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      return !!el && !el.disabled && el.checkVisibility();
+    })()`;
+    try {
+      await waitFor(clickable);
+    } catch {
+      const state = await read(
+        `JSON.stringify({view: currentView, width: innerWidth, height: innerHeight, visible: [...document.querySelectorAll('#workspace > section, #workspace > div')].filter(e => e.checkVisibility()).map(e => e.id)})`,
+      );
+      throw new Error(`Not clickable: ${selector} ${state}`);
+    }
     const point = await read(`(() => {
       const el = document.querySelector(${JSON.stringify(selector)});
       if(!el || el.disabled || !el.checkVisibility()) throw new Error('Not clickable: ' + ${JSON.stringify(selector)});
