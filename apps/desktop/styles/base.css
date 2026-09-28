@@ -50,8 +50,7 @@ header h1 small {
   background: var(--line);
 }
 button,
-select,
-label.btn {
+select {
   font-family: inherit;
   font-size: 12px;
   background: var(--panel2);
@@ -61,8 +60,7 @@ label.btn {
   padding: 5px 9px;
   cursor: pointer;
 }
-button:hover,
-label.btn:hover {
+button:hover {
   background: #322a1d;
   border-color: #4d4129;
 }
@@ -113,23 +111,6 @@ main {
   margin: 0 0 10px;
   font-weight: 600;
 }
-
-#ovWrap {
-  max-height: 80vh;
-  overflow: auto;
-}
-#overview {
-  image-rendering: pixelated;
-  display: block;
-  cursor: pointer;
-  background: #000;
-}
-
-.editorCol {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
 .row {
   display: flex;
   gap: 16px;
@@ -142,15 +123,6 @@ main {
   touch-action: none;
   background: #000;
   border-radius: 4px;
-}
-.toolbtns {
-  display: grid;
-  grid-template-columns: repeat(4, auto);
-  gap: 6px;
-  margin-top: 10px;
-}
-.toolbtns button {
-  padding: 5px 0;
 }
 
 .previews {
@@ -186,11 +158,6 @@ main {
   border-color: var(--sel);
   background: #0e1517;
 }
-.palBankName {
-  width: 28px;
-  color: var(--text-dim);
-  font-size: 10px;
-}
 .sw {
   width: 22px;
   height: 22px;
@@ -202,13 +169,6 @@ main {
 .sw.sel {
   border-color: var(--sel);
   box-shadow: 0 0 0 1px var(--sel);
-}
-.palrow {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-top: 10px;
-  flex-wrap: wrap;
 }
 input[type='color'] {
   width: 40px;
@@ -315,32 +275,6 @@ footer .dirty {
   line-height: 1.6;
   margin-top: 6px;
 }
-
-.dropdown {
-  position: relative;
-  display: inline-block;
-}
-.dropdown-menu {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  background: var(--panel2);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  z-index: 20;
-  min-width: 200px;
-}
-.dropdown.open .dropdown-menu {
-  display: block;
-}
-.dropdown-menu button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  border: 0;
-  border-radius: 0;
-}
 [hidden] {
   display: none !important;
 }
@@ -399,20 +333,8 @@ body {
 }
 header h1,
 header .sep,
-header .lbl,
-header #bankSel,
-header #mode1,
-header #mode3,
-header #planeWrap,
-header #undoBtn,
-header #redoBtn {
+header .lbl {
   display: none;
-}
-#tilesEditor {
-  max-width: 100%;
-}
-#ovWrap {
-  max-height: 56vh;
 }
 footer {
   left: 210px;

@@ -21,27 +21,10 @@
   border: 1px solid var(--line);
   padding: 4px;
 }
-#scName {
-  display: block;
-  padding: 7px;
-  cursor: text;
-}
-#scName input {
-  width: 100%;
-}
 #scBankMap {
   width: 100%;
   touch-action: none;
   image-rendering: pixelated;
-}
-#scSource {
-  display: block;
-  max-width: 100%;
-  max-height: 128px;
-  image-rendering: pixelated;
-  cursor: grab;
-  border: 1px solid var(--line);
-  margin: 8px 0;
 }
 #spriteComposer main {
   padding: 0;
@@ -144,24 +127,6 @@
   color: var(--text);
   font: inherit;
   border: 1px solid var(--sel);
-}
-.sourceBankRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 12px;
-}
-.sourceBankRow span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.sourceBankRow button {
-  padding: 0 6px !important;
-}
-#scBankCount {
-  font-weight: normal;
-  color: var(--text-dim);
 }
 #scDragGhost {
   position: fixed;
