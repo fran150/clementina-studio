@@ -4,7 +4,7 @@
 // (VTAKE) for a few frames before giving it back (VGIVE). Each frame is a
 // column across five lanes, drawn like pixels. See docs/audio.md.
 import { StudioAudio } from './audio-shared.js';
-import { $ } from './dom.js';
+import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { newProject, redrawAll, restoreStudioProject, showView } from './lifecycle.js';
 import { currentView, sounds } from './state.js';
@@ -191,41 +191,7 @@ function draw() {
     ctx.fillStyle = '#ffffff0c';
     ctx.fillRect(frameX(hover), RULER_H, fw, h - RULER_H);
   }
-  for (let f = first; f <= last; f++) {
-    // Whole pixels, so every bar is crisp at a fractional zoom.
-    const fr = list[f],
-      left = Math.round(frameX(f)),
-      x = left + (fw >= 6 ? 1 : 0),
-      bar = Math.max(1, Math.round(frameX(f + 1)) - left - (fw >= 6 ? 2 : 0));
-    for (const lane of ls) {
-      const bottom = lane.top + lane.height;
-      ctx.globalAlpha = lane.key === 'pulse' && fr.wave !== 1 ? 0.3 : 1;
-      if (lane.key === 'freq') {
-        if (!fr.freq) continue;
-        const y = Math.max(lane.top, Math.min(bottom, semitoneY(A().frequencyNote(fr.freq))));
-        ctx.fillStyle = lane.color + '40';
-        ctx.fillRect(x, y, bar, bottom - y);
-        ctx.fillStyle = lane.color;
-        ctx.fillRect(x, y - 1, bar, 3);
-      } else if (lane.key === 'wave') {
-        const row = lane.height / 5;
-        ctx.fillStyle = lane.color;
-        ctx.fillRect(x, lane.top + fr.wave * row + 1, bar, row - 2);
-      } else if (lane.key === 'gate') {
-        if (fr.gate) {
-          ctx.fillStyle = lane.color;
-          ctx.fillRect(x, lane.top + 3, bar, lane.height - 6);
-        }
-      } else {
-        const y = bottom - (fr[lane.key] / 255) * lane.height;
-        ctx.fillStyle = lane.color + '40';
-        ctx.fillRect(x, y, bar, bottom - y);
-        ctx.fillStyle = lane.color;
-        ctx.fillRect(x, y - 1, bar, 2);
-      }
-    }
-    ctx.globalAlpha = 1;
-  }
+  drawFrames(ctx, list, ls, first, last, semitoneY);
   if (drag?.kind === 'line') {
     ctx.strokeStyle = '#fff';
     ctx.setLineDash([4, 3]);
@@ -263,7 +229,50 @@ function draw() {
     ctx.fillText(f % 60 ? String(f) : `${f / 60} s`, x + 3, RULER_H - 8);
   }
   ctx.restore();
-  // The label column stays put while the frames scroll.
+  drawLabels(ctx, ls, h, semitoneY);
+}
+
+// Each frame's value in every lane, as a bar.
+function drawFrames(ctx, list, ls, first, last, semitoneY) {
+  const fw = frameW();
+  for (let f = first; f <= last; f++) {
+    // Whole pixels, so every bar is crisp at a fractional zoom.
+    const fr = list[f],
+      left = Math.round(frameX(f)),
+      x = left + (fw >= 6 ? 1 : 0),
+      bar = Math.max(1, Math.round(frameX(f + 1)) - left - (fw >= 6 ? 2 : 0));
+    for (const lane of ls) {
+      const bottom = lane.top + lane.height;
+      ctx.globalAlpha = lane.key === 'pulse' && fr.wave !== 1 ? 0.3 : 1;
+      if (lane.key === 'freq') {
+        if (!fr.freq) continue;
+        const y = Math.max(lane.top, Math.min(bottom, semitoneY(A().frequencyNote(fr.freq))));
+        ctx.fillStyle = lane.color + '40';
+        ctx.fillRect(x, y, bar, bottom - y);
+        ctx.fillStyle = lane.color;
+        ctx.fillRect(x, y - 1, bar, 3);
+      } else if (lane.key === 'wave') {
+        const row = lane.height / 5;
+        ctx.fillStyle = lane.color;
+        ctx.fillRect(x, lane.top + fr.wave * row + 1, bar, row - 2);
+      } else if (lane.key === 'gate') {
+        if (fr.gate) {
+          ctx.fillStyle = lane.color;
+          ctx.fillRect(x, lane.top + 3, bar, lane.height - 6);
+        }
+      } else {
+        const y = bottom - (fr[lane.key] / 255) * lane.height;
+        ctx.fillStyle = lane.color + '40';
+        ctx.fillRect(x, y, bar, bottom - y);
+        ctx.fillStyle = lane.color;
+        ctx.fillRect(x, y - 1, bar, 2);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+// The label column stays put while the frames scroll.
+function drawLabels(ctx, ls, h, semitoneY) {
   ctx.fillStyle = '#1e1a14';
   ctx.fillRect(0, 0, LABEL_W, h);
   ctx.fillStyle = '#3a3022';
@@ -977,11 +986,7 @@ document.addEventListener('studiohistory', () => {
 window.addEventListener(
   'keydown',
   (e) => {
-    if (
-      currentView !== 'sounds' ||
-      /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName) ||
-      document.querySelector('dialog[open]')
-    )
+    if (currentView !== 'sounds' || isField(e.target) || document.querySelector('dialog[open]'))
       return;
     const key = e.key.toLowerCase(),
       mod = e.ctrlKey || e.metaKey,
@@ -1047,8 +1052,7 @@ let spacePanned = false;
 window.addEventListener('keyup', (e) => {
   if (e.code !== 'Space' || currentView !== 'sounds' || !space) return;
   space = false;
-  if (!spacePanned && !/INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName))
-    play();
+  if (!spacePanned && !isField(e.target)) play();
   spacePanned = false;
 });
 canvas.addEventListener(

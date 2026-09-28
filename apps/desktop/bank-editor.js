@@ -1,6 +1,6 @@
 // Tileset authoring. A tileset is one CHR bank's worth of graphics; its per-tile
 // palette bank numbers are authoring intent, recorded alongside the pixels.
-import { $ } from './dom.js';
+import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { openTilesetImageImport } from './image-import-ui.js';
 import { redrawAll, renderBankEditor, showView } from './lifecycle.js';
@@ -197,6 +197,56 @@ function render() {
   backgroundRow.style.opacity = zeroAsColor ? '.45' : '';
   $('bankSelectionInfo').textContent =
     `${selection.width} × ${selection.height} tiles · ${selection.width * 8} × ${selection.height * 8} pixels`;
+  drawTileMap(a);
+  drawSelection(a);
+  refreshPalettes();
+  StudioShell.renderList($('compositionList'), a.compositions, {
+    selected: (c, i) => i === objectIndex,
+    choose: (c, i) => selectObject(i),
+    rename: renameObject,
+    render,
+    maxLength: 64,
+    remove: (c, i) => {
+      selectObject(i);
+      $('deleteComposition').click();
+    },
+  });
+  syncShapeTools();
+  drawMiniature();
+  drawPixelOverlay();
+  drawUsageOverlay();
+  updateStatus();
+  for (const id of ['flipHorizontal', 'flipVertical', 'rotateSelection'])
+    $(id).disabled = !pixelSelection;
+  $('selectionTool').classList.toggle('on', tool === 'select');
+  $('copyPixels').disabled = !pixelSelection;
+  $('pastePixels').disabled = !StudioShell.clipboard.has('pixels');
+  $('clearPixels').disabled = !pixelSelection;
+  $('toolOptions').hidden = !['fill', 'rectangle', 'ellipse'].includes(tool);
+  // A tileset opens fitted to the window, like every canvas, and refits when
+  // the area picked on the tile map changes size — not while it is being
+  // dragged out. Zooming by hand holds until then. Measured last, once the
+  // docks around the canvas have their final size.
+  const area = a.id + ':' + selection.width + '×' + selection.height;
+  if (!anchor && area !== fittedArea) {
+    fittedArea = area;
+    const next = StudioShell.fitZoom(
+      scroll.clientWidth - 48,
+      scroll.clientHeight - 48,
+      selection.width * 8,
+      selection.height * 8,
+      1,
+      32,
+    );
+    if (next !== zoom) {
+      zoom = next;
+      render();
+    }
+  }
+}
+// The whole tileset as a 16 × 16 map of tiles at 3×, with the tiles drawn
+// against the palette bank being inspected and the picked area.
+function drawTileMap(a) {
   const map = $('bankMap'),
     m = map.getContext('2d');
   for (let t = 0; t < 256; t++)
@@ -231,6 +281,9 @@ function render() {
     selection.width * 24 - 3,
     selection.height * 24 - 3,
   );
+}
+// The picked area at the working zoom, with pixel and tile grids.
+function drawSelection(a) {
   const canvas = $('bankSelection'),
     scale = zoom;
   canvas.width = selection.width * 8 * scale;
@@ -266,18 +319,9 @@ function render() {
         c.strokeStyle = '#36c9d680';
         c.strokeRect(cx * 8 * scale + 0.5, cy * 8 * scale + 0.5, 8 * scale - 1, 8 * scale - 1);
       }
-  refreshPalettes();
-  StudioShell.renderList($('compositionList'), a.compositions, {
-    selected: (c, i) => i === objectIndex,
-    choose: (c, i) => selectObject(i),
-    rename: renameObject,
-    render,
-    maxLength: 64,
-    remove: (c, i) => {
-      selectObject(i);
-      $('deleteComposition').click();
-    },
-  });
+}
+// The fill patterns and the filled-shape toggle follow the current tool.
+function syncShapeTools() {
   for (const id of ['line', 'rectangle', 'ellipse'])
     $(id + 'Tool').classList.toggle('on', tool === id);
   for (const name of ['solid', 'checker', 'stripes']) {
@@ -295,37 +339,6 @@ function render() {
     $('filledShapeToggle').disabled = !['rectangle', 'ellipse'].includes(tool);
     $('filledShapeToggle').classList.toggle('on', $('filledShapes').checked);
     $('filledShapeToggle').setAttribute('aria-pressed', String($('filledShapes').checked));
-  }
-  drawMiniature();
-  drawPixelOverlay();
-  drawUsageOverlay();
-  updateStatus();
-  for (const id of ['flipHorizontal', 'flipVertical', 'rotateSelection'])
-    $(id).disabled = !pixelSelection;
-  $('selectionTool').classList.toggle('on', tool === 'select');
-  $('copyPixels').disabled = !pixelSelection;
-  $('pastePixels').disabled = !StudioShell.clipboard.has('pixels');
-  $('clearPixels').disabled = !pixelSelection;
-  $('toolOptions').hidden = !['fill', 'rectangle', 'ellipse'].includes(tool);
-  // A tileset opens fitted to the window, like every canvas, and refits when
-  // the area picked on the tile map changes size — not while it is being
-  // dragged out. Zooming by hand holds until then. Measured last, once the
-  // docks around the canvas have their final size.
-  const area = a.id + ':' + selection.width + '×' + selection.height;
-  if (!anchor && area !== fittedArea) {
-    fittedArea = area;
-    const next = StudioShell.fitZoom(
-      scroll.clientWidth - 48,
-      scroll.clientHeight - 48,
-      selection.width * 8,
-      selection.height * 8,
-      1,
-      32,
-    );
-    if (next !== zoom) {
-      zoom = next;
-      render();
-    }
   }
 }
 function pixelColor(a, t, x, y) {
@@ -1023,11 +1036,7 @@ $('emptyImport').onclick = () => $('importBankFile').click();
 window.addEventListener(
   'keydown',
   (event) => {
-    if (
-      currentView !== 'tiles' ||
-      /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (event.target).tagName)
-    )
-      return;
+    if (currentView !== 'tiles' || isField(event.target)) return;
     if (document.querySelector('dialog[open]')) return;
     const key = event.key.toLowerCase();
     if ((event.metaKey || event.ctrlKey) && key === 'a') {
@@ -1665,11 +1674,7 @@ top.querySelector('.studioBarStart').after(zoomControls.group);
 window.addEventListener(
   'keydown',
   (e) => {
-    if (
-      currentView === 'tiles' &&
-      e.code === 'Space' &&
-      !/INPUT|TEXTAREA|SELECT/.test(/** @type {HTMLElement} */ (e.target).tagName)
-    ) {
+    if (currentView === 'tiles' && e.code === 'Space' && !isField(e.target)) {
       spaceHeld = true;
       e.preventDefault();
       scroll.style.cursor = 'grab';

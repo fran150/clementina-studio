@@ -1,6 +1,6 @@
 // Builder edits the manifest settings. Planning, writing, building and running
 // go through main-process IPC to the SDK; the renderer never assembles assets.
-import { $ } from './dom.js';
+import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import {
   redrawAll,
@@ -600,7 +600,7 @@ for (const action of ['save', 'build', 'run', 'stop'])
 window.addEventListener('keydown', (e) => {
   if (
     currentView === 'builder' &&
-    !/INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName) &&
+    !isField(e.target) &&
     (e.key === 'Delete' || e.key === 'Backspace')
   ) {
     if (remove()) e.preventDefault();

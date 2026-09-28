@@ -2,7 +2,7 @@
 // names shapes rather than owning sprites, so a shape edit reaches every frame
 // showing it, flipped or not. Loaded before sprite-composer.js, which wraps
 // renderAnimations to keep its own canvas in sync with shape edits.
-import { $ } from './dom.js';
+import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { redrawAll, renderAnimations, showView } from './lifecycle.js';
 import {
@@ -708,11 +708,7 @@ function render() {
 window.addEventListener(
   'keydown',
   (e) => {
-    if (
-      currentView !== 'animations' ||
-      /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName) ||
-      document.querySelector('dialog[open]')
-    )
+    if (currentView !== 'animations' || isField(e.target) || document.querySelector('dialog[open]'))
       return;
     const key = e.key.toLowerCase(),
       mod = e.ctrlKey || e.metaKey,

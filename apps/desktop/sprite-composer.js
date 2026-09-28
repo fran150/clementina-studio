@@ -1,6 +1,6 @@
 // Shape authoring: one arrangement of sprites from a single tileset. Coordinates
 // are pixels relative to the shape's origin; list order is OAM order.
-import { $ } from './dom.js';
+import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import {
   newProject,
@@ -1109,11 +1109,7 @@ StudioShell.setIcon(settingsSummary, 'settings', 'Display settings');
 window.addEventListener(
   'keydown',
   (e) => {
-    if (
-      currentView !== 'shapes' ||
-      /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName)
-    )
-      return;
+    if (currentView !== 'shapes' || isField(e.target)) return;
     const key = e.key.toLowerCase();
     if (e.code === 'Space') {
       space = true;
@@ -1355,35 +1351,18 @@ function renameShape(i, name) {
 // exactly — there is nothing to lock.
 function renderTilesetPicker() {
   const a = shape(),
-    current = shapeTileset(),
-    list = $('scBank');
-  while (list.children.length > tilesets.length) list.lastElementChild.remove();
-  tilesets.forEach((t, i) => {
-    let row = /** @type {HTMLElement} */ (list.children[i]);
-    if (!row) {
-      row = document.createElement('div');
-      row.className = 'assetRow';
-      row.tabIndex = 0;
-      row.setAttribute('role', 'option');
-      list.append(row);
-    }
-    row.textContent = t.name;
-    row.setAttribute('aria-selected', String(t.id === a?.tilesetId));
-    const choose = () => {
+    current = shapeTileset();
+  StudioShell.renderOptions($('scBank'), tilesets, {
+    label: (t) => t.name,
+    selected: (t) => t.id === a?.tilesetId,
+    choose: (t) => {
       if (!a || t.id === a.tilesetId) return;
       scPlane = 0;
       edit('Change the tileset', () => {
         shape().tilesetId = t.id;
         sourceRect = { x: 0, y: 0, width: 1, height: 1 };
       });
-    };
-    row.onclick = choose;
-    row.onkeydown = (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        choose();
-      }
-    };
+    },
   });
   $('scTilesetNote').textContent = !a
     ? 'Create a shape to choose its tileset.'

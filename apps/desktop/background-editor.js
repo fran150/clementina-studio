@@ -12,7 +12,7 @@
 // wraps too, and the camera panel's table-index math mirrors
 // clementina-video-client/internal/render/renderer.go's bgTableAndLocal.
 import { CellGrid } from './cell-grid.js';
-import { $ } from './dom.js';
+import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { redrawAll, renderBackgrounds, showView } from './lifecycle.js';
 import {
@@ -310,20 +310,10 @@ function renderTilesetAssignment() {
     ['bgPrimaryList', 'tilesetId'],
     ['bgAltList', 'altTilesetId'],
   ]) {
-    const list = $(listId);
-    while (list.children.length > tilesets.length) list.lastElementChild.remove();
-    tilesets.forEach((t, i) => {
-      let row = /** @type {HTMLElement} */ (list.children[i]);
-      if (!row) {
-        row = document.createElement('div');
-        row.className = 'assetRow';
-        row.tabIndex = 0;
-        row.setAttribute('role', 'option');
-        list.append(row);
-      }
-      row.textContent = t.name;
-      row.setAttribute('aria-selected', String(!!a && t.id === a[field]));
-      const choose = () => {
+    StudioShell.renderOptions($(listId), tilesets, {
+      label: (t) => t.name,
+      selected: (t) => !!a && t.id === a[field],
+      choose: (t) => {
         if (!a || t.id === a[field]) return;
         bgEdit(
           field === 'tilesetId' ? 'Change the primary tileset' : 'Change the alternate tileset',
@@ -331,14 +321,7 @@ function renderTilesetAssignment() {
             a[field] = t.id;
           },
         );
-      };
-      row.onclick = choose;
-      row.onkeydown = (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          choose();
-        }
-      };
+      },
     });
   }
   $('bgPrimaryPlaneLabel').hidden = primaryTileset()?.bpp !== 1;
@@ -1421,11 +1404,7 @@ for (const id of ['bgLibraryToggle', 'bgTileLibraryToggle', 'bgStatusToggle'])
 window.addEventListener(
   'keydown',
   (e) => {
-    if (
-      currentView !== 'backgrounds' ||
-      /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName)
-    )
-      return;
+    if (currentView !== 'backgrounds' || isField(e.target)) return;
     // Selection and clipboard keys, the same in every grid editor.
     const command = selection.key(e);
     if (command) {
