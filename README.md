@@ -52,8 +52,10 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
 ## Layout
 
 - `apps/desktop`: the asset studio. `editor.html` is the shell — model, state,
-  helpers and view switching. `studio-shell.js` / `studio-shell.css` supply shared
-  navigation, project buttons, tool rails, drawers, tooltips and status styling. Each other editor is a
+  helpers and view switching. `studio-shell.js` / `styles/studio-shell.css` supply shared
+  navigation, project buttons, tool rails, drawers, tooltips and status styling.
+  `styles/` holds the stylesheets: `base.css`, the shell's, then one per editor
+  script, named after it and linked in the same order. Each other editor is a
   self-attaching script: `bank-editor.js` (tilesets), `overlay-editor.js`
   (the fixed HUD/text layer, loaded before `background-editor.js` since the
   latter reads its assets for a preview toggle), `background-editor.js`

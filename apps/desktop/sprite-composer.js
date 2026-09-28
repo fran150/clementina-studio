@@ -11,9 +11,6 @@
  <div id="scViewport" class="studioStage"><canvas id="scCanvas" tabindex="0" aria-label="Sprite composition canvas"></canvas><aside id="scPreview" class="canvasPreview"><strong>Preview</strong><canvas id="scMini" width="144" height="112"></canvas><span id="scMiniSize"></span></aside></div><div id="scStatus"></div><section id="scPaletteDock"><div class="paletteDockHead"><span id="scPaletteHint">Click a bank to set it on the selected sprites.</span></div><div id="scPalettes"></div></section></main>
  <aside class="scInspector studioDock studioDockRight"><button id="scRemove">Remove</button><h2>Draw order</h2><p>Later sprites draw on top. Position in this list is the offset from wherever the shape is loaded into OAM. Flip and reorder the selected sprites from the rail on the right.</p><div id="scParts"></div><p>Shift-click or drag empty space to select multiple parts. Arrows nudge 1 px. Scroll or Space-drag pans; pinch or Ctrl/Cmd+scroll zooms. Escape cancels placement.</p></aside>`;
   $('spritePanel').after(host);
-  const style = document.createElement('style');
-  style.textContent = `#spriteComposer .studioDock h2:not(:first-of-type){margin-top:12px}#spriteComposer p{font-size:10px;line-height:1.5;color:var(--text-dim)}#spriteComposer select{width:100%;margin:5px 0}#spriteComposer button{margin:3px 1px;padding:5px 8px}#spriteComposer input[type=number]{width:65px;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:4px}#scName{display:block;padding:7px;cursor:text}#scName input{width:100%}#scBankMap{width:100%;touch-action:none;image-rendering:pixelated}#scSource{display:block;max-width:100%;max-height:128px;image-rendering:pixelated;cursor:grab;border:1px solid var(--line);margin:8px 0}#spriteComposer main{padding:0;gap:0;align-items:stretch;display:flex;flex-direction:column;min-width:0;min-height:0}.scTop,.scOrigin{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:5px 10px;background:var(--panel);font-size:11px}#scViewport{position:relative;flex:1;min-height:100px;overflow:hidden}#scCanvas{width:100%;height:100%;touch-action:none;outline:none}#scStatus{padding:6px 10px;font-size:10px;color:var(--text-dim)}#scPaletteDock{width:100%;align-self:stretch;background:var(--panel);border-top:1px solid var(--line);padding:10px 18px;box-sizing:border-box}#scPaletteHint{font-size:10px;color:var(--text-dim);margin-left:auto}#scPalettes{box-sizing:border-box;max-height:220px;overflow:auto}#scBank,#scObjectList{border:1px solid var(--line);background:var(--bg);max-height:180px;overflow:auto;margin:5px 0}#scObjectList{min-height:60px}#scParts{max-height:45vh;overflow:auto}#scParts button{display:block;width:100%;text-align:left;font-size:10px}#spriteComposer .on{outline:1px solid #36c9d6}#spriteComposer .missing{color:#ff7777}`;
-  document.head.append(style);
   // Built this early, before anything below wires up onclick handlers by id,
   // since these buttons don't exist in the static template above.
   const iconButton = (id, label, icon) => StudioShell.iconButton(id, label, icon);
@@ -1274,10 +1271,6 @@
   tileLibrary.hidden = true;
   for (const id of ['scLibraryToggle', 'scTileLibraryToggle', 'scInspectorToggle'])
     $(id).setAttribute('aria-expanded', 'false');
-  const groupStyle = document.createElement('style');
-  groupStyle.textContent =
-    '#scUnits{width:auto!important;margin:0!important}#scOriginTool.on{background:var(--ink)}';
-  document.head.append(groupStyle);
   const oldRestore = restoreStudioProject;
   restoreStudioProject = function (...args) {
     selected.clear();
@@ -1502,22 +1495,6 @@
       (y - 4) +
       'v8"/></svg>';
   }
-  const refineStyle = document.createElement('style');
-  refineStyle.textContent =
-    '#scSprites{border:1px solid var(--line);background:var(--bg);min-height:130px;max-height:55vh;overflow:auto}#scSprites input{width:100%;background:var(--bg);color:var(--text);font:inherit;border:1px solid var(--sel)}.sourceBankRow{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px}.sourceBankRow span{overflow:hidden;text-overflow:ellipsis}.sourceBankRow button{padding:0 6px!important}#scBankCount{font-weight:normal;color:var(--text-dim)}#scDragGhost{position:fixed;pointer-events:none;z-index:9000;opacity:.8;image-rendering:pixelated;border:1px solid #36c9d6;background:#25283055}.scOrigin button{display:inline-flex;align-items:center;justify-content:center}';
-  document.head.append(refineStyle);
-  // Top-bar polish: an icon-only Snap toggle and a "Display settings" popover,
-  // matching the tileset editor's own top-bar controls.
-  const topStyle = document.createElement('style');
-  topStyle.textContent = `
- .scTop{position:relative}
-  #scSnapToggle,#scPreviewToggle,#scDisplaySettings summary{display:inline-flex;align-items:center;justify-content:center;padding:4px;cursor:pointer;border:1px solid var(--line);border-radius:4px;background:var(--panel)}#scSnapToggle svg,#scPreviewToggle svg,#scDisplaySettings summary svg{width:20px;height:20px}#scSnapToggle.on,#scPreviewToggle.on{background:var(--ink);color:#111}
- .scOrigin{justify-content:flex-end}
- #scDisplaySettings{position:relative;list-style:none}#scDisplaySettings summary{list-style:none}#scDisplaySettings summary::-webkit-details-marker{display:none}#scDisplaySettings[open]>summary{border-color:var(--sel)}
- #scDisplaySettings>div{position:absolute;right:0;top:36px;width:230px;padding:12px;border:1px solid var(--line);background:var(--panel);box-shadow:0 8px 20px #0008;font-size:11px;z-index:7}
- #scDisplaySettings>div label{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:9px 0}#scDisplaySettings>div input[type=color]{width:54px;height:32px;padding:3px}
- `;
-  document.head.append(topStyle);
   StudioShell.viewStatus('shapes', $('scStatus'));
   new ResizeObserver(() => draw()).observe($('scViewport'));
   render();

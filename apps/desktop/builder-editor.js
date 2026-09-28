@@ -11,17 +11,6 @@
  <aside class="buProps studioDock studioDockRight"><h2>Properties</h2><div id="buSelection"></div><h3>Build settings</h3><label>Asset folder<input id="buAssetFolder" value="ASSETS"></label><label class="buCheck"><input type="checkbox" id="buChecks" checked>Runtime checks</label><h3>Emulator tools</h3><button id="buEmulator">Choose emulator…</button><button id="buRenderer">Choose renderer…</button><p>Uses clementina-automation and clementina-render from PATH unless chosen here.</p></aside>`;
   $('spritePanel').after(host);
   host.querySelector('.buTop .studioBarEnd').append(StudioShell.helpButton());
-  const style = document.createElement('style');
-  style.textContent = `
- #builderEditor .buTop{display:flex;justify-content:space-between;gap:8px;padding:8px 14px;background:var(--panel);flex-wrap:wrap}
- #buStage{padding:20px;overflow:auto;display:block;flex:1;min-height:0}#buStage h2{margin:0;font-size:18px}.buHeading{display:flex;align-items:baseline;justify-content:space-between;gap:16px}.buHeading span{font-size:11px;overflow-wrap:anywhere;color:var(--text-dim)}
- #buStage p,.buLibrary p,.buProps p{font-size:11px;color:var(--text-dim);line-height:1.5}.buLibrary{width:260px}.buProps{width:250px}.buProps label{display:flex;flex-direction:column;gap:4px;margin:12px 0;font-size:11px}.buProps input,.buProps select,#buAssets select{min-width:0;width:100%;box-sizing:border-box;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:5px}.buProps .buCheck{flex-direction:row;align-items:center}.buCheck input{width:auto}
- #buAssets{overflow:auto;min-height:0}#buAssets h3{font-size:11px;text-transform:uppercase;color:var(--text-dim);margin:16px 0 5px}.buAsset{display:grid;grid-template-columns:20px 1fr;gap:5px;padding:7px 3px;border-bottom:1px solid var(--line)}.buAsset>button{text-align:left;overflow:hidden;text-overflow:ellipsis;border:0;padding:0;background:none}.buAsset select{grid-column:2}.buAsset.selected{background:#ffb00014}
- .buMapSection{margin:20px 0}.buMapSection h3{font-size:12px}.buSlots{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:9px}.buSlot{border:1px solid var(--line);background:var(--panel);padding:11px;text-align:left;min-height:77px;border-radius:5px;cursor:pointer}.buSlot.selected{border-color:var(--ink)}.buSlot:focus{outline:1px solid var(--ink)}.buSlot strong{display:block;font-size:12px}.buSlot small{display:block;color:var(--text-dim);font-size:10px;margin:5px 0}.buSlot progress{width:100%;height:4px;accent-color:var(--ink)}.buSlot .buTag{display:block;padding:5px 7px;margin:5px 0 0;background:#ffb00017;color:var(--ink);font-size:11px}.buReserved{border-left:3px solid #555;padding:8px 12px;font-size:11px;color:var(--text-dim);background:#17181c}.buBankEmpty{font-size:10px;color:var(--text-dim);padding:8px;border:1px dashed var(--line)}
- #buDiagnostics{white-space:pre-wrap;font-size:11px;line-height:1.6}#buReport{margin-top:24px;border-top:1px solid var(--line);padding-top:12px}#buPreview{margin:20px 0}#buScreen{image-rendering:pixelated;max-width:100%;height:auto;border:1px solid var(--line)}#buPreview figcaption{font-size:10px;color:var(--text-dim)}#buSelection code{font-size:10px;display:block;white-space:pre-wrap;margin:7px 0}.buProps button{margin:4px 0}#buStatus{font-size:10px;color:var(--text-dim)}
- @media(max-width:1100px){body.studioWorkspace #workflowNav .brand{margin-right:4px;font-size:10px}body.studioWorkspace #workflowNav button[data-view]{padding:6px 5px}#workflowNav .navProject{margin-left:4px;gap:2px}#workflowNav #configPicker{max-width:95px}.buLibrary{width:210px}.buProps{width:210px}}
- `;
-  document.head.append(style);
   const names = {
     paletteConfig: 'Palette configs',
     tileset: 'Tilesets',
@@ -470,7 +459,7 @@
       ? `${items.filter((d) => d.severity === 'error').length} errors · ${items.filter((d) => d.severity === 'warning').length} warnings`
       : `${builderSettings.include.length} ${builderSettings.include.length === 1 ? 'asset' : 'assets'} included`;
   }
-  async function refresh(input) {
+  async function refresh() {
     const id = ++request;
     try {
       const r = await window.studio.builderPlan(studioProject(), builderSettings, baseName());
@@ -495,7 +484,7 @@
     if (input !== lastInput && window.studio?.builderPlan) {
       lastInput = input;
       clearTimeout(timer);
-      timer = setTimeout(() => refresh(input), 80);
+      timer = setTimeout(() => refresh(), 80);
     }
     for (const id of ['buSave', 'buBuild', 'buRun']) $(id).disabled = busy || !root;
     $('buUndo').disabled = !ProjectHistory.canUndo();

@@ -41,26 +41,6 @@
   <p>Click the keyboard at the left of the roll to hear the instrument at that pitch.</p>
  </aside>`;
   $('spritePanel').after(host);
-  const style = document.createElement('style');
-  style.textContent = `
- #muWork{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
- .muTop{display:flex;align-items:center;gap:14px;padding:8px 18px;background:var(--panel)}
- #muTitle{color:var(--ink);font-size:13px}
- #muStatus{padding:6px 18px;font-size:10px;color:var(--text-dim)}
- #muList,#muInstrumentList{border:1px solid var(--line);background:var(--bg);min-height:90px;max-height:45vh;overflow:auto}
- #muVoices{display:flex;gap:6px;padding:6px 12px;background:var(--panel);border-top:1px solid var(--line)}
- .muVoice{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:4px;overflow:hidden}
- .muVoice button{border:0;border-radius:0;padding:4px 9px;display:flex;align-items:center;gap:7px;font-size:11px}
- .muVoice .muVoicePick{min-width:136px;justify-content:flex-start}
- .muVoice .muVoicePick i{width:10px;height:10px;border-radius:2px;flex:none}
- .muVoice .muVoicePick small{color:var(--text-dim);font-size:10px}
- .muVoice[aria-checked=true]{border-color:var(--ink)}.muVoice[aria-checked=true] .muVoicePick{background:#322a1d;color:var(--ink)}
- .muVoice .muMute{border-left:1px solid var(--line);padding:4px 6px}.muVoice .muMute svg{width:16px;height:16px}
- .muVoice .muMute.on{background:#4a1d1d;color:#ff8a8a}
- #muPans .audioField span i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
- #muBytes b{color:var(--ink);font-weight:normal}
- `;
-  document.head.append(style);
 
   const A = () => window.MiaAudio,
     COLORS = StudioAudio.voiceColors;
@@ -88,8 +68,8 @@
     cursor = 0,
     playhead = null,
     lastLength = 4,
-    mutes = [false, false, false, false],
     audition = null;
+  const mutes = [false, false, false, false];
   const song = () => songs[songIndex],
     instrument = () => instruments[instrumentIndex],
     notes = () => song()?.voices[voice].notes ?? [];

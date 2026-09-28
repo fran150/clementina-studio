@@ -11,10 +11,6 @@
   // Inserted before the footer, not appended to #workspace, so the status bar
   // stays at the bottom of the page instead of landing above this section.
   $('spritePanel').after(host);
-  const style = document.createElement('style');
-  style.textContent = `.bankLibrary{width:210px;flex-shrink:0;background:var(--panel);padding:14px;border:1px solid var(--line);border-radius:8px}.bankLibrary select{width:100%;min-height:230px}.bankLibrary input{width:100%;margin-top:8px}.bankLibrary p,.bankWork p{color:var(--text-dim);font-size:11px;line-height:1.6}.bankWork{flex:1;min-width:0}.bankActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.bankCanvases{display:flex;flex-wrap:wrap;gap:22px}#bankMap{width:384px;height:384px;touch-action:none;cursor:crosshair}#bankSelection{image-rendering:pixelated;touch-action:none;cursor:crosshair}.selectionScroll{max-width:100%;max-height:520px;overflow:auto;background:#111}.selectionWork{flex:1;min-width:300px}#bankSwatches{display:flex;gap:5px}.inlinePalettes{padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-top:16px}#namedBankEditor h2{font-size:12px;color:var(--text-dim)}#namedBankEditor input{background:var(--panel);color:var(--text);border:1px solid var(--line);padding:5px}#bankFiles option{padding:7px}#bankFiles{background:var(--bg)}`;
-  style.textContent += `.objectLibrary{width:160px}.bankLibrary{width:170px}#bankSwatches{display:grid;grid-template-columns:repeat(4,max-content);gap:2px 8px}.inlinePalettes{width:fit-content}.bankCanvases{gap:14px}#bankMap{width:320px;height:320px}.selectionWork{min-width:240px}.selectionScroll{max-height:450px}`;
-  document.head.append(style);
   for (const [id, label, icon] of [
     ['addBankFile', 'New tileset', 'newItem'],
     ['copyBankFile', 'Duplicate tileset', 'duplicate'],
@@ -106,12 +102,6 @@
         bit = a.bpp === 1 ? (value ? 1 : 0) : (value >> p) & 1;
       a.chr[pos] = (a.chr[pos] & ~(1 << x)) | (bit << x);
     }
-  }
-  function selectedTiles() {
-    const out = [];
-    for (let y = selection.y; y < selection.y + selection.height; y++)
-      for (let x = selection.x; x < selection.x + selection.width; x++) out.push(y * 16 + x);
-    return out;
   }
   function render() {
     host.hidden = currentView !== 'tiles';
@@ -1094,14 +1084,6 @@
     },
     true,
   );
-  const centered = document.createElement('style');
-  centered.textContent = `
-
- #drawingCenter{min-width:0;min-height:0;display:flex;flex-direction:column}#canvasTop{display:flex;align-items:center;gap:10px;padding:8px 18px;background:var(--panel)}#canvasAssetLabel{margin-right:auto;color:var(--ink)}#canvasTop details{position:relative}#canvasTop details[open]{position:absolute;right:12px;top:5px;padding:12px;background:var(--panel);border:1px solid var(--line);z-index:4;max-width:500px}#canvasStage{position:relative;flex:1;min-height:0;display:flex;overflow:hidden}#canvasStage .selectionScroll{width:100%;max-width:none;max-height:none;height:100%;overflow:auto;display:flex;align-items:safe center;justify-content:safe center;padding:24px;background:none}#bankSelection{flex:none;max-width:none}
- #paletteDock{background:var(--panel);border-top:1px solid var(--line);display:flex;align-items:center;gap:18px;padding:10px 18px;max-height:210px;overflow:auto;flex-shrink:0}#drawingColor{width:145px;flex-shrink:0;display:flex;align-items:center;flex-direction:column;gap:7px;font-size:11px}#activeInk{width:40px;height:40px;border:3px solid white;box-shadow:0 0 0 1px black}#activeInkLabel{font-size:11px}#paletteDock .inlinePalettes{margin:0;border:0;padding:0;width:auto;flex:1}#paletteDock h2{margin:0 0 5px;font-size:10px}#bankSwatches{grid-template-columns:repeat(4,max-content);gap:1px 10px}
-
- `;
-  document.head.append(centered);
 
   function boundedPoint(e) {
     let [x, y] = point(e);
@@ -1125,11 +1107,11 @@
     const out = new Map(),
       add = (x, y) => out.set(x + ',' + y, [x, y]);
     const line = (x0, y0, x1, y1) => {
-      let dx = Math.abs(x1 - x0),
+      const dx = Math.abs(x1 - x0),
         sx = x0 < x1 ? 1 : -1,
         dy = -Math.abs(y1 - y0),
-        sy = y0 < y1 ? 1 : -1,
-        err = dx + dy;
+        sy = y0 < y1 ? 1 : -1;
+      let err = dx + dy;
       while (true) {
         add(x0, y0);
         if (x0 === x1 && y0 === y1) break;
@@ -1258,9 +1240,6 @@
     canvas.style.height = h * factor + 'px';
     $('miniatureSize').textContent = w + ' × ' + h + ' pixels';
   }
-  const polish = document.createElement('style');
-  polish.textContent = `#compositionList{border:1px solid var(--line);background:var(--bg);max-height:220px;overflow:auto;min-height:60px}#bankFiles{border:1px solid var(--line);background:var(--bg);flex:1;min-height:120px;overflow:auto}.assetRow{padding:9px;cursor:pointer;border:1px solid transparent;min-height:34px}.assetRow[aria-selected="true"]{background:#423623;border-color:var(--ink)}.assetRow input{width:100%;margin:0!important;padding:2px!important;font:inherit}.assetRow:focus{outline:1px solid var(--sel)}#namedBankEditor .objectLibrary>h2{margin-top:14px}#namedBankEditor #bankMap{width:100%;height:auto;aspect-ratio:1}#drawingCenter{position:relative}#miniatureToggle{padding:3px;display:flex;align-items:center}#miniatureToggle svg{width:22px;height:22px}#miniatureCanvas{image-rendering:pixelated}#miniatureSize{font-size:10px;color:var(--text-dim)}#paletteDock{gap:0}#paletteDock .inlinePalettes{width:100%}`;
-  document.head.append(polish);
 
   function updatePixelSelection(p) {
     pixelSelection = {
@@ -1605,9 +1584,6 @@
   note.textContent = 'Copy / paste color';
   colorActions.append(note);
   host.querySelector('.paletteDockHead').append(colorActions);
-  const clipboardStyle = document.createElement('style');
-  clipboardStyle.textContent = `.colorClipboard{display:flex;gap:6px;align-items:center;margin-left:auto;font-size:10px;color:var(--text-dim)}.colorClipboard button{padding:3px;display:flex}.colorClipboard svg{width:18px;height:18px}`;
-  document.head.append(clipboardStyle);
 
   const options = document.createElement('div');
   options.id = 'drawingOptions';
@@ -1726,10 +1702,6 @@
       },
       true,
     );
-  const phaseStyle = document.createElement('style');
-  phaseStyle.textContent =
-    '#drawingOptions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:6px 18px;background:var(--panel);font-size:11px}#drawingOptions details{position:relative}#drawingOptions details[open]{z-index:6}#drawingOptions details label,#drawingOptions details p{display:block;max-width:380px}#drawingOptions details[open]{background:var(--panel);padding:8px;border:1px solid var(--line)}#drawingStatus{padding:5px 18px;font-size:11px;color:var(--text-dim)}#canvasTop{flex-wrap:wrap}';
-  document.head.append(phaseStyle);
 
   function selectionHandle(e) {
     if (!pixelSelection || zoom < 4) return null;
@@ -1803,12 +1775,6 @@
   }
   viewTools.append(pasteOptions, properties, gridButton, miniButton, helpButton);
   top.append(viewTools);
-  const uiStyle = document.createElement('style');
-  uiStyle.textContent = `
- #toolOptions{display:flex;align-items:center;gap:6px;margin-left:14px;padding-left:14px;border-left:1px solid var(--line)}#toolOptions button{padding:4px;display:flex;align-items:center;justify-content:center}#toolOptions svg{width:23px;height:23px}#toolOptions button.on{background:var(--ink);color:#111}
- #viewTools{margin-left:auto;display:flex;align-items:center;gap:6px}#viewTools button,#viewTools summary{padding:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid var(--line);border-radius:4px;background:var(--panel)}#viewTools button.on{background:var(--ink);color:#111}#viewTools details[open]>summary{border-color:var(--sel)}#viewTools svg{width:23px;height:23px}#viewTools summary{list-style:none}#viewTools summary::-webkit-details-marker{display:none}#canvasTop #viewTools details,#canvasTop #viewTools details[open]{position:relative;right:auto;top:auto;padding:0;border:0;z-index:7}#viewTools .viewPopover{position:absolute;right:0;top:36px;width:300px;padding:12px;border:1px solid var(--line);background:var(--panel);box-shadow:0 8px 20px #0008;font-size:11px}#viewTools .viewPopover label{display:block;margin:8px 0}#viewTools .viewPopover p{line-height:1.5}#drawingOptions{min-height:32px}
- `;
-  document.head.append(uiStyle);
 
   // Fill controls: the filled toggle and patterns, enabled per tool (see render).
   const filledLabel = $('filledShapes').parentElement;
@@ -1910,12 +1876,6 @@
     caption.textContent = text;
     label.replaceChildren(caption, input);
   }
-  const polishPanels = document.createElement('style');
-  polishPanels.textContent = `
- #bankSwatches{grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:7px 16px;width:100%;justify-items:start}#paletteDock{max-height:none;overflow:auto}#paletteDock .inlinePalettes{min-width:0}.paletteDockHead{display:flex;align-items:center;gap:12px;margin-bottom:7px}
- #viewTools .viewPopover{width:290px;padding:14px;border-radius:7px;box-shadow:0 10px 30px #0009}#viewTools .viewPopover label{display:flex;align-items:center;gap:12px;margin:0;padding:9px 0;font-size:12px;line-height:1.4}#viewTools .viewPopover input[type=checkbox]{margin:0;flex:0 0 auto;width:16px;height:16px}#displaySettings .viewPopover label{justify-content:space-between}#displaySettings .viewPopover label span{white-space:nowrap}#displaySettings select{min-width:165px;padding:7px}#displaySettings .bankActions{display:block;margin:0}#displaySettings input[type=color]{width:54px;height:32px;padding:3px}
- `;
-  document.head.append(polishPanels);
 
   const importArtwork = document.createElement('button');
   importArtwork.id = 'importBankImage';

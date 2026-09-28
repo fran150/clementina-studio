@@ -26,18 +26,6 @@
   <h3>Frame</h3><div id="sfFrameInfo" class="audioReadout"></div>
  </aside>`;
   $('spritePanel').after(host);
-  const style = document.createElement('style');
-  style.textContent = `
- #sfWork{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
- .sfTop{display:flex;align-items:center;gap:14px;padding:8px 18px;background:var(--panel)}
- #sfTitle{color:var(--ink);font-size:13px}
- #sfStatus{padding:6px 18px;font-size:10px;color:var(--text-dim)}
- #sfList{border:1px solid var(--line);background:var(--bg);flex:1;min-height:120px;overflow:auto}
- #sfPresets{display:grid;grid-template-columns:1fr 1fr;gap:5px}
- #sfPresets button{padding:5px 6px}
- #sfSnapToggle{display:inline-flex;align-items:center;justify-content:center;padding:4px}#sfSnapToggle svg{width:20px;height:20px}#sfSnapToggle.on{background:var(--ink);color:#111}
- `;
-  document.head.append(style);
 
   const A = () => window.MiaAudio;
   const FRAME_W = 12,

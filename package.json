@@ -6,7 +6,7 @@
   "main": "dist/apps/desktop/main.js",
   "scripts": {
     "build": "tsc",
-    "lint": "eslint .",
+    "lint": "eslint --max-warnings 0 .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "start": "npm run build && electron .",

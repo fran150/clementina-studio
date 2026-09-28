@@ -2,7 +2,8 @@
 
 Every editor workspace — palettes, tilesets, overlays, backgrounds, shapes,
 animations, sounds and music — shares presentation primitives from `apps/desktop/studio-shell.js`
-and `studio-shell.css`. These files load before editor scripts. Editor content,
+and `styles/studio-shell.css`. These files load before editor scripts, and each
+editor's own sheet in `styles/` loads after the shell's. Editor content,
 model mutation, undo and canvas geometry stay in each editor.
 
 - **Layout.** A workspace is a `.studioEditor` grid of five columns: left rail,
