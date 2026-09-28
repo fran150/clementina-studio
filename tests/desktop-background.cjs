@@ -31,6 +31,8 @@ app.whenReady().then(async () => {
   };
   try {
     await window.loadFile(path.resolve(__dirname, '../apps/desktop/editor.html'));
+    // The cell positions below assume the full window; say what size it got.
+    console.log('desktop background: viewport', await run(`return [innerWidth, innerHeight];`));
 
     // A tileset with a distinct tile (index 1, drawn against bank 3) and a
     // second tileset to assign as alternate.
@@ -103,7 +105,9 @@ app.whenReady().then(async () => {
     );
 
     // A background opens fitted to the window; these cell coordinates assume 100%.
-    const canvas = await run(
+    const canvasAt = () =>
+      run(`const r=$('bgCanvas').getBoundingClientRect();return {left:r.left,top:r.top};`);
+    let canvas = await run(
       `$('bgPencilTool').click();$('bgActualSize').click();const r=$('bgCanvas').getBoundingClientRect();return {left:r.left,top:r.top};`,
     );
     const at = (col, row) => ({ x: canvas.left + col * 8 + 4, y: canvas.top + row * 8 + 4 });
@@ -224,6 +228,8 @@ app.whenReady().then(async () => {
       'clicking a saved Object must reload its region as the current group pick',
     );
 
+    // The tileset editor visit and the Object list can move the canvas.
+    canvas = await canvasAt();
     const gp = at(15, 15);
     click(gp.x, gp.y);
     await new Promise((r) => setTimeout(r, 60));
