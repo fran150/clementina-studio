@@ -1,5 +1,4 @@
 .bankLibrary {
-  width: 210px;
   flex-shrink: 0;
   background: var(--panel);
   padding: 14px;
@@ -34,32 +33,37 @@
 .bankCanvases {
   display: flex;
   flex-wrap: wrap;
-  gap: 22px;
+  gap: 14px;
 }
 #bankMap {
-  width: 384px;
-  height: 384px;
   touch-action: none;
   cursor: crosshair;
+  width: 320px;
+  height: 320px;
 }
 #bankSelection {
   image-rendering: pixelated;
   touch-action: none;
   cursor: crosshair;
+  flex: none;
+  max-width: none;
 }
 .selectionScroll {
   max-width: 100%;
-  max-height: 520px;
   overflow: auto;
   background: #111;
+  max-height: 450px;
 }
 .selectionWork {
   flex: 1;
-  min-width: 300px;
+  min-width: 240px;
 }
 #bankSwatches {
-  display: flex;
-  gap: 5px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+  gap: 7px 16px;
+  width: 100%;
+  justify-items: start;
 }
 .inlinePalettes {
   padding: 12px;
@@ -67,6 +71,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   margin-top: 16px;
+  width: fit-content;
 }
 #namedBankEditor h2 {
   font-size: 12px;
@@ -82,7 +87,11 @@
   padding: 7px;
 }
 #bankFiles {
+  border: 1px solid var(--line);
   background: var(--bg);
+  flex: 1;
+  min-height: 120px;
+  overflow: auto;
 }
 .objectLibrary {
   width: 160px;
@@ -90,33 +99,13 @@
 .bankLibrary {
   width: 170px;
 }
-#bankSwatches {
-  display: grid;
-  grid-template-columns: repeat(4, max-content);
-  gap: 2px 8px;
-}
-.inlinePalettes {
-  width: fit-content;
-}
-.bankCanvases {
-  gap: 14px;
-}
-#bankMap {
-  width: 320px;
-  height: 320px;
-}
-.selectionWork {
-  min-width: 240px;
-}
-.selectionScroll {
-  max-height: 450px;
-}
 
 #drawingCenter {
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 #canvasTop {
   display: flex;
@@ -124,6 +113,7 @@
   gap: 10px;
   padding: 8px 18px;
   background: var(--panel);
+  flex-wrap: wrap;
 }
 #canvasAssetLabel {
   margin-right: auto;
@@ -161,35 +151,28 @@
   padding: 24px;
   background: none;
 }
-#bankSelection {
-  flex: none;
-  max-width: none;
-}
 #paletteDock {
   background: var(--panel);
   border-top: 1px solid var(--line);
   display: flex;
   align-items: center;
-  gap: 18px;
   padding: 10px 18px;
-  max-height: 210px;
-  overflow: auto;
   flex-shrink: 0;
+  gap: 0;
+  max-height: none;
+  overflow: auto;
 }
 #paletteDock .inlinePalettes {
   margin: 0;
   border: 0;
   padding: 0;
-  width: auto;
   flex: 1;
+  width: 100%;
+  min-width: 0;
 }
 #paletteDock h2 {
   margin: 0 0 5px;
   font-size: 10px;
-}
-#bankSwatches {
-  grid-template-columns: repeat(4, max-content);
-  gap: 1px 10px;
 }
 
 #compositionList {
@@ -198,13 +181,6 @@
   max-height: 220px;
   overflow: auto;
   min-height: 60px;
-}
-#bankFiles {
-  border: 1px solid var(--line);
-  background: var(--bg);
-  flex: 1;
-  min-height: 120px;
-  overflow: auto;
 }
 .assetRow {
   padding: 9px;
@@ -233,9 +209,6 @@
   height: auto;
   aspect-ratio: 1;
 }
-#drawingCenter {
-  position: relative;
-}
 #miniatureToggle {
   padding: 3px;
   display: flex;
@@ -251,12 +224,6 @@
 #miniatureSize {
   font-size: 10px;
   color: var(--text-dim);
-}
-#paletteDock {
-  gap: 0;
-}
-#paletteDock .inlinePalettes {
-  width: 100%;
 }
 .colorClipboard {
   display: flex;
@@ -282,30 +249,26 @@
   padding: 6px 18px;
   background: var(--panel);
   font-size: 11px;
+  min-height: 32px;
 }
 #drawingOptions details {
   position: relative;
 }
 #drawingOptions details[open] {
   z-index: 6;
+  background: var(--panel);
+  padding: 8px;
+  border: 1px solid var(--line);
 }
 #drawingOptions details label,
 #drawingOptions details p {
   display: block;
   max-width: 380px;
 }
-#drawingOptions details[open] {
-  background: var(--panel);
-  padding: 8px;
-  border: 1px solid var(--line);
-}
 #drawingStatus {
   padding: 5px 18px;
   font-size: 11px;
   color: var(--text-dim);
-}
-#canvasTop {
-  flex-wrap: wrap;
 }
 
 #toolOptions {
@@ -377,44 +340,9 @@
   position: absolute;
   right: 0;
   top: 36px;
-  width: 300px;
-  padding: 12px;
   border: 1px solid var(--line);
   background: var(--panel);
-  box-shadow: 0 8px 20px #0008;
   font-size: 11px;
-}
-#viewTools .viewPopover label {
-  display: block;
-  margin: 8px 0;
-}
-#viewTools .viewPopover p {
-  line-height: 1.5;
-}
-#drawingOptions {
-  min-height: 32px;
-}
-
-#bankSwatches {
-  grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
-  gap: 7px 16px;
-  width: 100%;
-  justify-items: start;
-}
-#paletteDock {
-  max-height: none;
-  overflow: auto;
-}
-#paletteDock .inlinePalettes {
-  min-width: 0;
-}
-.paletteDockHead {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 7px;
-}
-#viewTools .viewPopover {
   width: 290px;
   padding: 14px;
   border-radius: 7px;
@@ -428,6 +356,15 @@
   padding: 9px 0;
   font-size: 12px;
   line-height: 1.4;
+}
+#viewTools .viewPopover p {
+  line-height: 1.5;
+}
+.paletteDockHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 7px;
 }
 #viewTools .viewPopover input[type='checkbox'] {
   margin: 0;

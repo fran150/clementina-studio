@@ -17,6 +17,7 @@
   color: var(--text);
   text-align: right;
   font-size: 11px;
+  white-space: nowrap;
 }
 .audioField select,
 .audioField input[type='number'] {
@@ -34,9 +35,6 @@
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
-}
-.audioField output {
-  white-space: nowrap;
 }
 .audioDock h3 {
   font-size: 10px;

@@ -119,17 +119,15 @@
   background: var(--panel);
   border-top: 1px solid var(--line);
   font-size: 11px;
-}
-/* One fixed-height line, always: the canvas above is centered, so a bar
-    that wrapped, or grew when a button appeared in it, would shift the art
-    under the pointer mid-drag. */
-#bgStampBar {
   white-space: nowrap;
   overflow: hidden;
   height: 42px;
   padding-top: 0;
   padding-bottom: 0;
 }
+/* One fixed-height line, always: the canvas above is centered, so a bar
+    that wrapped, or grew when a button appeared in it, would shift the art
+    under the pointer mid-drag. */
 #bgStampBar > * {
   flex-shrink: 0;
 }

@@ -100,8 +100,6 @@
   color: var(--text-dim);
   margin: 0 0 8px;
   flex-shrink: 0;
-}
-#palConfigs h3 {
   margin-top: 0;
 }
 #palConfigsBody {

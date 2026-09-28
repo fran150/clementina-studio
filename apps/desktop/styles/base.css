@@ -228,6 +228,7 @@ footer {
   font-size: 11px;
   display: flex;
   gap: 18px;
+  left: 210px;
 }
 footer .dirty {
   color: var(--ink);
@@ -335,7 +336,4 @@ header h1,
 header .sep,
 header .lbl {
   display: none;
-}
-footer {
-  left: 210px;
 }
