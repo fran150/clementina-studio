@@ -20,35 +20,6 @@
   // Inserted before the footer, not appended to #workspace, so the status bar
   // stays at the bottom of the page instead of landing above this section.
   $('spritePanel').after(host);
-  const style = document.createElement('style');
-  style.textContent = `
- /* Overrides the page's generic main layout (wrapping, padded, top-aligned). */
- #animationEditor main{display:flex;flex-direction:column;flex-wrap:nowrap;align-items:stretch;padding:0;gap:0;overflow:hidden}
- .anTop{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel)}
- #anGroupTitle{color:var(--ink);font-size:13px}
- #anBody{flex:1;min-height:0;display:flex}
- #anPreviewCol{flex:1;min-width:0;min-height:0;overflow:auto;display:flex;align-items:safe center;justify-content:safe center;padding:12px}
- #anCanvas{flex:none;image-rendering:pixelated;background:#000;touch-action:none;cursor:move}
- /* Playback sits above the timeline it steps through. */
- #anTransport{display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--panel);border-top:1px solid var(--line)}
- #anTransport button{padding:4px;display:flex;align-items:center;justify-content:center}
- #anTransport svg{width:22px;height:22px}
- #anFrameCounter{font-size:11px;white-space:nowrap;color:var(--text-dim);margin-left:6px}
- #anTimeline{flex:none;display:flex;gap:8px;padding:10px 12px;height:128px;overflow-x:auto;overflow-y:hidden;border-top:1px solid var(--line);background:var(--panel)}
- .anFrameCard{flex:0 0 108px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:5px;border:1px solid var(--line);border-radius:4px;cursor:grab;font-size:10px}
- .anFrameCard[aria-selected=true]{border-color:var(--sel);background:#26364a}.anFrameCard[data-playing=true]{box-shadow:inset 0 0 0 2px var(--ink)}
- .anFrameCard canvas{width:96px;height:60px;image-rendering:pixelated}.anFrameCard span{max-width:98px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
- #anAnimList,#anShapeList{border:1px solid var(--line);background:var(--bg);flex:1;min-height:120px;overflow:auto}
- #anShapeList [aria-selected=true]{background:#26364a;outline:1px solid var(--sel)}
- #anAppend{margin-top:8px}
- /* The selected frame's properties, docked on the right like any selection's. */
- #anFrames{display:flex;flex-direction:column;gap:10px;font-size:11px}
- #anFrames label{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--text-dim)}
- #anFrames select{flex:1;max-width:150px}
- #anFrames input[type=number]{width:80px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:3px;padding:5px}
- .anFrameNumber{margin:0;color:var(--text)}
- `;
-  document.head.append(style);
 
   for (const [id, label, icon] of [
     ['anNew', 'New animation', 'newItem'],

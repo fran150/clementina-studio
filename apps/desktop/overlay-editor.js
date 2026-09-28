@@ -58,43 +58,6 @@
   // Inserted before the footer, like every other editor host.
   $('spritePanel').after(host);
 
-  const style = document.createElement('style');
-  style.textContent = `
- #overlayEditor main{display:flex;flex-direction:column;overflow:hidden}
- #ovWork{flex:1;width:100%;max-width:100%;min-width:0;min-height:0;display:flex;flex-direction:column}
- .ovTop{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:8px 18px;background:var(--panel)}
- #ovTitle{color:var(--ink);font-size:13px}
- #ovStage{flex:1;min-width:0;min-height:0;overflow:auto;padding:24px;display:flex;align-items:safe center;justify-content:safe center}
- #ovCanvasWrap{position:relative;flex:none}
- #ovCanvas{image-rendering:pixelated;display:block;touch-action:none;cursor:crosshair;background:#000}
- #ovPlaceholderOverlay{position:absolute;inset:0;pointer-events:none}
- .ovPlaceholderRect{position:absolute;border:1px dashed #ffcf40;box-shadow:0 0 0 1px #111,0 0 0 2px #ffcf40 inset;display:flex;align-items:flex-start;justify-content:flex-start;overflow:hidden}
- .ovPlaceholderRect.selected{border-color:#36c9d6;box-shadow:0 0 0 1px #111,0 0 0 2px #36c9d6 inset}
- .ovPlaceholderRect span{font-size:9px;color:#ffcf40;background:#111318cc;padding:1px 3px;white-space:nowrap}
- .ovPlaceholderRect.selected span{color:#36c9d6}
- #ovStampBar{display:flex;align-items:center;gap:14px;padding:8px 18px;background:var(--panel);border-top:1px solid var(--line);font-size:11px}
- /* One fixed-height line, always: the canvas above is centered, so a bar
-    that wrapped, or grew when a button appeared in it, would shift the art
-    under the pointer mid-drag. */
- #ovStampBar{white-space:nowrap;overflow:hidden;height:42px;padding-top:0;padding-bottom:0}
- #ovStampBar>*{flex-shrink:0}
- #ovStampBar>span{flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
- #ovStampSource{color:var(--text-dim)}
- #ovGroupLabel{color:var(--ink)}
- #ovSelectionLabel{color:var(--sel)}
- #ovBankLabel{color:var(--text-dim)}
- #ovPaletteDock{background:var(--panel);border-top:1px solid var(--line);padding:10px 18px}
- #ovStatus{padding:6px 18px;font-size:10px;color:var(--text-dim);background:var(--panel);border-top:1px solid var(--line)}
- .ovTileLibrary strong{display:block;font-size:10px;color:var(--text-dim);margin:8px 0 4px}
- #ovList,#ovPrimaryList,#ovAltList,#ovPlaceholderList,#ovObjectList{border:1px solid var(--line);background:var(--bg);min-height:70px;max-height:140px;overflow:auto}
- #ovTileMap{width:100%;image-rendering:pixelated;touch-action:none;cursor:crosshair;margin-top:6px}
- .ovPhFields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0}
- .ovPhFields[hidden]{display:none}
- .ovPhFields label{font-size:10px;color:var(--text-dim);display:inline-flex;flex-direction:column;gap:2px}
- .ovPhFields input{width:60px;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:4px}
- `;
-  document.head.append(style);
-
   // The overlay's fixed hardware size — specs/video.json's overlay entry
   // (columns:40, rows:25, scrolls:false).
   const OVERLAY_COLUMNS = 40,

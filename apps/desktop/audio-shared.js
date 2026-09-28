@@ -194,28 +194,6 @@
     ctx.textAlign = 'left';
   }
 
-  // The dock fields both editors use, labeled on the left, the value on the right.
-  const style = document.createElement('style');
-  style.textContent = `
- .audioField{display:grid;grid-template-columns:62px minmax(0,1fr) 64px;align-items:center;gap:8px;font-size:11px;color:var(--text-dim);margin:5px 0}
- .audioField input[type=range]{width:100%;accent-color:var(--ink);margin:0}
- .audioField output{color:var(--text);text-align:right;font-size:11px}
- .audioField select,.audioField input[type=number]{grid-column:2/4;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:3px;padding:4px 5px;font:inherit;font-size:11px}
- .audioField input[type=number]{grid-column:2;width:100%;min-width:0;box-sizing:border-box}
- .audioField output{white-space:nowrap}
- .audioDock h3{font-size:10px;color:var(--text-dim);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.04em;flex-shrink:0}
- .audioDock h2+h3{margin-top:4px}
- .audioDock canvas.envelope{width:100%;height:64px;border:1px solid var(--line);border-radius:3px;margin:4px 0 2px;flex-shrink:0}
- .audioDock .audioReadout{font-size:11px;color:var(--text);line-height:1.6;margin:4px 0}
- .audioTransport{display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--panel);border-top:1px solid var(--line)}
- .audioTransport button{padding:4px;display:flex;align-items:center;justify-content:center}
- .audioTransport svg{width:22px;height:22px}
- .audioTransport span{font-size:11px;white-space:nowrap;color:var(--text-dim);margin-left:6px}
- .audioStage{position:relative;flex:1;min-height:0;overflow:hidden}
- .audioStage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;outline:none}
- `;
-  document.head.append(style);
-
   window.StudioAudio = Object.freeze({
     play,
     stop,

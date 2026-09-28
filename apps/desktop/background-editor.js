@@ -70,60 +70,6 @@
   // stays at the bottom of the page instead of landing above this section.
   $('spritePanel').after(host);
 
-  const style = document.createElement('style');
-  style.textContent = `
- #backgroundEditor main{display:flex;flex-direction:column;overflow:hidden}
- #bgWork{flex:1;width:100%;max-width:100%;min-width:0;min-height:0;display:flex;flex-direction:column}
- .bgTop{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:8px 18px;background:var(--panel)}
- #bgTitle{color:var(--ink);font-size:13px}
- #bgWidth,#bgHeight{width:64px;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:5px}
- #bgPreviewModeWrap{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--text-dim)}
- #bgStage{flex:1;min-width:0;min-height:0;overflow:auto;padding:24px;display:flex;align-items:safe center;justify-content:safe center}
- #bgCanvasWrap{position:relative;flex:none}
- #bgCanvas{image-rendering:pixelated;display:block;touch-action:none;cursor:crosshair;background:#000}
- #bgViewportOverlay{position:absolute;border:1px dashed #fff;box-shadow:0 0 0 1px #111,0 0 0 2px #fff inset;pointer-events:none}
- /* Anchored at the loaded window's top-left corner, not its center: at the
-    default mode the window and the screen are the same size, so a
-    center-anchored handle here would sit exactly under the screen handle
-    below and never receive a click. White fill matches the window's own
-    dashed outline, the same way the screen handle's gold fill matches
-    its outline. */
- #bgViewportHandle{position:absolute;left:0;top:0;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#ffffffcc;border:2px solid #111;cursor:move;pointer-events:auto}
- #bgScrollClip{position:absolute;overflow:hidden;pointer-events:none}
- .bgScrollRect{position:absolute;border:1px dashed #ffcf40;box-shadow:0 0 0 1px #111,0 0 0 2px #ffcf40 inset;pointer-events:none}
- #bgScrollHandle{position:absolute;width:16px;height:16px;border-radius:3px;background:#ffcf40cc;border:2px solid #fff;cursor:move;pointer-events:auto;transform:translate(-50%,-50%)}
- #bgStampBar{display:flex;align-items:center;gap:14px;padding:8px 18px;background:var(--panel);border-top:1px solid var(--line);font-size:11px}
- /* One fixed-height line, always: the canvas above is centered, so a bar
-    that wrapped, or grew when a button appeared in it, would shift the art
-    under the pointer mid-drag. */
- #bgStampBar{white-space:nowrap;overflow:hidden;height:42px;padding-top:0;padding-bottom:0}
- #bgStampBar>*{flex-shrink:0}
- #bgStampBar>span{flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
- #bgStampSource{color:var(--text-dim)}
- #bgBankLabel{color:var(--text-dim)}
- #bgGroupLabel{color:var(--ink)}
- #bgSelectionLabel{color:var(--sel)}
- #bgPaletteDock{background:var(--panel);border-top:1px solid var(--line);padding:10px 18px}
- #bgStatus{padding:6px 18px;font-size:10px;color:var(--text-dim);background:var(--panel);border-top:1px solid var(--line)}
- .bgTileLibrary strong{display:block;font-size:10px;color:var(--text-dim);margin:8px 0 4px}
- #bgList,#bgPrimaryList,#bgAltList,#bgObjectList{border:1px solid var(--line);background:var(--bg);min-height:70px;max-height:140px;overflow:auto}
- #bgTileMap{width:100%;image-rendering:pixelated;touch-action:none;cursor:crosshair;margin-top:6px}
- .bgStatusPanel h3{font-size:10px;color:var(--text-dim);margin:14px 0 4px;text-transform:uppercase;letter-spacing:.04em;flex-shrink:0}
- .bgStatusPanel h3:first-of-type{margin-top:4px}
- .bgStatusPanel>span{display:block;font-size:11px;color:var(--text);margin:4px 0}
- .bgStatusPanel label{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-dim);margin:4px 0}
- .bgStatusPanel input,.bgStatusPanel select{margin-left:auto;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:3px 5px;font:inherit}
- .bgStatusPanel input{width:70px}
- #bgToggleOverlay{margin-top:6px}
- .bgLegendRow{display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;flex-shrink:0}
- .bgLegendSwatch{width:16px;height:16px;border-radius:2px;flex-shrink:0;margin-top:2px;box-shadow:0 0 0 1px #111}
- .bgLegendWindow{border:2px dashed #fff}
- .bgLegendScreen{border:2px dashed #ffcf40}
- .bgLegendRow p{margin:0;font-size:10px;line-height:1.5;color:var(--text-dim)}
- .bgLegendRow strong{color:var(--text)}
- `;
-  document.head.append(style);
-
   // Six fixed hardware viewport sizes, preview-only — specs/video.json
   // background.viewportModes, docs/architecture/video.md.
   const VIEWPORT_MODES = [

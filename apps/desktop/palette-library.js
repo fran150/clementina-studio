@@ -24,48 +24,6 @@
   // Inserted before the footer, not appended to #workspace, so the status bar
   // stays at the bottom of the page instead of landing above this section.
   $('spritePanel').after(host);
-  const style = document.createElement('style');
-  style.textContent = `
-
-
-
-
-
-
-
- /* The one editor with two docks open side by side: the palette library and
-    the bank configs that place its palettes, each independently toggled. */
- #paletteWorkspace{grid-template-columns:auto auto auto minmax(0,1fr) auto auto}
- #paletteWorkspace>#palConfigs{grid-column:3;width:auto}
- #paletteWorkspace>.studioMain{grid-column:4}
-  #palTop{display:flex;align-items:center;gap:14px;padding:9px 18px;background:var(--panel);font-size:11px}
- #palName{color:var(--ink);font-size:12px}
- #palStage{flex:1;min-height:0;overflow:auto;display:flex;align-items:safe center;justify-content:safe center;padding:28px}
- #palColors{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
- .palColor{display:flex;flex-direction:column;align-items:center;gap:6px}
- .palColor button{width:86px;height:86px;padding:0;border-radius:6px;border:1px solid #0006;box-shadow:0 6px 18px #0007;cursor:pointer}
- .palColor button:focus{outline:2px solid var(--sel);outline-offset:2px}
- .palColor .palIndex{font-size:11px;color:var(--text-dim)}
- .palColor .palHex{font-size:10px;color:var(--text-dim)}
- #palList{border:1px solid var(--line);background:var(--bg);flex:1;overflow:auto;min-height:60px}
- #palList .assetRow{display:flex;align-items:center;gap:8px}
- #palList .rowChips{display:flex;gap:1px;margin-left:auto;flex-shrink:0}
- #palList .rowChips i{width:8px;height:14px;border-radius:1px}
- #palList .assetRow.unusedPalette{opacity:.6}
- #palStatus{padding:6px 18px;font-size:10px;color:var(--text-dim)}
- #palConfigs h3{font-size:12px;color:var(--text-dim);margin:0 0 8px;flex-shrink:0}
- #palConfigs h3{margin-top:0}
- #palConfigsBody{display:flex;flex:1;min-height:0}
- #palConfigListPane{width:261px;flex-shrink:0;display:flex;flex-direction:column;padding-right:12px;border-right:1px solid var(--line)}
- #palConfigRamPane{width:230px;flex-shrink:0;display:flex;flex-direction:column;padding-left:12px}
- #palConfigList{border:1px solid var(--line);background:var(--bg);flex:1;overflow:auto;min-height:60px}
- #palBankGrid{display:flex;flex-direction:column;gap:2px}
- .palBankRow{display:flex;align-items:center;gap:5px}
- .palBankRow>span{width:17px;font-size:10px;color:var(--text-dim);flex-shrink:0}
- .palBankRow .rowChips{display:flex;gap:1px;flex-shrink:0}
- .palBankRow .rowChips i{width:6px;height:13px;border-radius:1px}
- .palBankRow select{flex:1;min-width:0;background:var(--bg);color:var(--text);border:1px solid var(--line);font-size:10px;padding:1px}`;
-  document.head.append(style);
 
   let index = 0,
     editing = 0;
@@ -195,16 +153,6 @@
  <label id="palReplacementRow">Move its references to <select id="palReplacement"></select></label>
  <div class="palDialogActions"><button id="palDeleteCancel" type="button">Cancel</button><button id="palDeleteConfirm" type="button">Delete</button></div>`;
   document.body.append(dialog);
-  const dialogStyle = document.createElement('style');
-  dialogStyle.textContent = `
- #palDeleteDialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:22px;max-width:430px}
- #palDeleteDialog::backdrop{background:#0009}
- #palDeleteDialog h2{font-size:13px;margin:0 0 10px}
- #palDeleteSummary{font-size:11px;line-height:1.7;color:var(--text-dim)}
- #palReplacementRow{display:block;margin:14px 0;font-size:11px}
- #palReplacementRow select{width:100%;margin-top:6px;background:var(--bg);color:var(--text);border:1px solid var(--line);padding:6px}
- .palDialogActions{display:flex;justify-content:flex-end;gap:8px}`;
-  document.head.append(dialogStyle);
   /** Repoints every bank of every config from one palette to another. */
   function repoint(fromId, toId) {
     let banks = 0;
