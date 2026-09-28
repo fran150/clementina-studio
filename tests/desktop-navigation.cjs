@@ -4,9 +4,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const assert = require('node:assert/strict');
 const path = require('node:path');
-// macOS animates wheel scrolling, which would keep moving a canvas after
-// the test measures it. Scroll in one step, as the other platforms do.
-app.commandLine.appendSwitch('disable-smooth-scrolling');
 app.whenReady().then(async () => {
   const saves = [];
   let opens = 0;
@@ -137,6 +134,11 @@ app.whenReady().then(async () => {
     assert.equal(scrolled.zoom, '8×', 'a plain wheel must not zoom');
     // Ctrl+wheel zooms one step around the pointer, keeping the art under it in place.
     const artAt = `const r=$('bankSelection').getBoundingClientRect(),z=parseFloat($('zoomLabel').textContent);return [(${stage.x}-r.left)/z,(${stage.y}-r.top)/z,z];`;
+    // Chromium groups wheel events that follow each other closely into one
+    // scroll, and after an unhandled one it no longer lets the page cancel
+    // the rest, so on macOS a Ctrl+wheel right after the scroll above would
+    // scroll as well as zoom. Start a new wheel sequence.
+    await wait(1000);
     const before = await run(artAt);
     await wheel(stage.x, stage.y, 120, ['control']);
     const after = await run(artAt);
