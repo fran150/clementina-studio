@@ -71,26 +71,7 @@
         <span id="status">Ready.</span><span id="viewStatus"></span><span id="dirty"></span>
       </footer>
     </div>
-    <script src="studio-core.js"></script>
-    <script src="studio-shell.js"></script>
-    <script src="cell-grid.js"></script>
-    <script src="history.js"></script>
-    <script src="image-import-ui.js"></script>
-    <script src="bank-editor.js"></script>
-    <script src="overlay-editor.js"></script>
-    <script src="background-editor.js"></script>
-    <script src="palette-library.js"></script>
-    <script src="animation-editor.js"></script>
-    <script src="sprite-composer.js"></script>
-    <script src="audio-shared.js"></script>
-    <script src="sound-editor.js"></script>
-    <script src="music-editor.js"></script>
-    <script src="builder-editor.js"></script>
-    <script>
-      bootStudio();
-    </script>
-    <!-- The MIA audio engine and song compiler, built from packages/assets/audio.ts.
-     A module runs after the scripts above, before the page finishes loading. -->
+    <!-- An import map has to come before the first module. -->
     <script type="importmap">
       {
         "imports": {
@@ -98,6 +79,9 @@
         }
       }
     </script>
+    <script type="module" src="app.js"></script>
+    <!-- The MIA audio engine and song compiler, built from packages/assets/audio.ts.
+     It runs after the studio has loaded, before the page finishes loading. -->
     <script type="module">
       import * as MiaAudio from '../../dist/packages/assets/audio.js';
       window.MiaAudio = MiaAudio;

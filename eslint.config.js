@@ -13,12 +13,9 @@ export default tseslint.config(
   { ignores: ['dist/', 'node_modules/', 'test-results/'] },
   js.configs.recommended,
   {
-    // The editors are classic scripts loaded in order by editor.html. They
-    // share its top-level state and each other's window exports, so undefined
-    // names can't be checked until they become modules.
+    // The renderer: ES modules loaded by editor.html through app.js.
     files: ['apps/desktop/**/*.js'],
-    languageOptions: { sourceType: 'script', globals: globals.browser },
-    rules: { 'no-undef': 'off' },
+    languageOptions: { sourceType: 'module', globals: globals.browser },
   },
   {
     files: ['**/*.cjs'],
@@ -51,17 +48,7 @@ export default tseslint.config(
     },
   },
   {
-    // studio-core.js's top-level names are the page's shared state: other
-    // scripts read and reassign them, which ESLint can't see from one file.
-    files: ['apps/desktop/studio-core.js'],
-    rules: {
-      'no-unused-vars': ['warn', { ...unusedVars, vars: 'local' }],
-      'prefer-const': 'off',
-    },
-  },
-  {
-    // Globals need var to become window properties, and the editors' own
-    // exports stay any until the scripts become modules.
+    // Globals need var to become window properties.
     files: ['apps/desktop/types/*.d.ts'],
     rules: { 'no-var': 'off', '@typescript-eslint/no-explicit-any': 'off' },
   },

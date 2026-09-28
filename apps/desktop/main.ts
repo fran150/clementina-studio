@@ -34,6 +34,36 @@ let builderEmulator: EmulatorProcess | undefined;
 let builderBusy = false;
 const builderTools = { emulator: 'clementina-automation', renderer: 'clementina-render' };
 let confirmRemoval: ConfirmRemoval = async () => false;
+// Asks the page for something only it knows, such as the current project.
+// The page answers on studio:response with the same id.
+type PageRequests = {
+  snapshot: [undefined, { dirty: boolean; project: StudioProject }];
+  projectJson: [undefined, string];
+  recover: [StudioProject, void];
+  status: [string, void];
+};
+const pageReplies = new Map<
+  number,
+  { resolve: (value: unknown) => void; reject: (error: Error) => void }
+>();
+let pageRequestId = 0;
+ipcMain.on('studio:response', (_event, id: number, error: string | null, value: unknown) => {
+  const reply = pageReplies.get(id);
+  if (!reply) return;
+  pageReplies.delete(id);
+  if (error === null) reply.resolve(value);
+  else reply.reject(new Error(error));
+});
+function askPage<K extends keyof PageRequests>(
+  name: K,
+  ...arg: PageRequests[K][0] extends undefined ? [] : [PageRequests[K][0]]
+): Promise<PageRequests[K][1]> {
+  const id = ++pageRequestId;
+  return new Promise((resolve, reject) => {
+    pageReplies.set(id, { resolve: resolve as (value: unknown) => void, reject });
+    win.webContents.send('studio:request', id, name, arg[0]);
+  });
+}
 function representFile(file: string) {
   if (process.platform === 'darwin' && win && !win.isDestroyed()) win.setRepresentedFilename(file);
 }
@@ -81,7 +111,7 @@ app.whenReady().then(() => {
     recoveryStopped = false;
   async function tickRecovery() {
     if (recoveryStopped || win.isDestroyed()) return;
-    const state = await win.webContents.executeJavaScript('({dirty,project:studioProject()})');
+    const state = await askPage('snapshot');
     if (!state.dirty) {
       await recovery.clear();
       lastSaved = '';
@@ -112,7 +142,7 @@ app.whenReady().then(() => {
     },
   });
   installCloseGuard<StudioProject>(win, {
-    snapshot: () => win.webContents.executeJavaScript('({dirty,project:studioProject()})'),
+    snapshot: () => askPage('snapshot'),
     decide: async () => {
       const result = await dialog.showMessageBox(win, {
         type: 'question',
@@ -126,9 +156,7 @@ app.whenReady().then(() => {
       return (['save', 'discard', 'cancel'] as const)[result.response];
     },
     save: async (p) => (await saveProject(p)) !== null,
-    unchanged: async (p) =>
-      JSON.stringify(p) ===
-      (await win.webContents.executeJavaScript('JSON.stringify(studioProject())')),
+    unchanged: async (p) => JSON.stringify(p) === (await askPage('projectJson')),
     beforeClose: async () => {
       recoveryStopped = true;
       clearInterval(recoveryTimer);
@@ -311,9 +339,7 @@ app.whenReady().then(() => {
             continue;
           }
           const project = await recovery.read(name);
-          await win.webContents.executeJavaScript(
-            'restoreStudioProject(' + JSON.stringify(project) + ');markDirty();',
-          );
+          await askPage('recover', project);
           await recovery.save(project);
           await recovery.remove(name);
           break;
@@ -328,9 +354,7 @@ app.whenReady().then(() => {
       recoveryTimer = setInterval(() => {
         recoveryWork = recoveryWork.then(tickRecovery).catch((error) => {
           if (!win.isDestroyed())
-            void win.webContents.executeJavaScript(
-              'setStatus(' + JSON.stringify('Recovery snapshot failed: ' + String(error)) + ')',
-            );
+            void askPage('status', 'Recovery snapshot failed: ' + String(error));
         });
       }, 1000);
     })();

@@ -1,6 +1,5 @@
-// What the renderer scripts share through window, for type-checking them.
-// Each script's own top-level names are already visible to the others; these
-// are the ones set on window at runtime or by the preload script.
+// What the renderer's modules find on window, set by the preload script and
+// the page, and the element type their DOM lookups return.
 
 /**
  * An element looked up by id or selector. The scripts know which kind each one
@@ -30,22 +29,3 @@ interface Element {
 declare var studio: import('../preload.cjs').StudioApi;
 /** The MIA audio engine and song compiler, set by editor.html's module script. */
 declare var MiaAudio: typeof import('../../../packages/assets/audio.js');
-
-// Set by the editor scripts. Typed loosely until the scripts become modules.
-declare var StudioShell: any;
-declare var StudioAudio: any;
-declare var ProjectHistory: any;
-declare var CellGrid: any;
-declare var graphicsEdit: any;
-declare var openTilesetImageImport: any;
-declare var bootStudio: () => void;
-declare var renderBankEditor: () => void;
-declare var renderBackgrounds: () => void;
-declare var renderOverlays: () => void;
-declare var renderPaletteLibrary: () => void;
-declare var renderAnimations: () => void;
-declare var renderSounds: () => void;
-declare var renderMusic: () => void;
-declare var renderBuilder: () => void;
-declare var resetBuilderFolder: () => void;
-declare var setBuilderFolder: any;

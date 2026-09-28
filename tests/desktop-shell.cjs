@@ -24,7 +24,9 @@ app.whenReady().then(async () => {
   window.webContents.on('console-message', (event) => {
     if (event.level === 'error') errors.push(event.message);
   });
-  const run = (source) => window.webContents.executeJavaScript(`(()=>{${source}})()`);
+  // Page code runs against the studio's modules, found through window.__studio.
+  const run = (source) =>
+    window.webContents.executeJavaScript(`with (__studio) (()=>{${source}})()`);
   try {
     await window.loadFile(path.resolve(__dirname, '../apps/desktop/editor.html'));
     for (const view of [

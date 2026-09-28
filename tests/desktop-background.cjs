@@ -26,7 +26,9 @@ app.whenReady().then(async () => {
   window.webContents.on('console-message', (event) => {
     if (event.level === 'error') errors.push(event.message);
   });
-  const run = (source) => window.webContents.executeJavaScript(`(()=>{${source}})()`);
+  // Page code runs against the studio's modules, found through window.__studio.
+  const run = (source) =>
+    window.webContents.executeJavaScript(`with (__studio) (()=>{${source}})()`);
   const click = (x, y) => {
     window.webContents.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 });
     window.webContents.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 });

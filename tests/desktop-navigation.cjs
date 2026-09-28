@@ -43,7 +43,9 @@ app.whenReady().then(async () => {
   window.webContents.on('console-message', (event) => {
     if (event.level === 'error') errors.push(event.message);
   });
-  const run = (source) => window.webContents.executeJavaScript(`(()=>{${source}})()`);
+  // Page code runs against the studio's modules, found through window.__studio.
+  const run = (source) =>
+    window.webContents.executeJavaScript(`with (__studio) (()=>{${source}})()`);
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const command = async (name) => {
     window.webContents.send('studio:command', name);
@@ -239,6 +241,9 @@ app.whenReady().then(async () => {
       'a plain wheel must scroll the background',
     );
     assert.equal(await run(`return $('bgZoomLabel').textContent;`), bgZoom);
+    // As on the tileset canvas, start a new wheel sequence so the Ctrl+wheel
+    // is not grouped into the scroll above.
+    await wait(1000);
     await wheel(bgStage.x, bgStage.y, 120, ['control']);
     assert.notEqual(
       await run(`return $('bgZoomLabel').textContent;`),
