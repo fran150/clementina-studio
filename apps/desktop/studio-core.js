@@ -220,6 +220,10 @@ showView.after((view) => {
   renderAnimations();
   renderBankEditor();
   renderBackgrounds();
+  // A control the switch hid would keep focus until the next frame and
+  // swallow keys meant for the new view.
+  const focused = /** @type {HTMLElement} */ (document.activeElement);
+  if (focused && focused !== document.body && !focused.checkVisibility()) focused.blur();
 });
 document
   .querySelectorAll('[data-view]')
