@@ -51,20 +51,26 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
 
 ## Layout
 
-- `apps/desktop`: the asset studio. `editor.html` is the shell — model, state,
-  helpers and view switching. `studio-shell.js` / `styles/studio-shell.css` supply shared
-  navigation, project buttons, tool rails, drawers, tooltips and status styling.
+- `apps/desktop`: the asset studio. The renderer is plain ES modules with no
+  bundler; `editor.html` loads `app.js`, which imports every module in setup
+  order and boots the studio. `state.js` holds the project model and editor
+  state (other modules read its exports and change them through its setters),
+  `status.js` the dirty flag, file name and status line, and `lifecycle.js`
+  the steps editors hook into: `showView`, `redrawAll`, `newProject`,
+  `restoreStudioProject` and the per-editor renders. `studio-core.js` is the
+  frame — config picker, project commands, the application menu and view
+  switching — and answers the main process's requests over IPC.
+  `studio-shell.js` / `styles/studio-shell.css` supply shared navigation,
+  project buttons, tool rails, drawers, tooltips and status styling.
   `styles/` holds the stylesheets: `base.css`, the shell's, then one per editor
-  script, named after it and linked in the same order. Each other editor is a
-  self-attaching script: `bank-editor.js` (tilesets), `overlay-editor.js`
-  (the fixed HUD/text layer, loaded before `background-editor.js` since the
-  latter reads its assets for a preview toggle), `background-editor.js`
-  (backgrounds), `palette-library.js` (palettes and bank configs),
-  `sprite-composer.js` (shapes), `animation-editor.js` (animations),
-  `image-import-ui.js` (artwork import), `sound-editor.js` (sounds) and
-  `music-editor.js` (songs and instruments), which share `audio-shared.js`.
-  They load after the shell and wrap its `showView`/`redrawAll`, so the shell
-  boots them via `bootStudio()`.
+  module, named after it and linked in the same order. The editors are
+  `bank-editor.js` (tilesets), `overlay-editor.js` (the fixed HUD/text layer),
+  `background-editor.js` (backgrounds), `palette-library.js` (palettes and
+  bank configs), `sprite-composer.js` (shapes), `animation-editor.js`
+  (animations), `image-import-ui.js` (artwork import), `sound-editor.js`
+  (sounds) and `music-editor.js` (songs and instruments), which share
+  `audio-shared.js`. `npm run typecheck` checks them with TypeScript's checkJs;
+  `types/globals.d.ts` types the DOM helpers they share.
 - `packages/assets`: Studio project persistence and attribute encoders. Its
   validators delegate to the SDK. `audio.ts` holds the audio model and MIA
   preview engine and imports the browser-safe SDK audio module through the

@@ -2,7 +2,7 @@
 
 Every editor workspace — palettes, tilesets, overlays, backgrounds, shapes,
 animations, sounds and music — shares presentation primitives from `apps/desktop/studio-shell.js`
-and `styles/studio-shell.css`. These files load before editor scripts, and each
+and `styles/studio-shell.css`. Editors import the shell module, and each
 editor's own sheet in `styles/` loads after the shell's. Editor content,
 model mutation, undo and canvas geometry stay in each editor.
 
@@ -65,7 +65,7 @@ model mutation, undo and canvas geometry stay in each editor.
   `zoomScrolled` does that for a scroll container and `fitZoom` picks the
   fitting step. The cluster goes in the middle of the top bar, between a
   `.studioBarStart` and a `.studioBarEnd`. `canvasCommand(view, command)` is
-  how `runCommand` in `editor.html` reaches the current canvas.
+  how `runCommand` in `studio-core.js` reaches the current canvas.
 
 - `clipboard` is the app's one clipboard: `set(kind, data)`, `get(kind)` and
   `has(kind)`, copying by value. It holds one kind of thing at a time —
