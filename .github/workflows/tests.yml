@@ -24,9 +24,22 @@ jobs:
           npm run build -w @clementina/core
           npm run build -w @clementina/assets
           npm run build -w @clementina/project
+          npm run build -w @clementina/basic
+          npm run build -w @clementina/assembler
+          npm run build -w @clementina/runtime
+          npm run build -w @clementina/build
+          npm run build -w @clementina/emulator-client
+      # The Builder's real-build tests assemble with ca65 and link with ld65.
+      - name: Install cc65
+        run: brew install cc65
       - name: Install Studio
         working-directory: clementina-studio
         run: npm ci
+      - name: Format and lint
+        working-directory: clementina-studio
+        run: |
+          npm run format:check
+          npm run lint
       - name: Unit and UI tests
         working-directory: clementina-studio
         env:
