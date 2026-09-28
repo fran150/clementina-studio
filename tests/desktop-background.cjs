@@ -186,6 +186,14 @@ app.whenReady().then(async () => {
       clickCount: 1,
     });
     await new Promise((r) => setTimeout(r, 60));
+    const dragged = await run(
+      `const hit=p=>{const e=document.elementFromPoint(p.x,p.y);return e?(e.id||e.tagName):null;};return {selection:$('bankSelectionInfo').textContent.split(' tiles')[0],from:hit(${JSON.stringify(bmFrom)}),to:hit(${JSON.stringify(bmTo)}),viewport:[innerWidth,innerHeight]};`,
+    );
+    assert.equal(
+      dragged.selection,
+      '2 × 1',
+      `dragging across two tiles of the tileset map must select both: ${JSON.stringify({ ...dragged, bankMapRect })}`,
+    );
     await run(`$('saveComposition').click();showView('backgrounds');`);
     await new Promise((r) => setTimeout(r, 60));
     assert.deepEqual(
