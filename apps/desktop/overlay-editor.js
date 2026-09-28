@@ -10,7 +10,7 @@
 // tile-ID bytes in that region, left-to-right/top-to-bottom; mapping a value
 // (a score, a string) to tile IDs is the programmer's job, not Studio's.
 import { CellGrid } from './cell-grid.js';
-import { $ } from './dom.js';
+import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { redrawAll, showView } from './lifecycle.js';
 import {
@@ -1230,11 +1230,7 @@ for (const id of ['ovLibraryToggle', 'ovTileLibraryToggle', 'ovPlaceholderLibrar
 window.addEventListener(
   'keydown',
   (e) => {
-    if (
-      currentView !== 'overlays' ||
-      /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName)
-    )
-      return;
+    if (currentView !== 'overlays' || isField(e.target)) return;
     // Selection and clipboard keys, the same in every grid editor.
     const command = selection.key(e);
     if (command) {

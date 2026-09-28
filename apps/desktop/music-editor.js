@@ -5,7 +5,7 @@
 // plays an instrument, the registers the sequencer's SET_* opcodes put on a
 // voice between notes. See docs/audio.md.
 import { StudioAudio } from './audio-shared.js';
-import { $ } from './dom.js';
+import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { newProject, redrawAll, restoreStudioProject, showView } from './lifecycle.js';
 import { currentView, instruments, setInstruments, songs } from './state.js';
@@ -1710,11 +1710,7 @@ document.addEventListener('studiohistory', () => {
 window.addEventListener(
   'keydown',
   (e) => {
-    if (
-      currentView !== 'music' ||
-      /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName) ||
-      document.querySelector('dialog[open]')
-    )
+    if (currentView !== 'music' || isField(e.target) || document.querySelector('dialog[open]'))
       return;
     const key = e.key.toLowerCase(),
       mod = e.ctrlKey || e.metaKey,
@@ -1790,8 +1786,7 @@ let spacePanned = false;
 window.addEventListener('keyup', (e) => {
   if (e.code !== 'Space' || currentView !== 'music' || !space) return;
   space = false;
-  if (!spacePanned && !/INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName))
-    toggle();
+  if (!spacePanned && !isField(e.target)) toggle();
   spacePanned = false;
 });
 canvas.addEventListener(

@@ -1,6 +1,6 @@
 // The studio's frame: the config picker, project commands, the application
 // menu and view switching. The editors attach to it.
-import { $ } from './dom.js';
+import { $, editingText } from './dom.js';
 import { ProjectHistory } from './history.js';
 import {
   newProject,
@@ -132,9 +132,6 @@ const projectCommands = {
   save: 'nativeSave',
   saveAs: 'nativeSaveAs',
 };
-const editingText = () =>
-  /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) ||
-  /** @type {HTMLElement} */ (document.activeElement)?.isContentEditable;
 function runCommand(command) {
   if (projectCommands[command]) {
     $(projectCommands[command]).click();

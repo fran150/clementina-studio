@@ -1,7 +1,7 @@
 // The project's palette library. One palette can be bound by many banks and
 // named by many sprite parts, so every edit here is visible everywhere at once.
 import { graphicsEdit } from './bank-editor.js';
-import { $ } from './dom.js';
+import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import {
   redrawAll,
@@ -511,11 +511,7 @@ $('palColorInput').onchange = () => {
 window.addEventListener(
   'keydown',
   (event) => {
-    if (
-      currentView !== 'palettes' ||
-      !(event.metaKey || event.ctrlKey) ||
-      /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (event.target).tagName)
-    )
+    if (currentView !== 'palettes' || !(event.metaKey || event.ctrlKey) || isField(event.target))
       return;
     const key = event.key.toLowerCase();
     if (key !== 'c' && key !== 'v') return;

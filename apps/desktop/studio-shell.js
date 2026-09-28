@@ -3,7 +3,7 @@
 // type looks the same on its library button in every editor, and a tool or
 // action looks the same in every rail. Drawn on a 26-unit grid; a glyph
 // drawn on 24 units is centered with c().
-import { $ } from './dom.js';
+import { $, isField } from './dom.js';
 import { currentView } from './state.js';
 
 const c = (path) => `<g transform="translate(1 1)">${path}</g>`;
@@ -805,7 +805,7 @@ function editActions(view, commands) {
 for (const type of ['cut', 'copy', 'paste'])
   document.addEventListener(type, (event) => {
     const target = /** @type {HTMLElement} */ (event.target);
-    if (/INPUT|TEXTAREA|SELECT/.test(target?.tagName) || target?.isContentEditable) return;
+    if (isField(target) || target?.isContentEditable) return;
     const run = editCommands.get(currentView)?.[type];
     if (!run) return;
     event.preventDefault();
@@ -943,11 +943,7 @@ function helpButton() {
 window.addEventListener(
   'keydown',
   (e) => {
-    if (
-      /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName) ||
-      document.querySelector('dialog[open]')
-    )
-      return;
+    if (isField(e.target) || document.querySelector('dialog[open]')) return;
     if (
       (e.key === '?' && !e.ctrlKey && !e.metaKey) ||
       ((e.ctrlKey || e.metaKey) && e.key === '/')

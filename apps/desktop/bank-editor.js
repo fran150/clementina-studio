@@ -1,6 +1,6 @@
 // Tileset authoring. A tileset is one CHR bank's worth of graphics; its per-tile
 // palette bank numbers are authoring intent, recorded alongside the pixels.
-import { $ } from './dom.js';
+import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { openTilesetImageImport } from './image-import-ui.js';
 import { redrawAll, renderBankEditor, showView } from './lifecycle.js';
@@ -1023,11 +1023,7 @@ $('emptyImport').onclick = () => $('importBankFile').click();
 window.addEventListener(
   'keydown',
   (event) => {
-    if (
-      currentView !== 'tiles' ||
-      /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (event.target).tagName)
-    )
-      return;
+    if (currentView !== 'tiles' || isField(event.target)) return;
     if (document.querySelector('dialog[open]')) return;
     const key = event.key.toLowerCase();
     if ((event.metaKey || event.ctrlKey) && key === 'a') {
@@ -1665,11 +1661,7 @@ top.querySelector('.studioBarStart').after(zoomControls.group);
 window.addEventListener(
   'keydown',
   (e) => {
-    if (
-      currentView === 'tiles' &&
-      e.code === 'Space' &&
-      !/INPUT|TEXTAREA|SELECT/.test(/** @type {HTMLElement} */ (e.target).tagName)
-    ) {
+    if (currentView === 'tiles' && e.code === 'Space' && !isField(e.target)) {
       spaceHeld = true;
       e.preventDefault();
       scroll.style.cursor = 'grab';

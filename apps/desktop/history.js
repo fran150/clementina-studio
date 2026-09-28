@@ -3,6 +3,7 @@
 // buttons and Edit ▸ Undo all mean the same thing. An entry snapshots only
 // the parts of the project its edit touches, taken just before the edit, and
 // is labeled with where the edit happened for the status message.
+import { isField, editingText } from './dom.js';
 import { redrawAll, renderAnimations } from './lifecycle.js';
 import { projectParts } from './state.js';
 import { markDirty, setStatus } from './status.js';
@@ -61,9 +62,7 @@ function changed() {
 // they are the field's own, so they go back to plain and enabled.
 let published = '';
 function publishMenu() {
-  const text =
-    /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) ||
-    /** @type {HTMLElement} */ (document.activeElement)?.isContentEditable;
+  const text = editingText();
   const item = (verb, entry) =>
     text
       ? { label: verb, enabled: true }
@@ -123,7 +122,7 @@ window.addEventListener(
     if (
       !(event.ctrlKey || event.metaKey) ||
       event.altKey ||
-      /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (event.target).tagName) ||
+      isField(event.target) ||
       document.querySelector('dialog[open]')
     )
       return;

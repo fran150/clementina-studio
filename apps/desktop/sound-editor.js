@@ -4,7 +4,7 @@
 // (VTAKE) for a few frames before giving it back (VGIVE). Each frame is a
 // column across five lanes, drawn like pixels. See docs/audio.md.
 import { StudioAudio } from './audio-shared.js';
-import { $ } from './dom.js';
+import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { newProject, redrawAll, restoreStudioProject, showView } from './lifecycle.js';
 import { currentView, sounds } from './state.js';
@@ -977,11 +977,7 @@ document.addEventListener('studiohistory', () => {
 window.addEventListener(
   'keydown',
   (e) => {
-    if (
-      currentView !== 'sounds' ||
-      /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName) ||
-      document.querySelector('dialog[open]')
-    )
+    if (currentView !== 'sounds' || isField(e.target) || document.querySelector('dialog[open]'))
       return;
     const key = e.key.toLowerCase(),
       mod = e.ctrlKey || e.metaKey,
@@ -1047,8 +1043,7 @@ let spacePanned = false;
 window.addEventListener('keyup', (e) => {
   if (e.code !== 'Space' || currentView !== 'sounds' || !space) return;
   space = false;
-  if (!spacePanned && !/INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName))
-    play();
+  if (!spacePanned && !isField(e.target)) play();
   spacePanned = false;
 });
 canvas.addEventListener(

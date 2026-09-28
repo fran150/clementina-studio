@@ -12,7 +12,7 @@
 // wraps too, and the camera panel's table-index math mirrors
 // clementina-video-client/internal/render/renderer.go's bgTableAndLocal.
 import { CellGrid } from './cell-grid.js';
-import { $ } from './dom.js';
+import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { redrawAll, renderBackgrounds, showView } from './lifecycle.js';
 import {
@@ -1404,11 +1404,7 @@ for (const id of ['bgLibraryToggle', 'bgTileLibraryToggle', 'bgStatusToggle'])
 window.addEventListener(
   'keydown',
   (e) => {
-    if (
-      currentView !== 'backgrounds' ||
-      /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName)
-    )
-      return;
+    if (currentView !== 'backgrounds' || isField(e.target)) return;
     // Selection and clipboard keys, the same in every grid editor.
     const command = selection.key(e);
     if (command) {
