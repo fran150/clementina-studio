@@ -4,6 +4,9 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+// macOS animates wheel scrolling, which would keep moving a canvas after
+// the test measures it. Scroll in one step, as the other platforms do.
+app.commandLine.appendSwitch('disable-smooth-scrolling');
 app.whenReady().then(async () => {
   const saves = [];
   let opens = 0;
@@ -127,16 +130,6 @@ app.whenReady().then(async () => {
     );
     // A plain wheel scrolls the canvas instead of zooming.
     await wheel(stage.x, stage.y, -240);
-    // macOS animates wheel scrolling; let it finish, or it would carry on
-    // scrolling underneath the zoom checked below.
-    const scrollTop = () =>
-      run(`return document.querySelector('#canvasStage .selectionScroll').scrollTop;`);
-    for (let last = -1, deadline = Date.now() + 2000; Date.now() < deadline;) {
-      const top = await scrollTop();
-      if (top === last) break;
-      last = top;
-      await wait(100);
-    }
     const scrolled = await run(
       `return {top:document.querySelector('#canvasStage .selectionScroll').scrollTop,zoom:$('zoomLabel').textContent};`,
     );
