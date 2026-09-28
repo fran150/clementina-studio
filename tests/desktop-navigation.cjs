@@ -141,7 +141,7 @@ app.whenReady().then(async () => {
     assert.notEqual(after[2], before[2], 'Ctrl+wheel must zoom');
     assert.ok(
       Math.abs(after[0] - before[0]) < 1 && Math.abs(after[1] - before[1]) < 1,
-      'zooming must keep the art under the pointer in place',
+      `zooming must keep the art under the pointer in place (${JSON.stringify({ before, after, stage })})`,
     );
     // The View menu's zoom commands drive the current canvas.
     await command('zoomActual');
