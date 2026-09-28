@@ -975,7 +975,7 @@
     (e) => {
       if (
         currentView !== 'sounds' ||
-        /INPUT|SELECT|TEXTAREA/.test(e.target.tagName) ||
+        /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName) ||
         document.querySelector('dialog[open]')
       )
         return;
@@ -986,7 +986,10 @@
           e.stopImmediatePropagation();
         };
       // Keys a focused button or list row already answers are left to it.
-      if (e.target.closest?.('button,[role="option"]') && (e.code === 'Space' || e.key === 'Enter'))
+      if (
+        /** @type {HTMLElement} */ (e.target).closest?.('button,[role="option"]') &&
+        (e.code === 'Space' || e.key === 'Enter')
+      )
         return;
       if (e.code === 'Space') {
         handled();
@@ -1005,7 +1008,7 @@
         return;
       }
       if (mod || e.altKey) return;
-      if (e.target.closest?.('[role="option"]')) return;
+      if (/** @type {HTMLElement} */ (e.target).closest?.('[role="option"]')) return;
       if (key === 'escape') {
         selection = null;
         drag = null;
@@ -1040,7 +1043,11 @@
   window.addEventListener('keyup', (e) => {
     if (e.code !== 'Space' || currentView !== 'sounds' || !space) return;
     space = false;
-    if (!spacePanned && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) play();
+    if (
+      !spacePanned &&
+      !/INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName)
+    )
+      play();
     spacePanned = false;
   });
   canvas.addEventListener(
@@ -1062,7 +1069,7 @@
   StudioShell.viewStatus('sounds', $('sfStatus'));
   // Where a frame's column crosses a lane, `t` of the way down it: for driving
   // the lanes with real pointer input in tests/desktop-audio.cjs.
-  host.pointAt = (frame, key, t = 0.5) => {
+  /** @type {any} */ (host).pointAt = (frame, key, t = 0.5) => {
     const lane = lanes().find((l) => l.key === key),
       r = canvas.getBoundingClientRect();
     return { x: r.left + frameX(frame + 0.5), y: r.top + lane.top + t * lane.height };

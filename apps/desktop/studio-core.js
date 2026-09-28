@@ -249,14 +249,17 @@ function setNameFromFile(name) {
   nameInput.value = (name || '').replace(/\.[^/.]+$/, '') || 'tiles';
   projectFile = name || null;
 }
-/** Every editor redraws on a config change, since all of them preview through it. */
-function redrawAll() {
+/**
+ * Every editor redraws on a config change, since all of them preview through it.
+ * The four functions declared with let here are ones the editor scripts wrap.
+ */
+let redrawAll = function () {
   renderConfigPicker();
   window.renderBankEditor?.();
   window.renderBackgrounds?.();
   window.renderPaletteLibrary?.();
   renderAnimations();
-}
+};
 
 // ===== active config picker =====
 // Switching config is a constant part of drawing, not a setting, so it lives in
@@ -278,7 +281,7 @@ $('configPicker').onchange = () => {
 };
 
 // ===== project =====
-function newProject() {
+let newProject = function () {
   if (dirty && !confirm('Discard unsaved changes?')) return;
   window.studio?.newProject();
   window.resetBuilderFolder?.();
@@ -303,7 +306,7 @@ function newProject() {
   setDirtyLabel();
   redrawAll();
   setStatus('New project — create your first tileset.');
-}
+};
 function studioProject() {
   return {
     paletteLibrary: structuredClone(paletteLibrary),
@@ -320,7 +323,7 @@ function studioProject() {
     songs: structuredClone(songs),
   };
 }
-function restoreStudioProject(p, name = 'Recovered project') {
+let restoreStudioProject = function (p, name = 'Recovered project') {
   window.resetBuilderFolder?.();
   builderSettings = structuredClone(
     p.builder ?? { folder: 'ASSETS', checks: true, slots: [], include: [] },
@@ -345,7 +348,7 @@ function restoreStudioProject(p, name = 'Recovered project') {
   dirty = false;
   setDirtyLabel();
   redrawAll();
-}
+};
 async function studioAction(action) {
   try {
     await action();
@@ -391,7 +394,7 @@ const projectCommands = {
 };
 const editingText = () =>
   /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) ||
-  document.activeElement?.isContentEditable;
+  /** @type {HTMLElement} */ (document.activeElement)?.isContentEditable;
 function runCommand(command) {
   if (projectCommands[command]) {
     $(projectCommands[command]).click();
@@ -453,7 +456,7 @@ const descriptions = {
     "A song plays up to four voices on MIA's background sequencer. Voices without notes stay free for sound effects.",
   ],
 };
-function showView(view) {
+let showView = function (view) {
   StudioShell.selectView(view);
   currentView = view;
   playing = false;
@@ -465,7 +468,7 @@ function showView(view) {
   renderAnimations();
   window.renderBankEditor?.();
   window.renderBackgrounds?.();
-}
+};
 document
   .querySelectorAll('[data-view]')
   .forEach((button) => (button.onclick = () => showView(button.dataset.view)));

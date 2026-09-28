@@ -157,7 +157,7 @@
       },
     });
     $('bankFileMode').value = a.bpp;
-    $('bankFilePlane').value = plane;
+    $('bankFilePlane').value = String(plane);
     $('bankFilePlaneLabel').hidden = a.bpp !== 1;
     $('bankUndo').disabled = !ProjectHistory.canUndo();
     $('bankRedo').disabled = !ProjectHistory.canRedo();
@@ -417,6 +417,7 @@
     if (!erasing) asset().tilePaletteBanks[t] = palette;
     write(asset(), t, x % 8, y % 8, value);
   }
+  /** @returns {[number, number]} */
   function point(e) {
     const r = $('bankSelection').getBoundingClientRect();
     return [
@@ -500,7 +501,7 @@
     }
     remember(false, tool === 'fill' ? 'Fill' : erasing ? 'Erase' : 'Paint');
     if (tool === 'fill') {
-      flood(point(e), e.button === 2 || tool === 'eraser' ? 0 : ink);
+      flood(point(e), e.button === 2 ? 0 : ink);
       changed();
       return;
     }
@@ -667,19 +668,20 @@
     for (let i = 0; i < 8; i++) {
       const button = document.createElement('button');
       button.dataset.palette = b;
-      button.dataset.ink = i;
+      button.dataset.ink = String(i);
       button.onclick = () => {
         clipboardArea = 'color';
         palette = b;
         ink = i;
         refreshPalettes();
       };
-      button.ondblclick = () => {
+      const editColor = () => {
         if (i === 0 && !zeroAsColor) return;
         colorEdit = { bank: b, ink: i };
         $('bankColor').value = css565ToInput(bankColor(b, i));
         $('bankColor').click();
       };
+      button.ondblclick = editColor;
       button.oncontextmenu = (e) => {
         e.preventDefault();
         button.click();
@@ -698,7 +700,7 @@
             run: () => $('pasteColor').click(),
           },
           '-',
-          { label: 'Edit color…', disabled: !editable, run: () => button.ondblclick() },
+          { label: 'Edit color…', disabled: !editable, run: editColor },
         ]);
       };
       group.append(button);
@@ -1007,7 +1009,11 @@
   window.addEventListener(
     'keydown',
     (event) => {
-      if (currentView !== 'tiles' || /INPUT|SELECT|TEXTAREA/.test(event.target.tagName)) return;
+      if (
+        currentView !== 'tiles' ||
+        /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (event.target).tagName)
+      )
+        return;
       if (document.querySelector('dialog[open]')) return;
       const key = event.key.toLowerCase();
       if ((event.metaKey || event.ctrlKey) && key === 'a') {
@@ -1040,7 +1046,7 @@
         return;
       }
       if (event.metaKey || event.ctrlKey) return;
-      if (event.target.closest?.('[role="option"]')) return;
+      if (/** @type {HTMLElement} */ (event.target).closest?.('[role="option"]')) return;
       if ((key === 'delete' || key === 'backspace') && pixelSelection && !pasteAnchor) {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -1528,7 +1534,7 @@
     $('drawingStatus').textContent = info.join(' · ');
   }
 
-  for (const [id, name, label, fn] of [
+  for (const [id, name, label, fn] of /** @type {[string, string, string, () => void][]} */ ([
     [
       'selectionTool',
       'select',
@@ -1541,7 +1547,7 @@
     ],
     ['copyPixels', 'copy', 'Copy selection (Ctrl/Cmd+C)', copySelection],
     ['pastePixels', 'paste', 'Paste (Ctrl/Cmd+V; with Shift, the source palettes too)', startPaste],
-  ]) {
+  ])) {
     const button = document.createElement('button');
     button.id = id;
     icon(button, name, label);
@@ -1550,7 +1556,7 @@
   }
   const colorActions = document.createElement('div');
   colorActions.className = 'colorClipboard';
-  for (const [id, name, label, fn] of [
+  for (const [id, name, label, fn] of /** @type {[string, string, string, () => void][]} */ ([
     [
       'copyColor',
       'copy',
@@ -1575,7 +1581,7 @@
         clipboardArea = 'color';
       },
     ],
-  ]) {
+  ])) {
     const button = document.createElement('button');
     button.id = id;
     icon(button, name, label);
@@ -1650,7 +1656,7 @@
       if (
         currentView === 'tiles' &&
         e.code === 'Space' &&
-        !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)
+        !/INPUT|TEXTAREA|SELECT/.test(/** @type {HTMLElement} */ (e.target).tagName)
       ) {
         spaceHeld = true;
         e.preventDefault();
@@ -1759,10 +1765,10 @@
   const pasteOptions = options.querySelector('details');
   pasteOptions.id = 'pasteOptions';
   properties.id = 'displaySettings';
-  for (const [details, name, label] of [
+  for (const [details, name, label] of /** @type {[HTMLDetailsElement, string, string][]} */ ([
     [pasteOptions, 'paste', 'Paste options'],
     [properties, 'settings', 'Display settings'],
-  ]) {
+  ])) {
     const summary = details.querySelector('summary');
     icon(summary, name, label);
     const pop = document.createElement('div');

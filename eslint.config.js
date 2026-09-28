@@ -59,4 +59,10 @@ export default tseslint.config(
       'prefer-const': 'off',
     },
   },
+  {
+    // Globals need var to become window properties, and the editors' own
+    // exports stay any until the scripts become modules.
+    files: ['apps/desktop/types/*.d.ts'],
+    rules: { 'no-var': 'off', '@typescript-eslint/no-explicit-any': 'off' },
+  },
 );

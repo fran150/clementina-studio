@@ -135,11 +135,11 @@
     renderShapeList();
     renderTilesetPicker();
     renderPaletteDock();
-    $('scWidth').value = units === 'pixels' ? width() : width() / 8;
-    $('scHeight').value = units === 'pixels' ? height() : height() / 8;
-    $('scWidth').max = units === 'pixels' ? 320 : 40;
-    $('scHeight').max = units === 'pixels' ? 200 : 25;
-    $('scWidth').step = $('scHeight').step = 1;
+    $('scWidth').value = String(units === 'pixels' ? width() : width() / 8);
+    $('scHeight').value = String(units === 'pixels' ? height() : height() / 8);
+    $('scWidth').max = String(units === 'pixels' ? 320 : 40);
+    $('scHeight').max = String(units === 'pixels' ? 200 : 25);
+    $('scWidth').step = $('scHeight').step = '1';
     zoomControls?.sync();
     for (const id of ['scDelete', 'scDuplicate', 'scWidth', 'scHeight', 'scOriginTool'])
       $(id).disabled = !a;
@@ -1089,7 +1089,11 @@
   window.addEventListener(
     'keydown',
     (e) => {
-      if (currentView !== 'shapes' || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+      if (
+        currentView !== 'shapes' ||
+        /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName)
+      )
+        return;
       const key = e.key.toLowerCase();
       if (e.code === 'Space') {
         space = true;
@@ -1116,7 +1120,7 @@
         }
         return;
       }
-      if (e.target.closest?.('[role="option"]')) return;
+      if (/** @type {HTMLElement} */ (e.target).closest?.('[role="option"]')) return;
       if (selected.size && ['delete', 'backspace'].includes(key)) {
         e.preventDefault();
         $('scRemove').click();
@@ -1349,7 +1353,7 @@
       list = $('scBank');
     while (list.children.length > tilesets.length) list.lastElementChild.remove();
     tilesets.forEach((t, i) => {
-      let row = list.children[i];
+      let row = /** @type {HTMLElement} */ (list.children[i]);
       if (!row) {
         row = document.createElement('div');
         row.className = 'assetRow';
@@ -1359,7 +1363,7 @@
       }
       row.textContent = t.name;
       row.setAttribute('aria-selected', String(t.id === a?.tilesetId));
-      row.onclick = () => {
+      const choose = () => {
         if (!a || t.id === a.tilesetId) return;
         scPlane = 0;
         edit('Change the tileset', () => {
@@ -1367,10 +1371,11 @@
           sourceRect = { x: 0, y: 0, width: 1, height: 1 };
         });
       };
+      row.onclick = choose;
       row.onkeydown = (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
-          row.onclick();
+          choose();
         }
       };
     });
@@ -1382,7 +1387,7 @@
           ? `Drawing from ${current?.name ?? 'a missing tileset'}. Switching repoints every sprite's tile at the new tileset — switch back and this shape looks right again.`
           : 'A shape draws from one tileset: Clementina has a single sprite CHR bank.';
     $('scPlaneLabel').hidden = current?.bpp !== 1;
-    $('scPlane').value = scPlane;
+    $('scPlane').value = String(scPlane);
   }
   $('scPlane').onchange = () => {
     scPlane = Number($('scPlane').value);

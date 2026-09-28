@@ -7,6 +7,7 @@
   "scripts": {
     "build": "tsc",
     "lint": "eslint --max-warnings 0 .",
+    "typecheck": "tsc -p apps/desktop",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "start": "npm run build && electron .",

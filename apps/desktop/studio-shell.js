@@ -281,14 +281,14 @@
     }, 300);
   }
   document.addEventListener('pointerover', (e) => {
-    const b = e.target.closest?.('button,summary');
+    const b = /** @type {HTMLElement} */ (e.target).closest?.('button,summary');
     if (b && b !== tipTarget) showTip(b);
   });
   document.addEventListener('pointerout', (e) => {
     if (tipTarget && !tipTarget.contains(e.relatedTarget)) hideTip();
   });
   document.addEventListener('focusin', (e) => {
-    const b = e.target.closest?.('button,summary');
+    const b = /** @type {HTMLElement} */ (e.target).closest?.('button,summary');
     if (b) showTip(b);
   });
   document.addEventListener('focusout', hideTip);
@@ -432,7 +432,7 @@
     }
     menu.onkeydown = (e) => {
       const buttons = [...menu.querySelectorAll('button:not(:disabled)')],
-        at = buttons.indexOf(document.activeElement);
+        at = buttons.indexOf(/** @type {StudioElement} */ (document.activeElement));
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
@@ -688,7 +688,7 @@
       ...Array.from({ length: 16 }, (_, bank) => {
         const row = document.createElement('div');
         row.className = 'paletteGroup';
-        row.dataset.palette = bank;
+        row.dataset.palette = String(bank);
         row.tabIndex = 0;
         row.setAttribute('role', 'button');
         const label = document.createElement('span');
@@ -696,8 +696,8 @@
         row.append(label);
         for (let ink = 0; ink < 8; ink++) {
           const swatch = document.createElement('i');
-          swatch.dataset.palette = bank;
-          swatch.dataset.ink = ink;
+          swatch.dataset.palette = String(bank);
+          swatch.dataset.ink = String(ink);
           row.append(swatch);
         }
         const choose = () => {
@@ -775,7 +775,7 @@
   }
   for (const type of ['cut', 'copy', 'paste'])
     document.addEventListener(type, (event) => {
-      const target = event.target;
+      const target = /** @type {HTMLElement} */ (event.target);
       if (/INPUT|TEXTAREA|SELECT/.test(target?.tagName) || target?.isContentEditable) return;
       const run = editCommands.get(currentView)?.[type];
       if (!run) return;
@@ -914,7 +914,10 @@
   window.addEventListener(
     'keydown',
     (e) => {
-      if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || document.querySelector('dialog[open]'))
+      if (
+        /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName) ||
+        document.querySelector('dialog[open]')
+      )
         return;
       if (
         (e.key === '?' && !e.ctrlKey && !e.metaKey) ||
