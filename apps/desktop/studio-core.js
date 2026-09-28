@@ -5,9 +5,6 @@ import { ProjectHistory } from './history.js';
 import {
   newProject,
   redrawAll,
-  renderAnimations,
-  renderBackgrounds,
-  renderBankEditor,
   renderPaletteLibrary,
   resetBuilderFolder,
   restoreStudioProject,
@@ -38,12 +35,10 @@ import {
 } from './status.js';
 import { StudioShell } from './studio-shell.js';
 
+// The editors redraw themselves; the palette library has no hook of its own.
 redrawAll.after(() => {
   renderConfigPicker();
-  renderBankEditor();
-  renderBackgrounds();
   renderPaletteLibrary();
-  renderAnimations();
 });
 
 // ===== active config picker =====
@@ -214,9 +209,6 @@ showView.after((view) => {
   $('viewTitle').textContent = descriptions[view][0];
   $('viewHelp').textContent = descriptions[view][1];
   renderConfigPicker();
-  renderAnimations();
-  renderBankEditor();
-  renderBackgrounds();
   // A control the switch hid would keep focus until the next frame and
   // swallow keys meant for the new view.
   const focused = /** @type {HTMLElement} */ (document.activeElement);

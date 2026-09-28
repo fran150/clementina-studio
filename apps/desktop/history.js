@@ -4,7 +4,7 @@
 // the parts of the project its edit touches, taken just before the edit, and
 // is labeled with where the edit happened for the status message.
 import { isField, editingText } from './dom.js';
-import { redrawAll, renderAnimations } from './lifecycle.js';
+import { redrawAll } from './lifecycle.js';
 import { projectParts } from './state.js';
 import { markDirty, setStatus } from './status.js';
 
@@ -87,7 +87,6 @@ function step(from, to, verb) {
   document.dispatchEvent(new Event('studiohistory'));
   markDirty();
   redrawAll();
-  renderAnimations();
   setStatus(`${verb}: ${entry.label}.`);
   changed();
 }
