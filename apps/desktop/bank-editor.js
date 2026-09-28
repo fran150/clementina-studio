@@ -714,8 +714,10 @@
       usagePalette = null;
       render();
     };
-    group.onmouseenter = group.onfocusin = mark;
-    group.onmouseleave = group.onfocusout = clear;
+    group.onmouseenter = mark;
+    group.onmouseleave = clear;
+    group.addEventListener('focusin', mark);
+    group.addEventListener('focusout', clear);
     return group;
   }
   function ensureBankRows() {
