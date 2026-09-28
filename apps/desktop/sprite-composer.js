@@ -1355,35 +1355,18 @@ function renameShape(i, name) {
 // exactly — there is nothing to lock.
 function renderTilesetPicker() {
   const a = shape(),
-    current = shapeTileset(),
-    list = $('scBank');
-  while (list.children.length > tilesets.length) list.lastElementChild.remove();
-  tilesets.forEach((t, i) => {
-    let row = /** @type {HTMLElement} */ (list.children[i]);
-    if (!row) {
-      row = document.createElement('div');
-      row.className = 'assetRow';
-      row.tabIndex = 0;
-      row.setAttribute('role', 'option');
-      list.append(row);
-    }
-    row.textContent = t.name;
-    row.setAttribute('aria-selected', String(t.id === a?.tilesetId));
-    const choose = () => {
+    current = shapeTileset();
+  StudioShell.renderOptions($('scBank'), tilesets, {
+    label: (t) => t.name,
+    selected: (t) => t.id === a?.tilesetId,
+    choose: (t) => {
       if (!a || t.id === a.tilesetId) return;
       scPlane = 0;
       edit('Change the tileset', () => {
         shape().tilesetId = t.id;
         sourceRect = { x: 0, y: 0, width: 1, height: 1 };
       });
-    };
-    row.onclick = choose;
-    row.onkeydown = (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        choose();
-      }
-    };
+    },
   });
   $('scTilesetNote').textContent = !a
     ? 'Create a shape to choose its tileset.'

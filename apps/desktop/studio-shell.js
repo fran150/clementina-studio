@@ -322,6 +322,37 @@ document.addEventListener('scroll', hideTip, true);
 //                                 optional; offered with Rename on the row's
 //                                 right-click menu, remove also on Delete
 // }
+// A listbox of plain rows, one per item, reusing the rows already there.
+// Clicking a row or pressing Enter on it chooses its item.
+/**
+ * @template T
+ * @param {HTMLElement} list
+ * @param {T[]} items
+ * @param {{ label: (item: T) => string, selected: (item: T) => boolean,
+ *   choose: (item: T) => void }} options
+ */
+function renderOptions(list, items, { label, selected, choose }) {
+  while (list.children.length > items.length) list.lastElementChild.remove();
+  items.forEach((item, i) => {
+    let row = /** @type {HTMLElement} */ (list.children[i]);
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'assetRow';
+      row.tabIndex = 0;
+      row.setAttribute('role', 'option');
+      list.append(row);
+    }
+    row.textContent = label(item);
+    row.setAttribute('aria-selected', String(selected(item)));
+    row.onclick = () => choose(item);
+    row.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        choose(item);
+      }
+    };
+  });
+}
 function renderList(container, items, options) {
   const { selected, choose, rename, render, content, maxLength = 48, duplicate, remove } = options;
   while (container.children.length > items.length) container.lastElementChild.remove();
@@ -949,6 +980,7 @@ export const StudioShell = Object.freeze({
   emptyEditor,
   selectView,
   renderList,
+  renderOptions,
   startRename,
   fitZoom,
   zoomScrolled,
