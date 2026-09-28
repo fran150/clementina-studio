@@ -1,6 +1,7 @@
 // Drives the real renderer in Electron. Run with `npm run test:desktop:background`.
 const { app, BrowserWindow, ipcMain } = require('electron');
 const assert = require('node:assert/strict');
+const { isDeepStrictEqual } = require('node:util');
 const path = require('node:path');
 const fs = require('node:fs');
 app.whenReady().then(async () => {
@@ -151,9 +152,19 @@ app.whenReady().then(async () => {
     await run(
       `showView('tiles');if($('bankMapToggle').getAttribute('aria-expanded')!=='true')$('bankMapToggle').click();`,
     );
-    const bankMapRect = await run(
-      `const r=$('bankMap').getBoundingClientRect();return {left:r.left,top:r.top,width:r.width,height:r.height};`,
-    );
+    // The map panel has just opened; measure it once its layout has settled,
+    // or the drag below can land on the wrong tiles.
+    const measureBankMap = () =>
+      run(
+        `const r=$('bankMap').getBoundingClientRect();return {left:r.left,top:r.top,width:r.width,height:r.height};`,
+      );
+    let bankMapRect = await measureBankMap();
+    for (let deadline = Date.now() + 2000; Date.now() < deadline;) {
+      await new Promise((r) => setTimeout(r, 50));
+      const next = await measureBankMap();
+      if (JSON.stringify(next) === JSON.stringify(bankMapRect)) break;
+      bankMapRect = next;
+    }
     const bmCell = bankMapRect.width / 16;
     const bmFrom = { x: bankMapRect.left + bmCell * 0.5, y: bankMapRect.top + bmCell * 2.5 },
       bmTo = { x: bankMapRect.left + bmCell * 1.5, y: bankMapRect.top + bmCell * 2.5 };
@@ -164,7 +175,9 @@ app.whenReady().then(async () => {
       button: 'left',
       clickCount: 1,
     });
+    await new Promise((r) => setTimeout(r, 30));
     window.webContents.sendInputEvent({ type: 'mouseMove', x: bmTo.x, y: bmTo.y, button: 'left' });
+    await new Promise((r) => setTimeout(r, 30));
     window.webContents.sendInputEvent({
       type: 'mouseUp',
       x: bmTo.x,
@@ -449,25 +462,36 @@ app.whenReady().then(async () => {
 
     // Hovering a tile outlines, in the palette dock, its bank and the color
     // under the pointer; leaving the canvas clears both.
-    const hoverMarks = async (x, y) => {
+    // Chromium delivers pointer moves on the next frame, which a hidden
+    // window can delay, so wait until the marks show what is expected.
+    const hoverMarks = async (x, y, expected) => {
       window.webContents.sendInputEvent({ type: 'mouseMove', x, y });
-      await new Promise((r) => setTimeout(r, 60));
-      return run(
-        `return {banks:[...$('bgSwatches').querySelectorAll('.hoverBank')].map(r=>Number(r.dataset.palette)),colors:[...$('bgSwatches').querySelectorAll('.hoverColor')].map(s=>s.dataset.palette+':'+s.dataset.ink)};`,
-      );
+      const read = () =>
+        run(
+          `return {banks:[...$('bgSwatches').querySelectorAll('.hoverBank')].map(r=>Number(r.dataset.palette)),colors:[...$('bgSwatches').querySelectorAll('.hoverColor')].map(s=>s.dataset.palette+':'+s.dataset.ink)};`,
+        );
+      let marks = await read();
+      for (
+        let deadline = Date.now() + 2000;
+        Date.now() < deadline && !isDeepStrictEqual(marks, expected);
+      ) {
+        await new Promise((r) => setTimeout(r, 40));
+        marks = await read();
+      }
+      return marks;
     };
     assert.deepEqual(
-      await hoverMarks(at(25, 2).x, at(25, 2).y),
+      await hoverMarks(at(25, 2).x, at(25, 2).y, { banks: [3], colors: ['3:2'] }),
       { banks: [3], colors: ['3:2'] },
       'hovering a tile must outline its bank and the color under the pointer',
     );
     assert.deepEqual(
-      await hoverMarks(at(10, 10).x, at(10, 10).y),
+      await hoverMarks(at(10, 10).x, at(10, 10).y, { banks: [0], colors: ['0:0'] }),
       { banks: [0], colors: ['0:0'] },
       'a blank cell (erased above) draws color 0 of bank 0',
     );
     assert.deepEqual(
-      await hoverMarks(canvas.left - 20, canvas.top - 20),
+      await hoverMarks(canvas.left - 20, canvas.top - 20, { banks: [], colors: [] }),
       { banks: [], colors: [] },
       'leaving the canvas must clear the hover marks',
     );
