@@ -9,8 +9,6 @@ app.whenReady().then(async () => {
   ipcMain.handle('project:new', () => {});
   const window = new BrowserWindow({
     show: false,
-    // macOS otherwise shrinks the window to a small CI screen, and the
-    // test's layout and pointer positions assume the size asked for.
     enableLargerThanScreen: true,
     width: 1440,
     height: 1000,
@@ -21,6 +19,10 @@ app.whenReady().then(async () => {
       sandbox: true,
     },
   });
+  // A window is created no larger than the screen, and the CI Mac's is
+  // small. Resize it to the size the test's layout and pointer positions
+  // assume; enableLargerThanScreen lets macOS keep it.
+  window.setSize(1440, 1000);
   const errors = [];
   window.webContents.on('console-message', (event) => {
     if (event.level === 'error') errors.push(event.message);

@@ -45,8 +45,6 @@ app.whenReady().then(async () => {
   });
   const win = new BrowserWindow({
     show: false,
-    // macOS otherwise shrinks the window to a small CI screen, and the
-    // test's layout and pointer positions assume the size asked for.
     enableLargerThanScreen: true,
     width: 1440,
     height: 960,
@@ -57,6 +55,10 @@ app.whenReady().then(async () => {
       sandbox: true,
     },
   });
+  // A window is created no larger than the screen, and the CI Mac's is
+  // small. Resize it to the size the test's layout and pointer positions
+  // assume; enableLargerThanScreen lets macOS keep it.
+  win.setSize(1440, 960);
   const errors = [];
   win.webContents.on('console-message', (e) => {
     if (e.level === 'error') errors.push(e.message);
