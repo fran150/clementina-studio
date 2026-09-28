@@ -50,4 +50,13 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['warn', unusedVars],
     },
   },
+  {
+    // studio-core.js's top-level names are the page's shared state: other
+    // scripts read and reassign them, which ESLint can't see from one file.
+    files: ['apps/desktop/studio-core.js'],
+    rules: {
+      'no-unused-vars': ['warn', { ...unusedVars, vars: 'local' }],
+      'prefer-const': 'off',
+    },
+  },
 );
