@@ -35,6 +35,11 @@ jobs:
       - name: Install Studio
         working-directory: clementina-studio
         run: npm ci
+      - name: Format and lint
+        working-directory: clementina-studio
+        run: |
+          npm run format:check
+          npm run lint
       - name: Unit and UI tests
         working-directory: clementina-studio
         env:

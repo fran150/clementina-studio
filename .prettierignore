@@ -1,0 +1,8 @@
+dist/
+node_modules/
+test-results/
+package-lock.json
+# Prose is wrapped by hand; reflowing it would only add noise.
+*.md
+# C sources and headers for the firmware cross-check.
+tests/firmware/

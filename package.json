@@ -6,6 +6,9 @@
   "main": "dist/apps/desktop/main.js",
   "scripts": {
     "build": "tsc",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "start": "npm run build && electron .",
     "test": "npm run build && node --test tests/*.test.mjs",
     "test:desktop": "npm run build && electron tests/desktop-smoke.cjs",
@@ -23,14 +26,19 @@
     "test:desktop:builder": "npm run build && electron tests/desktop-builder.cjs"
   },
   "devDependencies": {
+    "@eslint/js": "9.39.5",
     "@types/node": "^22.0.0",
     "electron": "^44.3.0",
-    "typescript": "^5.9.0"
+    "eslint": "9.39.5",
+    "globals": "17.12.0",
+    "prettier": "3.9.9",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "8.70.1"
   },
   "dependencies": {
+    "@clementina/assets": "file:../clementina-sdk/packages/assets",
     "@clementina/build": "file:../clementina-sdk/packages/build",
     "@clementina/emulator-client": "file:../clementina-sdk/packages/emulator-client",
-    "@clementina/assets": "file:../clementina-sdk/packages/assets",
     "@clementina/project": "file:../clementina-sdk/packages/project"
   }
 }
