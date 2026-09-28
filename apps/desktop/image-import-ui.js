@@ -286,7 +286,11 @@
       height: source.height,
       data: context.getImageData(0, 0, source.width, source.height).data,
     };
-    const { convertTilesetImage } = await import('../../dist/packages/assets/image-import.js');
+    // The page loads the built module; its types come from the source, which
+    // type-checks without a build.
+    const built = '../../dist/packages/assets/image-import.js';
+    const { convertTilesetImage } =
+      /** @type {typeof import('../../packages/assets/image-import.js')} */ (await import(built));
     session = {
       tileset: structuredClone(tileset),
       protectedPalettes: [...protectedPalettes],
