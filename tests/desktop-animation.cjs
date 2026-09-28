@@ -17,7 +17,11 @@ app.whenReady().then(async () => {
   });
   const errors = [];
   window.webContents.on('console-message', (event) => {
-    if (event.level === 'error') errors.push(event.message);
+    // Chromium reports a ResizeObserver loop when refitting the preview
+    // toggles its column's scrollbars. The spec treats it as a notice, and
+    // the refit still completes on the next frame.
+    if (event.level === 'error' && !event.message.startsWith('ResizeObserver loop'))
+      errors.push(event.message);
   });
   const run = (source) => window.webContents.executeJavaScript(`(()=>{${source}})()`);
   const key = async (keyCode, modifiers = []) => {
@@ -184,10 +188,21 @@ app.whenReady().then(async () => {
         await run(
           `if($('${toggle}').getAttribute('aria-expanded')!=='true')$('${toggle}').click();`,
         );
-        await new Promise((r) => setTimeout(r, 80));
-        const bounds = await run(
-          `const panel=$($('${toggle}').getAttribute('aria-controls')).getBoundingClientRect(),main=document.querySelector('#animationEditor main').getBoundingClientRect(),canvas=$('anCanvas').getBoundingClientRect(),timeline=$('anTimeline').getBoundingClientRect();return {clear:panel.right<=main.left,canvas:canvas.left>=main.left&&canvas.right<=main.right,timeline:timeline.left>=main.left&&timeline.right<=main.right,stretch:Math.abs(timeline.width-main.width)<2,large:canvas.width};`,
-        );
+        // The preview refits when its column resizes, so poll until the
+        // layout settles rather than trusting one fixed delay.
+        const measure = () =>
+          run(
+            `const panel=$($('${toggle}').getAttribute('aria-controls')).getBoundingClientRect(),main=document.querySelector('#animationEditor main').getBoundingClientRect(),canvas=$('anCanvas').getBoundingClientRect(),timeline=$('anTimeline').getBoundingClientRect();return {clear:panel.right<=main.left,canvas:canvas.left>=main.left&&canvas.right<=main.right,timeline:timeline.left>=main.left&&timeline.right<=main.right,stretch:Math.abs(timeline.width-main.width)<2,large:canvas.width};`,
+          );
+        let bounds = await measure();
+        for (
+          let deadline = Date.now() + 2000;
+          Date.now() < deadline &&
+          !(bounds.clear && bounds.canvas && bounds.timeline && bounds.stretch);
+        ) {
+          await new Promise((r) => setTimeout(r, 40));
+          bounds = await measure();
+        }
         assert.equal(bounds.clear, true);
         assert.equal(bounds.canvas, true);
         assert.equal(bounds.timeline, true);
