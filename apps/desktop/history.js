@@ -123,7 +123,7 @@
   function publishMenu() {
     const text =
       /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) ||
-      document.activeElement?.isContentEditable;
+      /** @type {HTMLElement} */ (document.activeElement)?.isContentEditable;
     const item = (verb, entry) =>
       text
         ? { label: verb, enabled: true }
@@ -183,7 +183,7 @@
       if (
         !(event.ctrlKey || event.metaKey) ||
         event.altKey ||
-        /INPUT|SELECT|TEXTAREA/.test(event.target.tagName) ||
+        /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (event.target).tagName) ||
         document.querySelector('dialog[open]')
       )
         return;

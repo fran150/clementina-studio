@@ -181,8 +181,8 @@
       h = value('iiCropH'),
       factor = Math.min(1, ((16 - value('iiTileX')) * 8) / w, ((16 - value('iiTileY')) * 8) / h);
     el('iiResize').checked = true;
-    el('iiWidth').value = Math.max(1, Math.floor(w * factor));
-    el('iiHeight').value = Math.max(1, Math.floor(h * factor));
+    el('iiWidth').value = String(Math.max(1, Math.floor(w * factor)));
+    el('iiHeight').value = String(Math.max(1, Math.floor(h * factor)));
     update();
   };
   const sourcePoint = (e) => {
@@ -201,10 +201,10 @@
     };
   };
   function cropTo(p) {
-    el('iiCropX').value = Math.min(cropAnchor.x, p.x);
-    el('iiCropY').value = Math.min(cropAnchor.y, p.y);
-    el('iiCropW').value = Math.abs(p.x - cropAnchor.x) + 1;
-    el('iiCropH').value = Math.abs(p.y - cropAnchor.y) + 1;
+    el('iiCropX').value = String(Math.min(cropAnchor.x, p.x));
+    el('iiCropY').value = String(Math.min(cropAnchor.y, p.y));
+    el('iiCropW').value = String(Math.abs(p.x - cropAnchor.x) + 1);
+    el('iiCropH').value = String(Math.abs(p.y - cropAnchor.y) + 1);
     update();
   }
   el('iiSource').onpointerdown = (e) => {
@@ -227,13 +227,11 @@
       r = el('iiBank').getBoundingClientRect(),
       tw = Math.ceil(o.width / 8),
       th = Math.ceil(o.height / 8);
-    el('iiTileX').value = Math.max(
-      0,
-      Math.min(16 - tw, Math.floor(((e.clientX - r.left) / r.width) * 16)),
+    el('iiTileX').value = String(
+      Math.max(0, Math.min(16 - tw, Math.floor(((e.clientX - r.left) / r.width) * 16))),
     );
-    el('iiTileY').value = Math.max(
-      0,
-      Math.min(16 - th, Math.floor(((e.clientY - r.top) / r.height) * 16)),
+    el('iiTileY').value = String(
+      Math.max(0, Math.min(16 - th, Math.floor(((e.clientY - r.top) / r.height) * 16))),
     );
     update();
   };
@@ -288,7 +286,11 @@
       height: source.height,
       data: context.getImageData(0, 0, source.width, source.height).data,
     };
-    const { convertTilesetImage } = await import('../../dist/packages/assets/image-import.js');
+    // The page loads the built module; its types come from the source, which
+    // type-checks without a build.
+    const built = '../../dist/packages/assets/image-import.js';
+    const { convertTilesetImage } =
+      /** @type {typeof import('../../packages/assets/image-import.js')} */ (await import(built));
     session = {
       tileset: structuredClone(tileset),
       protectedPalettes: [...protectedPalettes],

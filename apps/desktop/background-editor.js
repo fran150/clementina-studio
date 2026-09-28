@@ -299,7 +299,7 @@
       const list = $(listId);
       while (list.children.length > tilesets.length) list.lastElementChild.remove();
       tilesets.forEach((t, i) => {
-        let row = list.children[i];
+        let row = /** @type {HTMLElement} */ (list.children[i]);
         if (!row) {
           row = document.createElement('div');
           row.className = 'assetRow';
@@ -309,7 +309,7 @@
         }
         row.textContent = t.name;
         row.setAttribute('aria-selected', String(!!a && t.id === a[field]));
-        row.onclick = () => {
+        const choose = () => {
           if (!a || t.id === a[field]) return;
           bgEdit(
             field === 'tilesetId' ? 'Change the primary tileset' : 'Change the alternate tileset',
@@ -318,18 +318,19 @@
             },
           );
         };
+        row.onclick = choose;
         row.onkeydown = (e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
-            row.onclick();
+            choose();
           }
         };
       });
     }
     $('bgPrimaryPlaneLabel').hidden = primaryTileset()?.bpp !== 1;
-    $('bgPrimaryPlane').value = bgPrimaryPlane;
+    $('bgPrimaryPlane').value = String(bgPrimaryPlane);
     $('bgAltPlaneLabel').hidden = altTileset()?.bpp !== 1;
-    $('bgAltPlane').value = bgAltPlane;
+    $('bgAltPlane').value = String(bgAltPlane);
   }
   $('bgPrimaryPlane').onchange = () => {
     bgPrimaryPlane = Number($('bgPrimaryPlane').value);
@@ -976,8 +977,8 @@
     if (!a) return;
     const mode = VIEWPORT_MODES.find((m) => m.id === bgPreviewModeId);
     $('bgActiveSet').value = String(bgActiveSet);
-    $('bgScrollX').value = bgScroll.x;
-    $('bgScrollY').value = bgScroll.y;
+    $('bgScrollX').value = String(bgScroll.x);
+    $('bgScrollY').value = String(bgScroll.y);
     $('bgCamMode').textContent = `BGMODE ${mode.id} · ${mode.label} tiles`;
     $('bgCamWindow').textContent =
       `Origin ${bgViewportOrigin.x}, ${bgViewportOrigin.y} tiles from top-left`;
@@ -1406,7 +1407,11 @@
   window.addEventListener(
     'keydown',
     (e) => {
-      if (currentView !== 'backgrounds' || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+      if (
+        currentView !== 'backgrounds' ||
+        /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName)
+      )
+        return;
       // Selection and clipboard keys, the same in every grid editor.
       const command = selection.key(e);
       if (command) {

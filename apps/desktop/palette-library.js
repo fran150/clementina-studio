@@ -49,7 +49,7 @@
   // with focus, or the one last edited; it is the same clipboard the tileset
   // editor's palette dock copies colors to.
   const focusedInk = () => {
-    const el = document.activeElement;
+    const el = /** @type {HTMLElement} */ (document.activeElement);
     return el?.closest?.('#palColors') && el.dataset.ink !== undefined
       ? Number(el.dataset.ink)
       : null;
@@ -411,7 +411,7 @@
         cell = document.createElement('div');
         cell.className = 'palColor';
         const swatch = document.createElement('button');
-        swatch.dataset.ink = ink;
+        swatch.dataset.ink = String(ink);
         const label = document.createElement('span');
         label.className = 'palIndex';
         label.textContent = ink === 0 ? '0 · key' : String(ink);
@@ -486,7 +486,7 @@
       if (
         currentView !== 'palettes' ||
         !(event.metaKey || event.ctrlKey) ||
-        /INPUT|SELECT|TEXTAREA/.test(event.target.tagName)
+        /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (event.target).tagName)
       )
         return;
       const key = event.key.toLowerCase();

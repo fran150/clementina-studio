@@ -18,6 +18,10 @@
   // A stream (MiaAudio's soundStream, songStream or noteStream) renders a
   // chunk at a time, a little ahead of what is heard. `origin` is where in the
   // song or sound the stream starts, for position().
+  /**
+   * @param {any} stream
+   * @param {{ onEnd?: () => void, origin?: number }} [options]
+   */
   function play(stream, { onEnd, origin = 0 } = {}) {
     stop();
     const c = audioContext(),
@@ -52,7 +56,7 @@
     };
     job = j;
     pump();
-    j.timer = setInterval(pump, 40);
+    j.timer = window.setInterval(pump, 40);
   }
   function finish(j) {
     if (job !== j) return;

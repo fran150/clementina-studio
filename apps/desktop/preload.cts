@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-contextBridge.exposeInMainWorld('studio', {
+const studio = {
   builderPlan: (project: unknown, settings: unknown, name: string) =>
     ipcRenderer.invoke('builder:plan', project, settings, name),
   builderFolder: () => ipcRenderer.invoke('builder:folder'),
@@ -23,4 +23,8 @@ contextBridge.exposeInMainWorld('studio', {
   onCommand: (listener: (command: string) => void) => {
     ipcRenderer.on('studio:command', (_event, command: string) => listener(command));
   },
-});
+};
+contextBridge.exposeInMainWorld('studio', studio);
+
+// The renderer's window.studio, for type-checking the editor scripts.
+export type StudioApi = typeof studio;

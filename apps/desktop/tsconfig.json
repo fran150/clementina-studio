@@ -1,0 +1,16 @@
+{
+  // Type-checks the renderer's classic scripts. They share one global scope, as
+  // they do in editor.html, so no imports are needed between them.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": ["*.js", "types/*.d.ts", "preload.cts"]
+}

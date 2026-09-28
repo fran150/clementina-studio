@@ -219,7 +219,7 @@
       const list = $(listId);
       while (list.children.length > tilesets.length) list.lastElementChild.remove();
       tilesets.forEach((t, i) => {
-        let row = list.children[i];
+        let row = /** @type {HTMLElement} */ (list.children[i]);
         if (!row) {
           row = document.createElement('div');
           row.className = 'assetRow';
@@ -229,7 +229,7 @@
         }
         row.textContent = t.name;
         row.setAttribute('aria-selected', String(!!a && t.id === a[field]));
-        row.onclick = () => {
+        const choose = () => {
           if (!a || t.id === a[field]) return;
           ovEdit(
             field === 'tilesetId' ? 'Change the primary tileset' : 'Change the alternate tileset',
@@ -238,18 +238,19 @@
             },
           );
         };
+        row.onclick = choose;
         row.onkeydown = (e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
-            row.onclick();
+            choose();
           }
         };
       });
     }
     $('ovPrimaryPlaneLabel').hidden = primaryTileset()?.bpp !== 1;
-    $('ovPrimaryPlane').value = ovPrimaryPlane;
+    $('ovPrimaryPlane').value = String(ovPrimaryPlane);
     $('ovAltPlaneLabel').hidden = altTileset()?.bpp !== 1;
-    $('ovAltPlane').value = ovAltPlane;
+    $('ovAltPlane').value = String(ovAltPlane);
   }
   $('ovPrimaryPlane').onchange = () => {
     ovPrimaryPlane = Number($('ovPrimaryPlane').value);
@@ -1235,7 +1236,11 @@
   window.addEventListener(
     'keydown',
     (e) => {
-      if (currentView !== 'overlays' || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+      if (
+        currentView !== 'overlays' ||
+        /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName)
+      )
+        return;
       // Selection and clipboard keys, the same in every grid editor.
       const command = selection.key(e);
       if (command) {

@@ -589,7 +589,7 @@
   window.addEventListener('keydown', (e) => {
     if (
       currentView === 'builder' &&
-      !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) &&
+      !/INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName) &&
       (e.key === 'Delete' || e.key === 'Backspace')
     ) {
       if (remove()) e.preventDefault();

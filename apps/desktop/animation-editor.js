@@ -165,7 +165,8 @@
       row.setAttribute('role', 'option');
       row.textContent = s.name;
       row.setAttribute('aria-selected', String(selectedShapeIds.has(s.id)));
-      row.onclick = (e) => {
+      /** @param {MouseEvent | KeyboardEvent} e */
+      const choose = (e) => {
         if (e.shiftKey && shapeAnchor !== null) {
           const start = usable.findIndex((x) => x.id === shapeAnchor);
           if (!e.ctrlKey && !e.metaKey) selectedShapeIds.clear();
@@ -184,12 +185,13 @@
           shapeAnchor = s.id;
         }
         render();
-        $('anShapeList').children[i]?.focus();
+        /** @type {HTMLElement} */ ($('anShapeList').children[i])?.focus();
       };
+      row.onclick = choose;
       row.onkeydown = (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          row.onclick(e);
+          choose(e);
         }
       };
       list.append(row);
@@ -331,8 +333,8 @@
       input.type = 'number';
       input.setAttribute('aria-label', `Frame ${i} ${key}`);
       const limits = key === 'ticks' ? [1, 255] : [-512, 511];
-      input.min = limits[0];
-      input.max = limits[1];
+      input.min = String(limits[0]);
+      input.max = String(limits[1]);
       input.value = key === 'ticks' ? frame.ticks : (frame[key] ?? 0);
       input.onchange = () => {
         const value = Number(input.value);
@@ -469,7 +471,7 @@
           );
           if (e.altKey) moveFrame(i, next);
           else selectFrame(next);
-          timeline.children[next]?.focus();
+          /** @type {HTMLElement} */ (timeline.children[next])?.focus();
         }
       };
       card.ondragstart = (e) => {
@@ -519,7 +521,7 @@
       frame = a?.frames[index];
     paintFrame($('anCanvas'), frame);
     $('anFrameCounter').textContent = a ? `${index + 1} / ${a.frames.length}` : '0 / 0';
-    for (const card of $('anTimeline').children)
+    for (const card of /** @type {HTMLCollectionOf<HTMLElement>} */ ($('anTimeline').children))
       card.dataset.playing = String(playing && Number(card.dataset.index) === index);
     $('anStatus').textContent = !a
       ? 'Create an animation to sequence your shapes.'
@@ -686,7 +688,7 @@
     (e) => {
       if (
         currentView !== 'animations' ||
-        /INPUT|SELECT|TEXTAREA/.test(e.target.tagName) ||
+        /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName) ||
         document.querySelector('dialog[open]')
       )
         return;
@@ -711,7 +713,7 @@
         return;
       }
       // Keys a focused button or frame card already answers are left to it.
-      if (e.target.closest?.('button,[role="option"]')) return;
+      if (/** @type {HTMLElement} */ (e.target).closest?.('button,[role="option"]')) return;
       if (e.code === 'Space') {
         handled();
         $('anPlay').click();

@@ -1063,7 +1063,7 @@
             6: '6 per beat — sixteenth triplets',
             8: '8 per beat — 32nds',
           }[n],
-          n,
+          String(n),
         ),
     ),
   );
@@ -1223,7 +1223,7 @@
 
   // ---- Instruments ----
   $('muWave').replaceChildren(
-    ...['Sine', 'Pulse', 'Saw', 'Triangle', 'Noise'].map((name, i) => new Option(name, i)),
+    ...['Sine', 'Pulse', 'Saw', 'Triangle', 'Noise'].map((name, i) => new Option(name, String(i))),
   );
   function tweak(label, key, value, first) {
     const i = instrument();
@@ -1714,7 +1714,7 @@
     (e) => {
       if (
         currentView !== 'music' ||
-        /INPUT|SELECT|TEXTAREA/.test(e.target.tagName) ||
+        /INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName) ||
         document.querySelector('dialog[open]')
       )
         return;
@@ -1724,7 +1724,10 @@
           e.preventDefault();
           e.stopImmediatePropagation();
         };
-      if (e.target.closest?.('button,[role="option"]') && (e.code === 'Space' || e.key === 'Enter'))
+      if (
+        /** @type {HTMLElement} */ (e.target).closest?.('button,[role="option"]') &&
+        (e.code === 'Space' || e.key === 'Enter')
+      )
         return;
       if (e.code === 'Space') {
         handled();
@@ -1743,7 +1746,7 @@
         return;
       }
       if (mod || e.altKey) return;
-      if (e.target.closest?.('[role="option"]')) return;
+      if (/** @type {HTMLElement} */ (e.target).closest?.('[role="option"]')) return;
       if (key === 'escape') {
         selection = new Set();
         drag = null;
@@ -1789,7 +1792,11 @@
   window.addEventListener('keyup', (e) => {
     if (e.code !== 'Space' || currentView !== 'music' || !space) return;
     space = false;
-    if (!spacePanned && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) toggle();
+    if (
+      !spacePanned &&
+      !/INPUT|SELECT|TEXTAREA/.test(/** @type {HTMLElement} */ (e.target).tagName)
+    )
+      toggle();
     spacePanned = false;
   });
   canvas.addEventListener(
@@ -1810,7 +1817,7 @@
   StudioShell.viewStatus('music', $('muStatus'));
   // Where a step and pitch are on screen, scrolling the pitch into view: for
   // driving the roll with real pointer input in tests/desktop-audio.cjs.
-  host.pointAt = (step, pitch) => {
+  /** @type {any} */ (host).pointAt = (step, pitch) => {
     if (pitchY(pitch) < RULER_H || pitchY(pitch) + ROW_H > canvas.clientHeight) {
       scrollY = (NOTES - 1 - pitch) * ROW_H - (canvas.clientHeight - RULER_H) / 2;
       clampScroll();
