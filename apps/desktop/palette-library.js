@@ -31,29 +31,7 @@ import { setStatus } from './status.js';
 import { renderConfigPicker } from './studio-core.js';
 import { StudioShell } from './studio-shell.js';
 
-const host = document.createElement('section');
-host.id = 'paletteWorkspace';
-host.className = 'studioEditor';
-host.hidden = true;
-host.innerHTML = `<nav id="palRail" class="studioToolRail" aria-label="Palette tools"></nav>
- <aside id="palLibrary" class="studioDock studioDockLeft"><h2>Palettes</h2>
-  <div id="palListActions" class="assetToolbar"></div>
-  <div id="palList" role="listbox" aria-label="Palettes"></div></aside>
- <aside id="palConfigs" class="studioDock studioDockLeft"><h2>Bank configs</h2>
-  <div id="palConfigsBody">
-   <div id="palConfigListPane">
-    <div id="palConfigListActions" class="assetToolbar"></div>
-    <div id="palConfigList" role="listbox" aria-label="Palette bank configs"></div>
-   </div>
-   <div id="palConfigRamPane"><h3>Palette RAM</h3><div id="palBankGrid"></div></div>
-  </div></aside>
- <main class="studioMain"><div id="palTop"><strong id="palName"></strong></div>
-  <div id="palStage" class="studioStage"><div id="palColors"></div></div>
-  <div id="palStatus"></div></main>
- <input id="palColorInput" type="color" style="position:absolute;opacity:0;width:1px;height:1px">`;
-// Inserted before the footer, not appended to #workspace, so the status bar
-// stays at the bottom of the page instead of landing above this section.
-$('spritePanel').after(host);
+const host = $('paletteWorkspace');
 
 let index = 0,
   editing = 0;
@@ -177,12 +155,7 @@ for (const [id, label, path, fn] of [
   $('palListActions').append(button);
 }
 
-const dialog = document.createElement('dialog');
-dialog.id = 'palDeleteDialog';
-dialog.innerHTML = `<h2>Delete palette</h2><p id="palDeleteSummary"></p>
- <label id="palReplacementRow">Move its references to <select id="palReplacement"></select></label>
- <div class="palDialogActions"><button id="palDeleteCancel" type="button">Cancel</button><button id="palDeleteConfirm" type="button">Delete</button></div>`;
-document.body.append(dialog);
+const dialog = $('palDeleteDialog');
 /** Repoints every bank of every config from one palette to another. */
 function repoint(fromId, toId) {
   let banks = 0;

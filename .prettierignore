@@ -1,6 +1,8 @@
 dist/
 node_modules/
 test-results/
+# Built from apps/desktop/views/.
+apps/desktop/editor.html
 package-lock.json
 # Prose is wrapped by hand; reflowing it would only add noise.
 *.md

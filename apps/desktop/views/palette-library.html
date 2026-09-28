@@ -1,0 +1,31 @@
+<section id="paletteWorkspace" class="studioEditor" hidden>
+  <nav id="palRail" class="studioToolRail" aria-label="Palette tools"></nav>
+  <aside id="palLibrary" class="studioDock studioDockLeft">
+    <h2>Palettes</h2>
+    <div id="palListActions" class="assetToolbar"></div>
+    <div id="palList" role="listbox" aria-label="Palettes"></div>
+  </aside>
+  <aside id="palConfigs" class="studioDock studioDockLeft">
+    <h2>Bank configs</h2>
+    <div id="palConfigsBody">
+      <div id="palConfigListPane">
+        <div id="palConfigListActions" class="assetToolbar"></div>
+        <div id="palConfigList" role="listbox" aria-label="Palette bank configs"></div>
+      </div>
+      <div id="palConfigRamPane">
+        <h3>Palette RAM</h3>
+        <div id="palBankGrid"></div>
+      </div>
+    </div>
+  </aside>
+  <main class="studioMain">
+    <div id="palTop"><strong id="palName"></strong></div>
+    <div id="palStage" class="studioStage"><div id="palColors"></div></div>
+    <div id="palStatus"></div>
+  </main>
+  <input
+    id="palColorInput"
+    type="color"
+    style="position: absolute; opacity: 0; width: 1px; height: 1px"
+  />
+</section>

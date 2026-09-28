@@ -12,42 +12,7 @@ import { currentView, instruments, setInstruments, songs } from './state.js';
 import { markDirty, setStatus } from './status.js';
 import { StudioShell } from './studio-shell.js';
 
-const host = document.createElement('section');
-host.id = 'musicEditor';
-host.className = 'studioEditor';
-host.hidden = true;
-host.innerHTML = `<aside class="muLibrary studioDock studioDockLeft"><h2>Songs</h2><div id="muActions" class="assetToolbar"></div><div id="muList" role="listbox" aria-label="Songs"></div><p>Double-click a song to rename it.</p></aside>
- <aside class="muInstrumentLibrary studioDock studioDockLeft"><h2>Instruments</h2><div id="muInstrumentActions" class="assetToolbar"></div><div id="muInstrumentList" role="listbox" aria-label="Instruments"></div><p>The pencil draws with the selected instrument. With notes selected, clicking an instrument gives it to them. Its settings are in the Instrument panel on the right.</p></aside>
- <main class="studioMain"><div id="muEmpty" class="studioEmpty" role="status"><p>No songs yet. A song plays up to four voices on MIA's background sequencer.</p><div class="studioEmptyActions"><button id="muEmptyNew">New song</button></div></div>
-  <div id="muWork">
-   <div class="muTop"><div class="studioBarStart"><strong id="muTitle"></strong></div><div class="studioBarEnd"></div></div>
-   <div id="muVoices" role="radiogroup" aria-label="Voice the pencil draws on"></div>
-   <div id="muStage" class="studioStage audioStage"><canvas id="muCanvas" tabindex="0" aria-label="Piano roll: pitch up, time across"></canvas></div>
-   <div id="muTransport" class="audioTransport"><button id="muRewind"></button><button id="muPlay" aria-pressed="false"></button><span id="muPosition"></span></div>
-   <div id="muStatus"></div>
-  </div>
- </main>
- <aside class="muSongProps studioDock studioDockRight audioDock"><h2>Song</h2>
-  <h3>Tempo</h3>
-  <label class="audioField"><span>BPM</span><input id="muBpm" type="number" min="20" max="400" aria-label="Beats per minute"><output id="muBpmOut"></output></label>
-  <label class="audioField"><span>Steps</span><select id="muStepsPerBeat" aria-label="Steps per beat"></select></label>
-  <label class="audioField"><span>Beats</span><input id="muBeatsPerBar" type="number" min="1" max="16" aria-label="Beats per bar"><output>per bar</output></label>
-  <h3>Length</h3>
-  <label class="audioField"><span>Bars</span><input id="muBars" type="number" min="1" step="any" aria-label="Length in bars"><output id="muLengthOut"></output></label>
-  <label class="audioField"><span>Loop</span><select id="muLoop" aria-label="Whether the song loops"><option value="loop">Loops back</option><option value="once">Plays once</option></select></label>
-  <label class="audioField" id="muLoopFromRow"><span>From bar</span><input id="muLoopFrom" type="number" min="1" step="any" aria-label="Bar the loop returns to"><output id="muLoopOut"></output></label>
-  <h3>Voices</h3><div id="muPans"></div>
-  <h3>Sequencer</h3><div id="muBytes" class="audioReadout"></div>
-  <p>Each voice with notes becomes one track in MIA RAM. Started together, they play on their own; the 6502 pays nothing per note. A voice without notes stays free for sound effects.</p>
- </aside>
- <aside class="muInstrumentProps studioDock studioDockRight audioDock"><h2>Instrument</h2><div id="muInstrumentName" class="audioReadout"></div>
-  <label class="audioField"><span>Wave</span><select id="muWave" aria-label="Waveform"></select></label>
-  <label class="audioField"><span>Pulse</span><input id="muPulse" type="range" min="0" max="255" aria-label="Pulse width, 0 to 255"><output id="muPulseOut"></output></label>
-  <label class="audioField"><span>Volume</span><input id="muVolume" type="range" min="0" max="255" aria-label="Volume, 0 to 255"><output id="muVolumeOut"></output></label>
-  <h3>Envelope</h3>${StudioAudio.envelopeRows('muEnv_')}<canvas id="muEnvelope" class="envelope" width="472" height="128" aria-label="The envelope of a quarter-second note"></canvas>
-  <p>Click the keyboard at the left of the roll to hear the instrument at that pitch.</p>
- </aside>`;
-$('spritePanel').after(host);
+const host = $('musicEditor');
 
 const A = () => window.MiaAudio,
   COLORS = StudioAudio.voiceColors;

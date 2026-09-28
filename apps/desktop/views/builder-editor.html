@@ -1,0 +1,48 @@
+<section id="builderEditor" class="studioEditor" hidden>
+  <aside class="buLibrary studioDock studioDockLeft">
+    <h2>Build assets</h2>
+    <p>Include files and choose their default slots. Assets in the same slot are alternatives.</p>
+    <div id="buAssets"></div>
+  </aside>
+  <main class="studioMain">
+    <div class="buTop">
+      <div class="studioBarStart">
+        <button id="buFolder">Project folder…</button><button id="buSave">Save settings</button>
+      </div>
+      <div class="studioBarEnd">
+        <button id="buBuild">Build</button><button id="buRun">Run in Emulator</button
+        ><button id="buStop" hidden>Stop</button>
+      </div>
+    </div>
+    <div id="buStage" class="studioStage">
+      <div class="buHeading">
+        <h2>Memory</h2>
+        <span id="buFolderPath">Choose a portable project folder to save or build.</span>
+      </div>
+      <p>
+        Drag an included asset onto a slot to change its default. The game decides when to load it.
+      </p>
+      <div id="buMap"></div>
+      <details id="buReport">
+        <summary>Build report</summary>
+        <pre id="buDiagnostics">Choose assets in the left dock.</pre>
+      </details>
+      <figure id="buPreview" hidden>
+        <img id="buScreen" width="320" height="200" alt="Emulator screen" />
+        <figcaption>Emulator · 320 × 200</figcaption>
+      </figure>
+    </div>
+    <div id="buStatus"></div>
+  </main>
+  <aside class="buProps studioDock studioDockRight">
+    <h2>Properties</h2>
+    <div id="buSelection"></div>
+    <h3>Build settings</h3>
+    <label>Asset folder<input id="buAssetFolder" value="ASSETS" /></label
+    ><label class="buCheck"><input type="checkbox" id="buChecks" checked />Runtime checks</label>
+    <h3>Emulator tools</h3>
+    <button id="buEmulator">Choose emulator…</button
+    ><button id="buRenderer">Choose renderer…</button>
+    <p>Uses clementina-automation and clementina-render from PATH unless chosen here.</p>
+  </aside>
+</section>

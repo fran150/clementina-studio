@@ -81,21 +81,9 @@ function position() {
 
 const formatMs = (ms) => (ms < 1000 ? Math.round(ms) + ' ms' : Math.round(ms / 100) / 10 + ' s');
 const panText = (p) => (p === 0 ? 'center' : p < 0 ? `left ${-p}` : `right ${p}`);
-// Rows for an envelope's four nibbles — attack, decay and release are rates,
-// sustain a level — with what each means in time. `prefix` names the inputs.
-function envelopeRows(prefix) {
-  return [
-    ['attack', 'Attack', 'How fast the note rises to full'],
-    ['decay', 'Decay', 'How fast it falls to the sustain level'],
-    ['sustain', 'Sustain', 'The level it holds while the gate is on, 0–15'],
-    ['release', 'Release', 'How fast it fades once the gate goes off'],
-  ]
-    .map(
-      ([key, label, title]) =>
-        `<label class="audioField" title="${title}"><span>${label}</span><input id="${prefix}${key}" type="range" min="0" max="15" aria-label="${label}, 0 to 15"><output id="${prefix}${key}Out"></output></label>`,
-    )
-    .join('');
-}
+// Shows an envelope's four nibbles in the inputs `prefix` names (see the
+// Envelope rows in views/sound-editor.html): attack, decay and release are
+// rates, sustain a level, each with what it means in time.
 function syncEnvelope(prefix, e) {
   const A = window.MiaAudio;
   for (const key of ['attack', 'decay', 'sustain', 'release']) {
@@ -206,7 +194,6 @@ export const StudioAudio = Object.freeze({
   playing: () => !!job,
   formatMs,
   panText,
-  envelopeRows,
   syncEnvelope,
   bindEnvelope,
   bindRange,

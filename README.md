@@ -53,7 +53,10 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
 
 - `apps/desktop`: the asset studio. The renderer is plain ES modules with no
   bundler; `editor.html` loads `app.js`, which imports every module in setup
-  order and boots the studio. `state.js` holds the project model and editor
+  order and boots the studio. The page's markup lives in `views/`: `views/editor.html`
+  is the page, and each editor's and dialog's markup is its own file there.
+  `npm run build` stitches them into `editor.html` (`scripts/build-page.mjs`), so
+  edit `views/`, not the generated page. `state.js` holds the project model and editor
   state (other modules read its exports and change them through its setters),
   `status.js` the dirty flag, file name and status line, and `lifecycle.js`
   the steps editors hook into: `showView`, `redrawAll`, `newProject`,

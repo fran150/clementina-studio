@@ -1,0 +1,71 @@
+<dialog id="bankImageDialog">
+  <header>
+    <h2>Import image <small id="iiFilename"></small></h2>
+    <button id="iiClose" type="button" title="Cancel image import" aria-label="Cancel image import">
+      ×
+    </button>
+  </header>
+  <div class="iiLayout">
+    <section class="iiControls">
+      <h3>Crop</h3>
+      <div class="iiFields">
+        <label>X<input id="iiCropX" type="number" min="0" /></label
+        ><label>Y<input id="iiCropY" type="number" min="0" /></label
+        ><label>Width<input id="iiCropW" type="number" min="1" /></label
+        ><label>Height<input id="iiCropH" type="number" min="1" /></label>
+      </div>
+      <p>Drag on the source image to crop.</p>
+      <label class="iiCheck"
+        ><input id="iiResize" type="checkbox" />Resize (nearest neighbor)</label
+      >
+      <div class="iiFields">
+        <label>Width<input id="iiWidth" type="number" min="1" max="128" /></label
+        ><label>Height<input id="iiHeight" type="number" min="1" max="128" /></label>
+      </div>
+      <button id="iiFit" type="button">Fit available tileset space</button>
+      <h3>Colors</h3>
+      <label
+        >Palettes<select id="iiPaletteMode">
+          <option value="match">Match existing palettes</option>
+          <option value="create">Create palettes where needed</option>
+        </select></label
+      ><label>Alpha cutoff<input id="iiAlpha" type="number" min="0" max="255" value="128" /></label>
+      <p>Pixels below this alpha become color 0.</p>
+      <h3>Place at tile</h3>
+      <div class="iiFields">
+        <label>Column<input id="iiTileX" type="number" min="0" max="15" /></label
+        ><label>Row<input id="iiTileY" type="number" min="0" max="15" /></label>
+      </div>
+      <label class="iiCheck"><input id="iiObject" type="checkbox" checked />Create Object</label
+      ><label>Object name<input id="iiObjectName" maxlength="64" /></label>
+    </section>
+    <section class="iiPreviews">
+      <div>
+        <h3>Source</h3>
+        <canvas id="iiSource" width="300" height="260" aria-label="Source image crop"></canvas>
+        <p id="iiSourceSize"></p>
+      </div>
+      <div>
+        <h3>Clementina preview</h3>
+        <canvas id="iiConverted" width="300" height="260"></canvas>
+        <p id="iiResultSize"></p>
+      </div>
+      <div class="iiPlacement">
+        <h3>Tileset placement · click to move</h3>
+        <canvas
+          id="iiBank"
+          width="384"
+          height="384"
+          aria-label="Image placement in tileset"
+        ></canvas>
+        <p id="iiOverwrite"></p>
+      </div>
+    </section>
+  </div>
+  <div id="iiSummary" role="status"></div>
+  <div id="iiError" role="alert"></div>
+  <div class="iiActions">
+    <button id="iiCancel" type="button">Cancel</button
+    ><button id="iiApply" type="button">Import image</button>
+  </div>
+</dialog>

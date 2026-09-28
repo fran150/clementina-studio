@@ -5,3 +5,5 @@ coverage/
 test-results/
 *.tsbuildinfo
 .DS_Store
+# Built from apps/desktop/views/ by npm run build.
+apps/desktop/editor.html

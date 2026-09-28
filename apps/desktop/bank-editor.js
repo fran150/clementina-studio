@@ -24,16 +24,7 @@ import { markDirty, setStatus } from './status.js';
 import { studioAction } from './studio-core.js';
 import { StudioShell } from './studio-shell.js';
 
-const host = document.createElement('section');
-host.id = 'namedBankEditor';
-host.innerHTML = `<aside class="bankLibrary"><h2>Tilesets</h2><div id="bankFileActions" class="assetToolbar"></div><div id="bankFiles" role="listbox" aria-label="Tilesets"></div></aside>
- <aside class="bankLibrary objectLibrary"><h2>Objects</h2><div id="compositionList" role="listbox" aria-label="Objects"></div><div class="bankActions"><button id="saveComposition">New</button><button id="deleteComposition">Delete</button></div></aside><div class="bankWork"><div id="emptyBank"></div><div id="bankEditorContents"><div class="bankActions"><label>Mode <select id="bankFileMode"><option value="3">3 bpp · 8 colors</option><option value="1">1 bpp · 2 colors</option></select></label><label id="bankFilePlaneLabel">Plane <select id="bankFilePlane"><option>0</option><option>1</option><option>2</option></select></label><button id="bankUndo">Undo</button><button id="bankRedo">Redo</button></div>
- <div class="bankCanvases"><div><h2>Tile map · drag to select tiles</h2><canvas id="bankMap" width="384" height="384"></canvas><p id="bankSelectionInfo"></p></div>
- <div class="selectionWork"><h2>Selected tiles</h2><div class="bankActions"><button id="pencilTool">Pencil</button><button id="fillTool">Fill</button><button id="zoomOut">−</button><span id="zoomLabel"></span><button id="zoomIn">+</button><label><input id="cellGrid" type="checkbox" checked>Tile grid</label></div><div class="selectionScroll"><canvas id="bankSelection"></canvas></div><p>Hover a tile to highlight the bank it was drawn against. Click a swatch to record that bank on the tile and choose your drawing color.</p></div></div>
- <section class="inlinePalettes"><div class="paletteDockHead"></div><div id="bankSwatches"></div><input id="bankColor" type="color" style="position:absolute;opacity:0;width:1px;height:1px"></section><div class="bankActions"><label>Preview background (color 0 / transparent) <input id="previewBackground" type="color" value="#252830"></label><span>Preview only — does not change exported palette colors.</span></div></div></div>`;
-// Inserted before the footer, not appended to #workspace, so the status bar
-// stays at the bottom of the page instead of landing above this section.
-$('spritePanel').after(host);
+const host = $('namedBankEditor');
 for (const [id, label, icon] of [
   ['addBankFile', 'New tileset', 'newItem'],
   ['copyBankFile', 'Duplicate tileset', 'duplicate'],
@@ -1885,7 +1876,7 @@ for (const id of ['pasteOpaque', 'pasteSource']) {
 backgroundRow.querySelector('span')?.remove();
 const bgLabel = $('previewBackground').parentElement;
 for (const n of [...bgLabel.childNodes])
-  if (n.nodeType === Node.TEXT_NODE) n.textContent = 'Background';
+  if (n.nodeType === Node.TEXT_NODE && n.textContent.trim()) n.textContent = 'Background';
 const captions = {
   bankFileMode: 'Color mode',
   bankFilePlane: 'Plane',
