@@ -18,6 +18,7 @@
     "animation/*.js",
     "shape/*.js",
     "sound/*.js",
+    "music/*.js",
     "types/*.d.ts",
     "preload.cts"
   ]
