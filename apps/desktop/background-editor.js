@@ -12,12 +12,19 @@ import { FILE_NAME, canRename, freshName } from './domain/names.js';
 import { $ } from './dom.js';
 import { gridEditor } from './grid-editor.js';
 import { backgroundCamera } from './grid/background-camera.js';
-import { redrawAll, renderBackgrounds, showView } from './lifecycle.js';
-import { backgrounds, currentView, tilesets } from './state.js';
+import { renderBackgrounds, showView } from './lifecycle.js';
+import { backgrounds, tilesets } from './state.js';
 import { setStatus } from './status.js';
 import { StudioShell } from './studio-shell.js';
 
 const host = $('backgroundEditor');
+const workspace = StudioShell.defineEditor({
+  view: 'backgrounds',
+  host,
+  render,
+  status: $('bgStatus'),
+  onHide: () => editor.clearHover(),
+});
 
 let backgroundIndex = 0;
 const background = () => backgrounds[backgroundIndex];
@@ -129,11 +136,7 @@ $('bgResize').onclick = () =>
   resizeBackground(Number($('bgWidth').value), Number($('bgHeight').value));
 
 function render() {
-  host.hidden = currentView !== 'backgrounds';
-  if (host.hidden) {
-    editor.clearHover();
-    return;
-  }
+  if (!workspace.shown()) return;
   backgroundIndex = Math.min(backgroundIndex, Math.max(0, backgrounds.length - 1));
   const a = background();
   $('bgEmpty').hidden = !!a;
@@ -223,12 +226,5 @@ statusPanel.hidden = true;
 for (const id of ['bgLibraryToggle', 'bgTileLibraryToggle', 'bgStatusToggle'])
   $(id).setAttribute('aria-expanded', 'false');
 
-StudioShell.viewStatus('backgrounds', $('bgStatus'));
 renderBackgrounds.after(render);
-redrawAll.after(() => {
-  render();
-});
-showView.after(() => {
-  render();
-});
 render();

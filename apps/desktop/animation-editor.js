@@ -21,11 +21,10 @@ import { DEFAULT_TICKS, MAX_FRAMES, freshAnimationId, newAnimation } from './dom
 import { canAdd, copyAsset, removeAt } from './domain/assets.js';
 import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
 import { $ } from './dom.js';
-import { redrawAll, renderAnimations, showView } from './lifecycle.js';
+import { renderAnimations, showView } from './lifecycle.js';
 import {
   animationIndex,
   animations,
-  currentView,
   frameIndex,
   playing,
   setAnimationIndex,
@@ -38,6 +37,12 @@ import { setStatus } from './status.js';
 import { StudioShell } from './studio-shell.js';
 
 const host = $('animationEditor');
+const workspace = StudioShell.defineEditor({
+  view: 'animations',
+  host,
+  render,
+  status: $('anStatus'),
+});
 
 for (const [id, label, icon] of [
   ['anNew', 'New animation', 'newItem'],
@@ -191,8 +196,7 @@ const preview = animationPreview({ host, render: () => render(), actions });
 
 // ===== rendering =====
 function render() {
-  host.hidden = currentView !== 'animations';
-  if (host.hidden) return;
+  if (!workspace.shown()) return;
   const a = currentAnimation();
   setFrameIndex(Math.max(0, Math.min(frameIndex, (a?.frames.length ?? 1) - 1)));
   $('anEmpty').hidden = !!a;
@@ -272,12 +276,5 @@ document.addEventListener('studioclipboard', () => {
   if (!host.hidden)
     $('anPaste').disabled = !currentAnimation() || !StudioShell.clipboard.has('frames');
 });
-StudioShell.viewStatus('animations', $('anStatus'));
 renderAnimations.after(render);
-redrawAll.after(() => {
-  render();
-});
-showView.after(() => {
-  render();
-});
 render();

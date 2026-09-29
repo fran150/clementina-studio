@@ -14,7 +14,6 @@ import { canAdd, copyAsset, newId, removeAt } from './domain/assets.js';
 import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
 import { NOTES } from './domain/songs.js';
 import { $ } from './dom.js';
-import { newProject, redrawAll, restoreStudioProject, showView } from './lifecycle.js';
 import { musicKeys, musicZoom } from './music/controls.js';
 import { canvas, center, clampScroll, fitLevel, pitchY, stepX } from './music/geometry.js';
 import { instrumentLibrary, instrumentProps, renderInstrumentProps } from './music/instruments.js';
@@ -31,6 +30,20 @@ import { setStatus } from './status.js';
 import { StudioShell } from './studio-shell.js';
 
 const host = $('musicEditor');
+const workspace = StudioShell.defineEditor({
+  view: 'music',
+  host,
+  render,
+  status: $('muStatus'),
+  onHide: () => (mu.hover = null),
+  onLeave: StudioAudio.stop,
+  onReset: () => {
+    StudioAudio.stop();
+    mu.selection = new Set();
+    mu.cursor = 0;
+    mu.voice = 0;
+  },
+});
 
 // ===== the parts =====
 StudioShell.editActions('music', { copy: copyNotes, cut: cutNotes, paste: pasteNotes });
@@ -116,11 +129,7 @@ function renameSong(i, name) {
 // ===== rendering =====
 /** Redraws the whole editor: lists, bars, tools, voices, panels and the roll. */
 function render() {
-  host.hidden = currentView !== 'music';
-  if (host.hidden) {
-    mu.hover = null;
-    return;
-  }
+  if (!workspace.shown()) return;
   mu.songIndex = Math.max(0, Math.min(mu.songIndex, songs.length - 1));
   mu.instrumentIndex = Math.max(0, Math.min(mu.instrumentIndex, instruments.length - 1));
   const s = song();
@@ -203,7 +212,6 @@ new ResizeObserver(() => {
   if (!host.hidden) render();
 }).observe($('muStage'));
 document.addEventListener('miaaudioready', () => render());
-StudioShell.viewStatus('music', $('muStatus'));
 // Where a step and pitch are on screen, scrolling the pitch into view: for
 // driving the roll with real pointer input in tests/desktop-audio.cjs.
 /** @type {any} */ (host).pointAt = (step, pitch) => {
@@ -216,25 +224,4 @@ StudioShell.viewStatus('music', $('muStatus'));
   return { x: r.left + stepX(step), y: r.top + pitchY(pitch) + ROW_H / 2 };
 };
 export { render as renderMusic };
-redrawAll.after(() => {
-  render();
-});
-showView.before((v) => {
-  if (v !== 'music' && currentView === 'music') StudioAudio.stop();
-});
-showView.after(() => {
-  render();
-});
-newProject.before(() => {
-  StudioAudio.stop();
-  mu.selection = new Set();
-  mu.cursor = 0;
-  mu.voice = 0;
-});
-restoreStudioProject.before(() => {
-  StudioAudio.stop();
-  mu.selection = new Set();
-  mu.cursor = 0;
-  mu.voice = 0;
-});
 render();

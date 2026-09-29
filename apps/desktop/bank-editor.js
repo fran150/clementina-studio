@@ -5,8 +5,8 @@
 // shared model, drawing, the palette dock, pixel selections, pointer input,
 // the libraries, zoom and keys, and the layout.
 import { $ } from './dom.js';
-import { redrawAll, renderBankEditor, showView } from './lifecycle.js';
-import { currentView, inputTo565, setBankColor, tilesets } from './state.js';
+import { renderBankEditor } from './lifecycle.js';
+import { inputTo565, setBankColor, tilesets } from './state.js';
 import { StudioShell } from './studio-shell.js';
 import { spacePan, tileKeys, tileZoom } from './tiles/controls.js';
 import { colorClipboard, refreshPalettes } from './tiles/dock.js';
@@ -40,6 +40,12 @@ import {
 } from './tiles/view.js';
 
 const host = $('namedBankEditor');
+const workspace = StudioShell.defineEditor({
+  view: 'tiles',
+  host,
+  render,
+  onHide: () => (tl.hovering = false),
+});
 for (const [id, label, icon] of [
   ['addBankFile', 'New tileset', 'newItem'],
   ['copyBankFile', 'Duplicate tileset', 'duplicate'],
@@ -57,11 +63,7 @@ document.addEventListener('studiohistory', () => {
 // ===== rendering =====
 /** Redraws the whole editor: libraries, bars, tools, the map, canvas and dock. */
 function render() {
-  host.hidden = currentView !== 'tiles';
-  if (host.hidden) {
-    tl.hovering = false;
-    return;
-  }
+  if (!workspace.shown()) return;
   const list = tilesets;
   if (tl.reference !== list) {
     tl.pixelSelection = null;
@@ -160,14 +162,6 @@ function render() {
 }
 tl.render = render;
 renderBankEditor.after(render);
-// The palette library panel edits the same shared state, so it shares this history.
-// Its second argument folds sprite groups into the snapshot when an edit repoints them.
-redrawAll.after(() => {
-  render();
-});
-showView.after(() => {
-  render();
-});
 
 // ===== the parts =====
 tileMapPointer();

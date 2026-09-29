@@ -66,8 +66,8 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   `studio-shell.js` / `styles/studio-shell.css` supply shared navigation,
   project buttons, tool rails, drawers, tooltips and status styling; its
   parts live in `shell/` (icons, layout pieces, tooltips, lists and asset
-  libraries, menus, canvas zoom, the bank dock, the clipboard and the shortcut
-  sheet).
+  libraries, menus and the canvas edit menu, editor registration and key
+  guard, canvas zoom, the bank dock, the clipboard and the shortcut sheet).
   `styles/` holds the stylesheets: `base.css`, the shell's, then one per editor
   module, named after it and linked in the same order. The editors are
   `bank-editor.js` (tilesets), `overlay-editor.js` (the fixed HUD/text layer),

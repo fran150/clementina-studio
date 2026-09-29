@@ -1,9 +1,9 @@
 // The grid editors' keyboard shortcuts and panning: selection and clipboard
 // keys, the flips on Shift+H and Shift+V, single-letter tools, and scrolling
 // the stage with Space-drag, the middle button or the Pan tool.
-import { $, isField } from '../dom.js';
-import { currentView } from '../state.js';
+import { $ } from '../dom.js';
 import { setStatus } from '../status.js';
+import { StudioShell } from '../studio-shell.js';
 
 // Single-key tool shortcuts, the same letters as the tileset editor's.
 const TOOL_KEYS = {
@@ -23,45 +23,36 @@ const TOOL_KEYS = {
  */
 export function gridKeys(ed) {
   const { el, canvas, stage, selection, view } = ed;
-  window.addEventListener(
-    'keydown',
-    (e) => {
-      if (currentView !== view || isField(e.target)) return;
-      // Selection and clipboard keys, the same in every grid editor.
-      const command = selection.key(e);
-      if (command) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        if ((command === 'selectAll' || command === 'paste') && ed.tool !== 'select')
-          ed.setTool('select');
-        if (command === 'paste') setStatus('Click to place the paste. Escape cancels.');
-        return;
-      }
-      // No `!spaceHeld` guard here: held keys repeat-fire keydown, and every
-      // one of those must be prevented too, or the un-prevented repeats leave
-      // the browser's native "Space pages the nearest scrollable ancestor
-      // down" behavior free to fire on the stage in between them.
-      if (e.code === 'Space') {
-        ed.spaceHeld = true;
-        e.preventDefault();
-        canvas.style.cursor = 'grab';
-      }
-      if (e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]')) return;
-      const key = e.key.toLowerCase();
-      if (e.shiftKey && (key === 'h' || key === 'v')) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        el(key === 'h' ? 'FlipX' : 'FlipY').click();
-        return;
-      }
-      if (TOOL_KEYS[key] && !e.shiftKey) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        $(ed.toolId(TOOL_KEYS[key])).click();
-      }
-    },
-    true,
-  );
+  StudioShell.viewKeys(view, (e, { key, mod, handled }) => {
+    // Selection and clipboard keys, the same in every grid editor.
+    const command = selection.key(e);
+    if (command) {
+      handled();
+      if ((command === 'selectAll' || command === 'paste') && ed.tool !== 'select')
+        ed.setTool('select');
+      if (command === 'paste') setStatus('Click to place the paste. Escape cancels.');
+      return;
+    }
+    // No `!spaceHeld` guard here: held keys repeat-fire keydown, and every
+    // one of those must be prevented too, or the un-prevented repeats leave
+    // the browser's native "Space pages the nearest scrollable ancestor
+    // down" behavior free to fire on the stage in between them.
+    if (e.code === 'Space') {
+      ed.spaceHeld = true;
+      e.preventDefault();
+      canvas.style.cursor = 'grab';
+    }
+    if (mod || e.altKey) return;
+    if (e.shiftKey && (key === 'h' || key === 'v')) {
+      handled();
+      el(key === 'h' ? 'FlipX' : 'FlipY').click();
+      return;
+    }
+    if (TOOL_KEYS[key] && !e.shiftKey) {
+      handled();
+      $(ed.toolId(TOOL_KEYS[key])).click();
+    }
+  });
   window.addEventListener('keyup', (e) => {
     if (e.code === 'Space') {
       ed.spaceHeld = false;

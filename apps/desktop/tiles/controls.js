@@ -1,8 +1,7 @@
 // The tile editor's zoom and keyboard: the zoom buttons (the wheel zooms
 // about the pointer), the shortcuts, and panning with Space, the middle
 // button or the Pan tool.
-import { $, isField } from '../dom.js';
-import { currentView } from '../state.js';
+import { $ } from '../dom.js';
 import { StudioShell } from '../studio-shell.js';
 import { asset, scroll, tl } from './model.js';
 import {
@@ -18,88 +17,74 @@ import {
 
 /** Wires the shortcuts. */
 export function tileKeys() {
-  window.addEventListener(
-    'keydown',
-    (event) => {
-      if (currentView !== 'tiles' || isField(event.target)) return;
-      if (document.querySelector('dialog[open]')) return;
-      const key = event.key.toLowerCase();
-      if ((event.metaKey || event.ctrlKey) && key === 'a') {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        selectAllPixels();
-        return;
-      }
-      // One clipboard, shared with every editor: a paste pastes whatever was
-      // copied last, pixels or a color; a copy takes from whichever area — the
-      // canvas or the palette dock — was used last.
-      if ((event.metaKey || event.ctrlKey) && ['c', 'x', 'v'].includes(key)) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        if (key === 'v') {
-          if (StudioShell.clipboard.has('color')) $('pasteColor').click();
-          else if (asset() && StudioShell.clipboard.has('pixels')) {
-            $('pasteSource').checked = event.shiftKey;
-            startPaste();
-          }
-        } else if (key === 'c')
-          (tl.clipboardArea === 'color' ? $('copyColor') : $('copyPixels')).click();
-        else cutSelection();
-        return;
-      }
-      if (key === 'escape') {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        dropPixelSelection();
-        return;
-      }
-      if (event.metaKey || event.ctrlKey) return;
-      if (/** @type {HTMLElement} */ (event.target).closest?.('[role="option"]')) return;
-      if ((key === 'delete' || key === 'backspace') && tl.pixelSelection && !tl.pasteAnchor) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        clearSelection();
-        return;
-      }
-      if (key.startsWith('arrow') && tl.pixelSelection && !tl.pasteAnchor) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        const d = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1] }[
-          key
-        ];
-        if (d)
-          movePixels(
-            tl.pixelSelection,
-            capturePixels(tl.pixelSelection),
-            movePosition(...d, tl.pixelSelection),
-          );
-        return;
-      }
-      if (event.shiftKey && (key === 'h' || key === 'v')) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        $(key === 'h' ? 'flipHorizontal' : 'flipVertical').click();
-        return;
-      }
-      const tools = {
-        s: 'selectionTool',
-        b: 'pencilTool',
-        e: 'eraserTool',
-        g: 'fillTool',
-        l: 'lineTool',
-        r: 'rectangleTool',
-        o: 'ellipseTool',
-        i: 'pickerTool',
-        h: 'panTool',
-      };
-      if (!event.shiftKey && tools[key]) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        $(tools[key]).click();
-      }
-    },
-    true,
-  );
+  StudioShell.viewKeys('tiles', (e, { key, mod, handled }) => {
+    if (mod && key === 'a') {
+      handled();
+      selectAllPixels();
+      return;
+    }
+    // One clipboard, shared with every editor: a paste pastes whatever was
+    // copied last, pixels or a color; a copy takes from whichever area — the
+    // canvas or the palette dock — was used last.
+    if (mod && ['c', 'x', 'v'].includes(key)) {
+      handled();
+      if (key === 'v') {
+        if (StudioShell.clipboard.has('color')) $('pasteColor').click();
+        else if (asset() && StudioShell.clipboard.has('pixels')) {
+          $('pasteSource').checked = e.shiftKey;
+          startPaste();
+        }
+      } else if (key === 'c')
+        (tl.clipboardArea === 'color' ? $('copyColor') : $('copyPixels')).click();
+      else cutSelection();
+      return;
+    }
+    if (key === 'escape') {
+      handled();
+      dropPixelSelection();
+      return;
+    }
+    if (mod) return;
+    if (/** @type {HTMLElement} */ (e.target).closest?.('[role="option"]')) return;
+    if ((key === 'delete' || key === 'backspace') && tl.pixelSelection && !tl.pasteAnchor) {
+      handled();
+      clearSelection();
+      return;
+    }
+    if (key.startsWith('arrow') && tl.pixelSelection && !tl.pasteAnchor) {
+      handled();
+      const d = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1] }[
+        key
+      ];
+      if (d)
+        movePixels(
+          tl.pixelSelection,
+          capturePixels(tl.pixelSelection),
+          movePosition(...d, tl.pixelSelection),
+        );
+      return;
+    }
+    if (e.shiftKey && (key === 'h' || key === 'v')) {
+      handled();
+      $(key === 'h' ? 'flipHorizontal' : 'flipVertical').click();
+      return;
+    }
+    const tools = {
+      s: 'selectionTool',
+      b: 'pencilTool',
+      e: 'eraserTool',
+      g: 'fillTool',
+      l: 'lineTool',
+      r: 'rectangleTool',
+      o: 'ellipseTool',
+      i: 'pickerTool',
+      h: 'panTool',
+    };
+    if (!e.shiftKey && tools[key]) {
+      handled();
+      $(tools[key]).click();
+    }
+  });
 }
 /** Builds the zoom buttons into the top bar. */
 export function tileZoom() {
@@ -149,17 +134,12 @@ export function tileZoom() {
 }
 /** Pans the canvas while Space is held, with the middle button, or with the Pan tool. */
 export function spacePan() {
-  window.addEventListener(
-    'keydown',
-    (e) => {
-      if (currentView === 'tiles' && e.code === 'Space' && !isField(e.target)) {
-        tl.spaceHeld = true;
-        e.preventDefault();
-        scroll.style.cursor = 'grab';
-      }
-    },
-    true,
-  );
+  StudioShell.viewKeys('tiles', (e) => {
+    if (e.code !== 'Space') return;
+    tl.spaceHeld = true;
+    e.preventDefault();
+    scroll.style.cursor = 'grab';
+  });
   window.addEventListener('keyup', (e) => {
     if (e.code === 'Space') {
       tl.spaceHeld = false;

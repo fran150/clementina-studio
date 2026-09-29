@@ -10,21 +10,25 @@ import { renderLists, renderMap } from './builder/panels.js';
 import { renderProps } from './builder/props.js';
 import { builderRails } from './builder/rails.js';
 import { remove } from './builder/slots.js';
-import { $, isField } from './dom.js';
-import { redrawAll, resetBuilderFolder, setBuilderFolder, showView } from './lifecycle.js';
-import { builderSettings, currentView, studioProject } from './state.js';
+import { $ } from './dom.js';
+import { resetBuilderFolder, setBuilderFolder } from './lifecycle.js';
+import { builderSettings, studioProject } from './state.js';
 import { StudioShell } from './studio-shell.js';
 
 const host = $('builderEditor');
 host.querySelector('.buTop .studioBarEnd').append(StudioShell.helpButton());
 builderRails();
-StudioShell.viewStatus('builder', $('buStatus'));
+const workspace = StudioShell.defineEditor({
+  view: 'builder',
+  host,
+  render,
+  status: $('buStatus'),
+});
 
 // ===== rendering =====
 /** Redraws the builder: the panels, then a replan if the project changed. */
 function render() {
-  host.hidden = currentView !== 'builder';
-  if (host.hidden) return;
+  if (!workspace.shown()) return;
   renderLists();
   renderMap();
   renderProps();
@@ -44,23 +48,11 @@ $('buAssetFolder').onchange = () =>
 $('buChecks').onchange = () =>
   edit('Change runtime checks', () => (builderSettings.checks = $('buChecks').checked));
 buildButtons();
-window.addEventListener('keydown', (e) => {
-  if (
-    currentView === 'builder' &&
-    !isField(e.target) &&
-    (e.key === 'Delete' || e.key === 'Backspace')
-  ) {
-    if (remove()) e.preventDefault();
-  }
+StudioShell.viewKeys('builder', (e) => {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && remove()) e.preventDefault();
 });
 document.addEventListener('studiohistory', () => {
   bu.lastInput = '';
-});
-redrawAll.after(() => {
-  render();
-});
-showView.after(() => {
-  render();
 });
 export { render as renderBuilder };
 resetBuilderFolder.after(() => {

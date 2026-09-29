@@ -5,7 +5,6 @@ import { ProjectHistory } from './history.js';
 import {
   newProject,
   redrawAll,
-  renderPaletteLibrary,
   resetBuilderFolder,
   restoreStudioProject,
   setBuilderFolder,
@@ -35,10 +34,9 @@ import {
 } from './status.js';
 import { StudioShell } from './studio-shell.js';
 
-// The editors redraw themselves; the palette library has no hook of its own.
+// The editors redraw themselves; the config picker is the core's own.
 redrawAll.after(() => {
   renderConfigPicker();
-  renderPaletteLibrary();
 });
 
 // ===== active config picker =====

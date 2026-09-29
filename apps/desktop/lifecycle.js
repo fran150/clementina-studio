@@ -39,7 +39,6 @@ export const restoreStudioProject = /** @type {Step<[project: any, name?: string
 export const renderAnimations = /** @type {Step<[]>} */ (step());
 export const renderBankEditor = /** @type {Step<[]>} */ (step());
 export const renderBackgrounds = /** @type {Step<[]>} */ (step());
-export const renderPaletteLibrary = /** @type {Step<[]>} */ (step());
 // The Builder's project folder: forgotten for a new project or Save As, and
 // taken from a portable project that was opened.
 export const resetBuilderFolder = /** @type {Step<[]>} */ (step());
