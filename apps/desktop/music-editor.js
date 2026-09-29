@@ -5,6 +5,8 @@
 // plays an instrument, the registers the sequencer's SET_* opcodes put on a
 // voice between notes. See docs/audio.md.
 import { StudioAudio } from './audio-shared.js';
+import { canAdd, clampIndex, copyAsset, newId, removeAt } from './domain/assets.js';
+import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
 import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { newProject, redrawAll, restoreStudioProject, showView } from './lifecycle.js';
@@ -1273,13 +1275,8 @@ for (const [id, label, icon] of [
   ['muInstrumentDelete', 'Delete instrument', 'delete'],
 ])
   $('muInstrumentActions').append(StudioShell.iconButton(id, label, icon));
-function freshInstrumentName(base = 'Instrument') {
-  let n = 1;
-  while (instruments.some((i) => i.name.toLowerCase() === `${base}_${n}`.toLowerCase())) n++;
-  return `${base}_${n}`;
-}
 $('muInstrumentNew').onclick = () => {
-  if (instruments.length >= 255) {
+  if (!canAdd(instruments)) {
     setStatus('A project holds at most 255 instruments.');
     return;
   }
@@ -1287,8 +1284,8 @@ $('muInstrumentNew').onclick = () => {
     'New instrument',
     () => {
       instruments.push({
-        id: crypto.randomUUID(),
-        name: freshInstrumentName(),
+        id: newId(),
+        name: freshName(instruments, 'Instrument'),
         wave: 1,
         pulse: 128,
         attack: 0,
@@ -1304,15 +1301,11 @@ $('muInstrumentNew').onclick = () => {
 };
 $('muInstrumentDuplicate').onclick = () => {
   const i = instrument();
-  if (!i || instruments.length >= 255) return;
+  if (!i || !canAdd(instruments)) return;
   edit(
     'Duplicate ' + i.name,
     () => {
-      instruments.push({
-        ...structuredClone(i),
-        id: crypto.randomUUID(),
-        name: freshInstrumentName(i.name.replace(/_\d+$/, '')),
-      });
+      instruments.push(copyAsset(i, freshName(instruments, i.name.replace(/_\d+$/, ''))));
       instrumentIndex = instruments.length - 1;
     },
     ['instruments'],
@@ -1338,7 +1331,7 @@ $('muInstrumentDelete').onclick = () => {
         for (const v of s.voices)
           for (const n of v.notes) if (n.instrumentId === i.id) n.instrumentId = heir.id;
       instruments.splice(instrumentIndex, 1);
-      instrumentIndex = Math.max(0, Math.min(instrumentIndex, instruments.length - 1));
+      instrumentIndex = clampIndex(instruments, instrumentIndex);
     },
     ['instruments', 'songs'],
   );
@@ -1358,10 +1351,7 @@ function chooseInstrument(k) {
   if (!StudioAudio.playing()) sample();
 }
 function renameInstrument(k, name) {
-  if (
-    !/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(name) ||
-    instruments.some((x, j) => j !== k && x.name.toLowerCase() === name.toLowerCase())
-  ) {
+  if (!canRename(instruments, k, name, SYMBOL_NAME)) {
     setStatus('Use a unique name: letters, digits, underscores; start with a letter.');
     return false;
   }
@@ -1376,13 +1366,8 @@ for (const [id, label, icon] of [
   ['muDelete', 'Delete song', 'delete'],
 ])
   $('muActions').append(StudioShell.iconButton(id, label, icon));
-function freshName() {
-  let n = 1;
-  while (songs.some((s) => s.name.toLowerCase() === 'song_' + n)) n++;
-  return 'Song_' + n;
-}
 $('muNew').onclick = () => {
-  if (!A() || songs.length >= 255) {
+  if (!A() || !canAdd(songs)) {
     setStatus('A project holds at most 255 songs.');
     return;
   }
@@ -1391,8 +1376,8 @@ $('muNew').onclick = () => {
   edit(
     'New song',
     () => {
-      if (kit) setInstruments(A().defaultInstruments(() => crypto.randomUUID()));
-      songs.push(A().newSong(crypto.randomUUID(), freshName()));
+      if (kit) setInstruments(A().defaultInstruments(newId));
+      songs.push(A().newSong(newId(), freshName(songs, 'Song')));
       songIndex = songs.length - 1;
       selection = new Set();
       cursor = 0;
@@ -1404,9 +1389,9 @@ $('muNew').onclick = () => {
 $('muEmptyNew').onclick = () => $('muNew').click();
 $('muDuplicate').onclick = () => {
   const s = song();
-  if (!s || songs.length >= 255) return;
+  if (!s || !canAdd(songs)) return;
   edit('Duplicate ' + s.name, () => {
-    songs.push({ ...structuredClone(s), id: crypto.randomUUID(), name: freshName() });
+    songs.push(copyAsset(s, freshName(songs, 'Song')));
     songIndex = songs.length - 1;
     selection = new Set();
   });
@@ -1417,8 +1402,7 @@ $('muDelete').onclick = () => {
   StudioAudio.stop();
   setStatus(`Deleted ${s.name}. Ctrl/Cmd+Z brings it back.`);
   edit('Delete ' + s.name, () => {
-    songs.splice(songIndex, 1);
-    songIndex = Math.max(0, songIndex - 1);
+    songIndex = removeAt(songs, songIndex);
     selection = new Set();
   });
 };
@@ -1432,10 +1416,7 @@ function chooseSong(i) {
   render();
 }
 function renameSong(i, name) {
-  if (
-    !/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(name) ||
-    songs.some((s, j) => j !== i && s.name.toLowerCase() === name.toLowerCase())
-  ) {
+  if (!canRename(songs, i, name, SYMBOL_NAME)) {
     setStatus('Use a unique name: letters, digits, underscores; start with a letter.');
     return false;
   }
@@ -1496,7 +1477,7 @@ function render() {
     },
   });
   $('muDuplicate').disabled = $('muDelete').disabled = !s;
-  $('muNew').disabled = songs.length >= 255;
+  $('muNew').disabled = !canAdd(songs);
   $('muInstrumentDuplicate').disabled = $('muInstrumentDelete').disabled = !instrument();
   $('muUndo').disabled = !ProjectHistory.canUndo();
   $('muRedo').disabled = !ProjectHistory.canRedo();

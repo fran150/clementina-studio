@@ -4,65 +4,18 @@
 // Ctrl/Cmd+C/X/V copy, cut and paste — a paste follows the pointer until a
 // click places it — Delete clears, Ctrl/Cmd+A selects all, Escape deselects,
 // and a flip turns the selected block over. A region is {x, y, width, height}
-// in cells; a block is {width, height, cells} lifted out of a grid.
+// in cells; a block is {width, height, cells} lifted out of a grid. The grid
+// operations themselves are in domain/cells.js.
+import {
+  blankCell as blank,
+  clear,
+  lift,
+  mirror,
+  place,
+  regionBetween as region,
+  regionContains as contains,
+} from './domain/cells.js';
 import { StudioShell } from './studio-shell.js';
-
-const blank = () => ({
-  tile: 0,
-  paletteBank: 0,
-  flipX: false,
-  flipY: false,
-  priority: false,
-  chrAlt: false,
-});
-const region = (a, b) => ({
-  x: Math.min(a.col, b.col),
-  y: Math.min(a.row, b.row),
-  width: Math.abs(a.col - b.col) + 1,
-  height: Math.abs(a.row - b.row) + 1,
-});
-const contains = (r, p) =>
-  !!r && p.col >= r.x && p.row >= r.y && p.col < r.x + r.width && p.row < r.y + r.height;
-function lift(grid, r) {
-  const cells = [];
-  for (let y = 0; y < r.height; y++)
-    for (let x = 0; x < r.width; x++)
-      cells.push({ ...grid.cells[(r.y + y) * grid.width + r.x + x] });
-  return { width: r.width, height: r.height, cells };
-}
-function clear(grid, r) {
-  for (let y = r.y; y < r.y + r.height; y++)
-    for (let x = r.x; x < r.x + r.width; x++) grid.cells[y * grid.width + x] = blank();
-}
-// Cells past the grid's edge are dropped, the way a paste is clipped.
-function place(grid, block, x0, y0) {
-  for (let y = 0; y < block.height; y++)
-    for (let x = 0; x < block.width; x++) {
-      const gx = x0 + x,
-        gy = y0 + y;
-      if (gx >= 0 && gy >= 0 && gx < grid.width && gy < grid.height)
-        grid.cells[gy * grid.width + gx] = { ...block.cells[y * block.width + x] };
-    }
-}
-// Flipping a block turns the picture over: the cells swap places and each
-// one's own flip bit toggles. Toggling the bits alone would leave a
-// multi-tile picture scrambled.
-function mirror(block, axis) {
-  const cells = [];
-  for (let y = 0; y < block.height; y++)
-    for (let x = 0; x < block.width; x++) {
-      const cell = {
-        ...block.cells[
-          (axis === 'y' ? block.height - 1 - y : y) * block.width +
-            (axis === 'x' ? block.width - 1 - x : x)
-        ],
-      };
-      if (axis === 'x') cell.flipX = !cell.flipX;
-      else cell.flipY = !cell.flipY;
-      cells.push(cell);
-    }
-  return { width: block.width, height: block.height, cells };
-}
 
 // grid() returns {width, height, cells}; edit(label, fn) runs fn as one
 // undo step named label and re-renders; render() repaints.
@@ -336,4 +289,4 @@ function cellSelection({ grid, edit, render }) {
   };
   return api;
 }
-export const CellGrid = Object.freeze({ blank, cellSelection });
+export const CellGrid = Object.freeze({ cellSelection });

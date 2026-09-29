@@ -9,7 +9,17 @@
 // A build step can later generate a primitive that overwrites just the
 // tile-ID bytes in that region, left-to-right/top-to-bottom; mapping a value
 // (a score, a string) to tile IDs is the programmer's job, not Studio's.
-import { CellGrid } from './cell-grid.js';
+import { canAdd, clampIndex, copyAsset, newId, removeAt } from './domain/assets.js';
+import { FILE_NAME, canRename, freshName } from './domain/names.js';
+import {
+  COLUMNS as OVERLAY_COLUMNS,
+  ROWS as OVERLAY_ROWS,
+  firstFreeSpot,
+  fitsOverlay,
+  newOverlay,
+  overlapsAny,
+  overlayGrid,
+} from './domain/overlays.js';
 import { $ } from './dom.js';
 import { dragRegion, gridEditor, outlineDrag } from './grid-editor.js';
 import { redrawAll, showView } from './lifecycle.js';
@@ -18,12 +28,6 @@ import { setStatus } from './status.js';
 import { StudioShell } from './studio-shell.js';
 
 const host = $('overlayEditor');
-
-// The overlay's fixed hardware size — specs/video.json's overlay entry
-// (columns:40, rows:25, scrolls:false).
-const OVERLAY_COLUMNS = 40,
-  OVERLAY_ROWS = 25,
-  OVERLAY_CELLS = 1000;
 
 let overlayIndex = 0;
 // The placeholder chosen in the list, or -1 for none.
@@ -39,49 +43,18 @@ const editor = gridEditor({
   editLabel: 'Edit the overlay',
   railLabel: 'Overlay tools',
   asset: overlay,
-  grid: () =>
-    overlay() ? { width: OVERLAY_COLUMNS, height: OVERLAY_ROWS, cells: overlay().cells } : null,
+  grid: () => (overlay() ? overlayGrid(overlay()) : null),
   render: () => render(),
   transparentZero: true,
   layout: () => layoutPlaceholders(),
   dragTools: { placeholder: { preview: previewPlaceholder, commit: commitPlaceholder } },
 });
 const { selection, edit: ovEdit, primaryTileset, altTileset } = editor;
-function makeCells() {
-  return Array.from({ length: OVERLAY_CELLS }, CellGrid.blank);
-}
-function overlapsRect(a, b) {
-  return (
-    a.col < b.col + b.width &&
-    b.col < a.col + a.width &&
-    a.row < b.row + b.height &&
-    b.row < a.row + a.height
-  );
-}
-function firstFreeSpot(width, height, placeholders) {
-  for (let row = 0; row <= OVERLAY_ROWS - height; row++)
-    for (let col = 0; col <= OVERLAY_COLUMNS - width; col++) {
-      const rect = { col, row, width, height };
-      if (!placeholders.some((p) => overlapsRect(p, rect))) return rect;
-    }
-  return null;
-}
-
 document.addEventListener('studiohistory', () => {
-  overlayIndex = Math.max(0, Math.min(overlayIndex, overlays.length - 1));
+  overlayIndex = clampIndex(overlays, overlayIndex);
   selection.revalidate();
 });
 
-function freshOverlayName() {
-  let n = 1;
-  while (overlays.some((o) => o.name.toLowerCase() === 'overlay_' + n)) n++;
-  return 'Overlay_' + n;
-}
-function freshPlaceholderName(a) {
-  let n = 1;
-  while (a.placeholders.some((p) => p.name.toLowerCase() === 'placeholder_' + n)) n++;
-  return 'Placeholder_' + n;
-}
 // Opens another overlay with no placeholder chosen and a fresh pick.
 function chooseOverlay(i) {
   overlayIndex = i;
@@ -90,10 +63,7 @@ function chooseOverlay(i) {
   render();
 }
 function renameOverlay(i, name) {
-  if (
-    !/^[A-Za-z][A-Za-z0-9_-]{0,47}$/.test(name) ||
-    overlays.some((x, j) => j !== i && x.name.toLowerCase() === name.toLowerCase())
-  ) {
+  if (!canRename(overlays, i, name, FILE_NAME)) {
     setStatus('Use a unique filename: letters, digits, underscore or hyphen.');
     return false;
   }
@@ -126,13 +96,13 @@ function previewPlaceholder(anchor, col, row) {
 }
 function addPlaceholder(rect) {
   const a = overlay();
-  if (a.placeholders.some((p) => overlapsRect(p, rect))) {
+  if (overlapsAny(a.placeholders, rect)) {
     setStatus('That region overlaps an existing placeholder.');
     render();
     return;
   }
   ovEdit('New placeholder', () => {
-    a.placeholders.push({ id: crypto.randomUUID(), name: freshPlaceholderName(a), ...rect });
+    a.placeholders.push({ id: newId(), name: freshName(a.placeholders, 'Placeholder'), ...rect });
     placeholderIndex = a.placeholders.length - 1;
   });
 }
@@ -170,10 +140,7 @@ function choosePlaceholder(i) {
 }
 function renamePlaceholder(i, name) {
   const a = overlay();
-  if (
-    !/^[A-Za-z][A-Za-z0-9_-]{0,47}$/.test(name) ||
-    a.placeholders.some((x, j) => j !== i && x.name.toLowerCase() === name.toLowerCase())
-  ) {
+  if (!canRename(a.placeholders, i, name, FILE_NAME)) {
     setStatus('Use a unique name: letters, digits, underscore or hyphen.');
     return false;
   }
@@ -219,12 +186,12 @@ function applyPlaceholderField(input, field, min, max) {
   if (!p) return;
   const value = Math.max(min, Math.min(max, Math.round(Number(input.value)) || min));
   const next = { ...p, [field]: value };
-  if (next.col + next.width > OVERLAY_COLUMNS || next.row + next.height > OVERLAY_ROWS) {
+  if (!fitsOverlay(next)) {
     setStatus(`That placeholder would fall outside the ${OVERLAY_COLUMNS} × ${OVERLAY_ROWS} grid.`);
     render();
     return;
   }
-  if (a.placeholders.some((q, i) => i !== placeholderIndex && overlapsRect(q, next))) {
+  if (overlapsAny(a.placeholders, next, placeholderIndex)) {
     setStatus('That change overlaps another placeholder.');
     render();
     return;
@@ -285,7 +252,7 @@ for (const [id, label, icon] of [
 ])
   $('ovActions').append(StudioShell.iconButton(id, label, icon));
 $('ovNewAction').onclick = () => {
-  if (overlays.length >= 255) {
+  if (!canAdd(overlays)) {
     setStatus('A project holds at most 255 overlays.');
     return;
   }
@@ -294,14 +261,7 @@ $('ovNewAction').onclick = () => {
     return;
   }
   ovEdit('New overlay', () => {
-    overlays.push({
-      id: crypto.randomUUID(),
-      name: freshOverlayName(),
-      tilesetId: tilesets[0].id,
-      altTilesetId: tilesets[0].id,
-      cells: makeCells(),
-      placeholders: [],
-    });
+    overlays.push(newOverlay(newId(), freshName(overlays, 'Overlay'), tilesets[0].id));
     overlayIndex = overlays.length - 1;
     placeholderIndex = -1;
     editor.resetPlanes();
@@ -309,12 +269,9 @@ $('ovNewAction').onclick = () => {
   setStatus('Created ' + overlay().name + '.');
 };
 $('ovDuplicateAction').onclick = () => {
-  if (!overlay() || overlays.length >= 255) return;
+  if (!overlay() || !canAdd(overlays)) return;
   ovEdit('Duplicate ' + overlay().name, () => {
-    const copy = structuredClone(overlay());
-    copy.id = crypto.randomUUID();
-    copy.name = freshOverlayName();
-    overlays.push(copy);
+    overlays.push(copyAsset(overlay(), freshName(overlays, 'Overlay')));
     overlayIndex = overlays.length - 1;
     placeholderIndex = -1;
   });
@@ -323,8 +280,7 @@ $('ovDeleteAction').onclick = () => {
   if (!overlay()) return;
   setStatus(`Deleted ${overlay().name}. Ctrl/Cmd+Z brings it back.`);
   ovEdit('Delete ' + overlay().name, () => {
-    overlays.splice(overlayIndex, 1);
-    overlayIndex = Math.max(0, overlayIndex - 1);
+    overlayIndex = removeAt(overlays, overlayIndex);
     placeholderIndex = -1;
   });
 };

@@ -9,6 +9,17 @@
 // #bgCanvas, #bgTileMap, #bgFlipX and so on in views/background-editor.html,
 // and 'ov' finds the same controls in views/overlay-editor.html.
 import { CellGrid } from './cell-grid.js';
+import {
+  TILES_PER_ROW,
+  blankCell,
+  floodPoints,
+  groupBlock,
+  linePoints,
+  place,
+  regionBetween,
+  regionPoints,
+  setCell,
+} from './domain/cells.js';
 import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { bankColor, bankPalette, css565, currentView, tilePixel, tilesets } from './state.js';
@@ -33,9 +44,6 @@ const TOOL_KEYS = {
 };
 const SINGLE_TILE = { col: 0, row: 0, width: 1, height: 1 };
 
-function blankCell() {
-  return { tile: 0, paletteBank: 0, flipX: false, flipY: false, priority: false, chrAlt: false };
-}
 // The cells between two corners of a drag, as inclusive bounds.
 function spanOf(anchor, col, row) {
   return {
@@ -275,7 +283,7 @@ export function gridEditor(options) {
   function pick(region) {
     const source = pickingTileset();
     pickRegion = region;
-    const tile = region.row * 16 + region.col;
+    const tile = region.row * TILES_PER_ROW + region.col;
     stamp = { ...stamp, tile, paletteBank: source.tilePaletteBanks[tile], chrAlt: pickAlt };
     stampTool();
     render();
@@ -363,39 +371,15 @@ export function gridEditor(options) {
   // ===== painting =====
   // Paints one cell with the stamp, or blanks it when erasing.
   function paintCellAt(col, row) {
-    const g = grid();
-    if (col < 0 || row < 0 || col >= g.width || row >= g.height) return;
-    g.cells[row * g.width + col] = erasing ? blankCell() : { ...stamp };
+    setCell(grid(), col, row, erasing ? blankCell() : { ...stamp });
   }
   // A picked group stamps its whole footprint anchored at (col,row). Only the
   // pencil does this, never fill or rectangle, which would stamp the group
-  // at every cell they cover. Each tile keeps its own authored bank, and a
-  // flipped group is mirrored whole, its tiles swapping places as well as
-  // flipping, so the picture turns over.
+  // at every cell they cover. See groupBlock in domain/cells.js.
   function paintGroupAt(col, row) {
-    if (erasing) {
-      paintCellAt(col, row);
-      return;
-    }
-    const g = grid(),
-      source = cellTileset(stamp);
-    for (let dy = 0; dy < pickRegion.height; dy++)
-      for (let dx = 0; dx < pickRegion.width; dx++) {
-        const cx = col + dx,
-          cy = row + dy;
-        if (cx < 0 || cy < 0 || cx >= g.width || cy >= g.height) continue;
-        const sx = stamp.flipX ? pickRegion.width - 1 - dx : dx,
-          sy = stamp.flipY ? pickRegion.height - 1 - dy : dy;
-        const tile = (pickRegion.row + sy) * 16 + (pickRegion.col + sx);
-        g.cells[cy * g.width + cx] = {
-          tile,
-          paletteBank: source?.tilePaletteBanks[tile] ?? 0,
-          flipX: stamp.flipX,
-          flipY: stamp.flipY,
-          priority: stamp.priority,
-          chrAlt: stamp.chrAlt,
-        };
-      }
+    if (erasing) paintCellAt(col, row);
+    else
+      place(grid(), groupBlock(pickRegion, stamp, cellTileset(stamp)?.tilePaletteBanks), col, row);
   }
   function paintAt(col, row) {
     (isGroup() ? paintGroupAt : paintCellAt)(col, row);
@@ -403,43 +387,21 @@ export function gridEditor(options) {
   // Continues a stroke to (col,row), painting every cell on the straight
   // line from the last one so a fast drag leaves no gaps.
   function drawTo(col, row) {
-    if (last) {
-      const steps = Math.max(Math.abs(col - last.col), Math.abs(row - last.row));
-      for (let i = 0; i <= steps; i++)
-        paintAt(
-          Math.round(last.col + ((col - last.col) * i) / (steps || 1)),
-          Math.round(last.row + ((row - last.row) * i) / (steps || 1)),
-        );
-    } else paintAt(col, row);
+    for (const p of last ? linePoints(last, { col, row }) : [{ col, row }]) paintAt(p.col, p.row);
     last = { col, row };
     markDirty();
     paintCanvas();
   }
   // Fills the 4-connected area of cells showing the same tile as (col,row).
   function flood(col, row) {
-    const g = grid(),
-      w = g.width,
-      h = g.height;
-    if (col < 0 || row < 0 || col >= w || row >= h) return;
-    const old = g.cells[row * w + col].tile,
-      seen = new Uint8Array(w * h),
-      stack = [[col, row]];
-    while (stack.length) {
-      const [x, y] = stack.pop();
-      if (x < 0 || y < 0 || x >= w || y >= h || seen[y * w + x] || g.cells[y * w + x].tile !== old)
-        continue;
-      seen[y * w + x] = 1;
-      paintCellAt(x, y);
-      stack.push([x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]);
-    }
+    for (const p of floodPoints(grid(), col, row)) paintCellAt(p.col, p.row);
   }
   function previewRectangle(from, col, row) {
     paintCanvas();
     outlineDrag(canvas.getContext('2d'), from, col, row, '#fff', '#111');
   }
   function commitRectangle(from, col, row) {
-    const { x0, x1, y0, y1 } = spanOf(from, col, row);
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) paintCellAt(x, y);
+    for (const p of regionPoints(regionBetween(from, { col, row }))) paintCellAt(p.col, p.row);
     markDirty();
     paintCanvas();
   }
@@ -512,7 +474,12 @@ export function gridEditor(options) {
       cell = g.cells[row * g.width + col];
     stamp = { ...cell };
     pickAlt = cell.chrAlt;
-    pickRegion = { col: cell.tile % 16, row: Math.floor(cell.tile / 16), width: 1, height: 1 };
+    pickRegion = {
+      col: cell.tile % TILES_PER_ROW,
+      row: Math.floor(cell.tile / TILES_PER_ROW),
+      width: 1,
+      height: 1,
+    };
     render();
   }
   canvas.onpointerdown = (e) => {

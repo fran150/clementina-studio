@@ -74,6 +74,12 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   (sounds) and `music-editor.js` (songs and instruments), which share
   `audio-shared.js`. The overlay and background editors share `grid-editor.js`,
   their tools, tile picker, stamp settings, palette dock, rails and shortcuts.
+  `domain/` holds the operations on the project's data, with no page code, so
+  unit tests cover them directly (`tests/domain-*.test.mjs`): `names.js` (name
+  patterns, fresh and unique names), `assets.js` (adding, copying and removing
+  assets), `cells.js` (grids of tile cells: paint, fill, lines, groups, copy,
+  flip, resize), `backgrounds.js` (BGMODE windows, tables and scrolling) and
+  `overlays.js` (the fixed overlay and its placeholders).
   `npm run typecheck` checks them with TypeScript's checkJs;
   `types/globals.d.ts` types the DOM helpers they share.
 - `packages/assets`: Studio project persistence and attribute encoders. Its

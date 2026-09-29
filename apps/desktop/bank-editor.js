@@ -1,5 +1,7 @@
 // Tileset authoring. A tileset is one CHR bank's worth of graphics; its per-tile
 // palette bank numbers are authoring intent, recorded alongside the pixels.
+import { copyAsset, newId, removeAt } from './domain/assets.js';
+import { FILE_NAME, canRename, freshName, uniqueName } from './domain/names.js';
 import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { openTilesetImageImport } from './image-import-ui.js';
@@ -779,16 +781,11 @@ function selectBank(i) {
   selection = { x: 0, y: 0, width: 1, height: 1 };
   render();
 }
-function freshName() {
-  let n = 1;
-  while (tilesets.some((a) => a.name.toLowerCase() === 'tileset_' + n)) n++;
-  return 'Tileset_' + n;
-}
 $('addBankFile').onclick = () =>
   mutate('New tileset', () => {
-    const name = freshName();
+    const name = freshName(tilesets, 'Tileset');
     tilesets.push({
-      id: crypto.randomUUID(),
+      id: newId(),
       name,
       bpp: 3,
       chr: Array(6144).fill(0),
@@ -806,13 +803,10 @@ $('importBankFile').onclick = () =>
     if (!imported) return;
     let name = imported.name.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40);
     if (!/^[A-Za-z]/.test(name)) name = 'Tileset_' + name;
-    let unique = name,
-      n = 2;
-    while (tilesets.some((a) => a.name.toLowerCase() === unique.toLowerCase()))
-      unique = name + '_' + n++;
+    const unique = uniqueName(tilesets, name);
     mutate('Import a tileset', () => {
       tilesets.push({
-        id: crypto.randomUUID(),
+        id: newId(),
         name: unique,
         bpp: imported.bpp,
         chr: imported.chr,
@@ -832,28 +826,21 @@ $('deleteBankFile').onclick = () => {
   if (!asset()) return;
   setStatus(`Deleted ${asset().name} and its objects. Ctrl/Cmd+Z brings it back.`);
   mutate('Delete ' + asset().name, () => {
-    tilesets.splice(index, 1);
-    index = Math.max(0, index - 1);
+    index = removeAt(tilesets, index);
     objectIndex = -1;
     targetTile = 0;
   });
 };
 $('copyBankFile').onclick = () =>
   mutate('Duplicate ' + asset().name, () => {
-    const copy = structuredClone(asset());
-    copy.id = crypto.randomUUID();
-    copy.name = freshName();
-    tilesets.push(copy);
+    tilesets.push(copyAsset(asset(), freshName(tilesets, 'Tileset')));
     index = tilesets.length - 1;
     objectIndex = -1;
     targetTile = 0;
     palette = 0;
   });
 function renameBank(i, name) {
-  if (
-    !/^[A-Za-z][A-Za-z0-9_-]{0,47}$/.test(name) ||
-    tilesets.some((a, j) => j !== i && a.name.toLowerCase() === name.toLowerCase())
-  ) {
+  if (!canRename(tilesets, i, name, FILE_NAME)) {
     setStatus('Use a unique filename: letters, digits, underscore or hyphen.');
     return false;
   }

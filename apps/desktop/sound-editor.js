@@ -4,6 +4,8 @@
 // (VTAKE) for a few frames before giving it back (VGIVE). Each frame is a
 // column across five lanes, drawn like pixels. See docs/audio.md.
 import { StudioAudio } from './audio-shared.js';
+import { canAdd, copyAsset, newId, removeAt } from './domain/assets.js';
+import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
 import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { newProject, redrawAll, restoreStudioProject, showView } from './lifecycle.js';
@@ -650,18 +652,13 @@ for (const [id, label, icon] of [
   ['sfDelete', 'Delete sound', 'delete'],
 ])
   $('sfActions').append(StudioShell.iconButton(id, label, icon));
-function freshName() {
-  let n = 1;
-  while (sounds.some((s) => s.name.toLowerCase() === 'sound_' + n)) n++;
-  return 'Sound_' + n;
-}
 $('sfNew').onclick = () => {
-  if (!A() || sounds.length >= 255) {
+  if (!A() || !canAdd(sounds)) {
     setStatus('A project holds at most 255 sounds.');
     return;
   }
   edit('New sound', () => {
-    sounds.push(A().newSound(crypto.randomUUID(), freshName()));
+    sounds.push(A().newSound(newId(), freshName(sounds, 'Sound')));
     soundIndex = sounds.length - 1;
     selection = null;
   });
@@ -669,12 +666,9 @@ $('sfNew').onclick = () => {
 };
 $('sfEmptyNew').onclick = () => $('sfNew').click();
 $('sfDuplicate').onclick = () => {
-  if (!sound() || sounds.length >= 255) return;
+  if (!sound() || !canAdd(sounds)) return;
   edit('Duplicate ' + sound().name, () => {
-    const copy = structuredClone(sound());
-    copy.id = crypto.randomUUID();
-    copy.name = freshName();
-    sounds.push(copy);
+    sounds.push(copyAsset(sound(), freshName(sounds, 'Sound')));
     soundIndex = sounds.length - 1;
   });
 };
@@ -683,8 +677,7 @@ $('sfDelete').onclick = () => {
   StudioAudio.stop();
   setStatus(`Deleted ${sound().name}. Ctrl/Cmd+Z brings it back.`);
   edit('Delete ' + sound().name, () => {
-    sounds.splice(soundIndex, 1);
-    soundIndex = Math.max(0, soundIndex - 1);
+    soundIndex = removeAt(sounds, soundIndex);
     selection = null;
   });
 };
@@ -695,10 +688,7 @@ function chooseSound(i) {
   render();
 }
 function renameSound(i, name) {
-  if (
-    !/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(name) ||
-    sounds.some((s, j) => j !== i && s.name.toLowerCase() === name.toLowerCase())
-  ) {
+  if (!canRename(sounds, i, name, SYMBOL_NAME)) {
     setStatus('Use a unique name: letters, digits, underscores; start with a letter.');
     return false;
   }
@@ -799,7 +789,7 @@ function render() {
     },
   });
   $('sfDuplicate').disabled = $('sfDelete').disabled = !s;
-  $('sfNew').disabled = sounds.length >= 255;
+  $('sfNew').disabled = !canAdd(sounds);
   $('sfUndo').disabled = !ProjectHistory.canUndo();
   $('sfRedo').disabled = !ProjectHistory.canRedo();
   if (!s) {
