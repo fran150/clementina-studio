@@ -94,7 +94,12 @@ model mutation, undo and canvas geometry stay in each editor.
   palette dock, zoom, both rails, the context menu and the keyboard, all by
   element ids that start with the editor's prefix (`bg`, `ov`). An editor
   adds its own marks with `decorate(ctx)` and `layout()`, and its own drag
-  tools, like the overlay's placeholder, with `dragTools`.
+  tools, like the overlay's placeholder, with `dragTools`. Its parts live in
+  `grid/`: `tile-picker.js` (tileset lists, tile map, Objects), `stamp.js`
+  (stamp bar, flips, Priority, bank reset, palette dock), `painting.js`
+  (strokes, fills, rectangles, eyedropper, context menu), `rails.js`,
+  `keys.js` (shortcuts and panning) and `drag.js` (drag regions and their
+  outline). They share one object of the editor's state and helpers.
 
 - `history.js` is the project's one undo history. An editor calls
   `ProjectHistory.checkpoint(parts, label)` before an edit — `parts` naming what
