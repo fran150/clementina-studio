@@ -72,7 +72,9 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   bank configs), `sprite-composer.js` (shapes), `animation-editor.js`
   (animations), `image-import-ui.js` (artwork import), `sound-editor.js`
   (sounds) and `music-editor.js` (songs and instruments), which share
-  `audio-shared.js`. `npm run typecheck` checks them with TypeScript's checkJs;
+  `audio-shared.js`. The overlay and background editors share `grid-editor.js`,
+  their tools, tile picker, stamp settings, palette dock, rails and shortcuts.
+  `npm run typecheck` checks them with TypeScript's checkJs;
   `types/globals.d.ts` types the DOM helpers they share.
 - `packages/assets`: Studio project persistence and attribute encoders. Its
   validators delegate to the SDK. `audio.ts` holds the audio model and MIA
