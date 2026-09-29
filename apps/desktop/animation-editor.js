@@ -2,6 +2,22 @@
 // names shapes rather than owning sprites, so a shape edit reaches every frame
 // showing it, flipped or not. Loaded before sprite-composer.js, which wraps
 // renderAnimations to keep its own canvas in sync with shape edits.
+import {
+  DEFAULT_TICKS,
+  MAX_FRAMES,
+  MAX_OFFSET,
+  MIN_OFFSET,
+  animationTilesetId,
+  clampOffset,
+  frameAtTick,
+  frameSprites as framePlacement,
+  framesOnTileset,
+  freshAnimationId,
+  moveItem,
+  newAnimation,
+  toggleFrameFlip,
+  usableShapes as shapesFor,
+} from './domain/animations.js';
 import { canAdd, copyAsset, removeAt } from './domain/assets.js';
 import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
 import { $, isField } from './dom.js';
@@ -44,7 +60,7 @@ const currentAnimation = () => animations[animationIndex];
 const currentFrame = () => currentAnimation()?.frames[frameIndex];
 const shapeById = (id) => shapes.find((s) => s.id === id);
 /** The tileset an animation is pinned to: the one its existing frames use. */
-const animationTileset = (a) => shapeById(a?.frames[0]?.shapeId)?.tilesetId;
+const animationTileset = (a) => animationTilesetId(a, shapes);
 function checkpoint(label) {
   ProjectHistory.checkpoint(['animations'], label);
 }
@@ -57,18 +73,10 @@ function edit(...args) {
   markDirty();
   renderAnimations();
 }
-function usableShapes(a) {
-  const pinned = a && animationTileset(a);
-  return shapes.filter((s) => !a || s.tilesetId === pinned);
-}
-
-function freshId(name) {
-  const stem = 'animation:' + name;
-  let id = stem,
-    n = 2;
-  while (animations.some((a) => a.id === id)) id = stem + '-' + n++;
-  return id;
-}
+/** The shapes animation `a` can show: those on its tileset. */
+const usableShapes = (a) => shapesFor(a, shapes);
+/** A project-unique id for an animation named `name`. */
+const freshId = (name) => freshAnimationId(animations, name);
 $('anCreateShape').onclick = () => {
   showView('shapes');
   if ($('scLibraryToggle').getAttribute('aria-expanded') !== 'true') $('scLibraryToggle').click();
@@ -86,7 +94,7 @@ $('anNew').onclick = () => {
   }
   edit('New animation', () => {
     const name = freshName(animations, 'animation');
-    animations.push({ id: freshId(name), name, frames: [{ shapeId: shapes[0].id, ticks: 6 }] });
+    animations.push(newAnimation(freshId(name), name, shapes[0].id));
     setAnimationIndex(animations.length - 1);
     setFrameIndex(0);
     selectedShapeIds.clear();
@@ -197,10 +205,10 @@ function renderShapeList(usable) {
 $('anAppend').onclick = () => {
   const a = currentAnimation(),
     selected = usableShapes(a).filter((s) => selectedShapeIds.has(s.id));
-  if (!a || !selected.length || a.frames.length + selected.length > 255) return;
+  if (!a || !selected.length || a.frames.length + selected.length > MAX_FRAMES) return;
   edit('Append frames', () => {
     setFrameIndex(a.frames.length);
-    for (const shape of selected) a.frames.push({ shapeId: shape.id, ticks: 6 });
+    for (const shape of selected) a.frames.push({ shapeId: shape.id, ticks: DEFAULT_TICKS });
   });
 };
 // Frames copy, cut and paste through the app clipboard; a paste goes in
@@ -219,7 +227,7 @@ function frameMenu(e) {
     {
       label: 'Duplicate',
       hint: 'Mod+D',
-      disabled: a.frames.length >= 255,
+      disabled: a.frames.length >= MAX_FRAMES,
       run: () => $('anDuplicateFrame').click(),
     },
     { label: 'Delete', hint: 'Delete', disabled: a.frames.length < 2, run: removeFrame },
@@ -241,13 +249,11 @@ function frameMenu(e) {
 }
 // A flip is the frame's, like its offset: the shape stays as drawn.
 function flipFrame(axis) {
-  const frame = currentFrame(),
-    key = axis === 'x' ? 'flipX' : 'flipY';
+  const frame = currentFrame();
   if (!frame) return;
-  edit(axis === 'x' ? 'Flip the frame horizontally' : 'Flip the frame vertically', () => {
-    if (frame[key]) delete frame[key];
-    else frame[key] = true;
-  });
+  edit(axis === 'x' ? 'Flip the frame horizontally' : 'Flip the frame vertically', () =>
+    toggleFrameFlip(frame, axis),
+  );
 }
 function removeFrame() {
   const a = currentAnimation();
@@ -272,12 +278,12 @@ function pasteFrames() {
   const a = currentAnimation(),
     frames = StudioShell.clipboard.get('frames');
   if (!a || !frames) return false;
-  if (a.frames.length + frames.length > 255) {
-    setStatus('An animation holds at most 255 frames.');
+  if (a.frames.length + frames.length > MAX_FRAMES) {
+    setStatus(`An animation holds at most ${MAX_FRAMES} frames.`);
     return false;
   }
   const pinned = animationTileset(a);
-  if (frames.some((f) => shapeById(f.shapeId)?.tilesetId !== pinned)) {
+  if (!framesOnTileset(frames, shapes, pinned)) {
     setStatus(
       `Only frames showing shapes on ${tilesetById(pinned)?.name ?? "this animation's tileset"} can join this animation.`,
     );
@@ -292,7 +298,7 @@ function pasteFrames() {
 StudioShell.editActions('animations', { copy: copyFrame, cut: cutFrame, paste: pasteFrames });
 $('anDuplicateFrame').onclick = () => {
   const a = currentAnimation();
-  if (!a || a.frames.length >= 255 || !currentFrame()) return;
+  if (!a || a.frames.length >= MAX_FRAMES || !currentFrame()) return;
   edit('Duplicate a frame', () => {
     a.frames.splice(frameIndex + 1, 0, structuredClone(currentFrame()));
     setFrameIndex(frameIndex + 1);
@@ -329,7 +335,7 @@ function renderFrames(a, usable) {
     const input = document.createElement('input');
     input.type = 'number';
     input.setAttribute('aria-label', `Frame ${i} ${key}`);
-    const limits = key === 'ticks' ? [1, 255] : [-512, 511];
+    const limits = key === 'ticks' ? [1, 255] : [MIN_OFFSET, MAX_OFFSET];
     input.min = String(limits[0]);
     input.max = String(limits[1]);
     input.value = key === 'ticks' ? frame.ticks : (frame[key] ?? 0);
@@ -389,18 +395,8 @@ function paintFrame(canvas, frame, zoom = 1) {
           }
         }
 }
-// A frame's sprites as the game writes them to OAM: the shape mirrored about
-// its origin — a sprite is 8×8, so x becomes -x-8 and its flip bit toggles —
-// then moved by the frame's offset.
-function frameSprites(frame) {
-  return (shapeById(frame?.shapeId)?.sprites ?? []).map((s) => ({
-    ...s,
-    x: (frame.flipX ? -s.x - 8 : s.x) + (frame.dx ?? 0),
-    y: (frame.flipY ? -s.y - 8 : s.y) + (frame.dy ?? 0),
-    flipX: s.flipX !== !!frame.flipX,
-    flipY: s.flipY !== !!frame.flipY,
-  }));
-}
+// A frame's sprites as the game writes them to OAM.
+const frameSprites = (frame) => framePlacement(frame, shapes);
 function selectFrame(index) {
   const a = currentAnimation();
   if (!a) return;
@@ -412,8 +408,7 @@ function moveFrame(from, to) {
   const a = currentAnimation();
   if (!a || from === to || to < 0 || to >= a.frames.length) return;
   edit('Reorder frames', () => {
-    const [frame] = a.frames.splice(from, 1);
-    a.frames.splice(to, 0, frame);
+    moveItem(a.frames, from, to);
     setFrameIndex(to);
   });
 }
@@ -566,14 +561,8 @@ $('anCanvas').onpointerdown = (e) => {
 $('anCanvas').onpointermove = (e) => {
   if (!drag || e.pointerId !== drag.id) return;
   const rect = $('anCanvas').getBoundingClientRect();
-  const dx = Math.max(
-      -512,
-      Math.min(511, drag.dx + Math.round(((e.clientX - drag.x) * 320) / rect.width)),
-    ),
-    dy = Math.max(
-      -512,
-      Math.min(511, drag.dy + Math.round(((e.clientY - drag.y) * 200) / rect.height)),
-    );
+  const dx = clampOffset(drag.dx + Math.round(((e.clientX - drag.x) * 320) / rect.width)),
+    dy = clampOffset(drag.dy + Math.round(((e.clientY - drag.y) * 200) / rect.height));
   if (dx === (drag.frame.dx ?? 0) && dy === (drag.frame.dy ?? 0)) return;
   if (!drag.changed) {
     checkpoint('Move the frame');
@@ -602,13 +591,7 @@ $('anCanvas').onlostpointercapture = finishDrag;
 function tick(now) {
   const a = currentAnimation();
   if (playing && a && currentView === 'animations') {
-    const total = a.frames.reduce((sum, f) => sum + f.ticks, 0);
-    let t = Math.floor(((now - playStart) * 60) / 1000) % total;
-    setPlayFrame(0);
-    while (t >= a.frames[playFrame].ticks) {
-      t -= a.frames[playFrame].ticks;
-      setPlayFrame(playFrame + 1);
-    }
+    setPlayFrame(frameAtTick(a.frames, Math.floor(((now - playStart) * 60) / 1000)));
   }
   if (!host.hidden) drawPreview();
   requestAnimationFrame(tick);
@@ -656,9 +639,9 @@ function render() {
         ? `Only shapes on ${tilesetById(pinned)?.name ?? 'this tileset'} can join: every frame in one animation plays from the same tileset.`
         : 'A new animation is pinned to its first frame’s tileset.';
   const selectedCount = usable.filter((s) => selectedShapeIds.has(s.id)).length;
-  $('anAppend').disabled = !a || !selectedCount || a.frames.length + selectedCount > 255;
+  $('anAppend').disabled = !a || !selectedCount || a.frames.length + selectedCount > MAX_FRAMES;
   $('anAppend').textContent = `Append ${selectedCount} frame${selectedCount === 1 ? '' : 's'}`;
-  $('anDuplicateFrame').disabled = !currentFrame() || a.frames.length >= 255;
+  $('anDuplicateFrame').disabled = !currentFrame() || a.frames.length >= MAX_FRAMES;
   // The flips show pressed while the selected frame is flipped, like a stamp's in Backgrounds.
   for (const [id, key] of [
     ['anFlipX', 'flipX'],
