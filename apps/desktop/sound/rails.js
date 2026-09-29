@@ -1,0 +1,129 @@
+// The sound editor's rails: the left one opens the sound list and holds the
+// tools, clipboard and history; the right one opens the properties and
+// holds reverse, invert, transpose, duplicate and delete.
+import { $ } from '../dom.js';
+import { ProjectHistory } from '../history.js';
+import { StudioShell } from '../studio-shell.js';
+import {
+  copyFrames,
+  duplicateFrames,
+  invert,
+  pasteFrames,
+  removeFrames,
+  reverse,
+  transpose,
+} from './editing.js';
+import { setTool } from './model.js';
+
+const host = $('soundEditor');
+
+/** Builds both rails and their panel toggles; the sound list starts closed. */
+export function soundRails() {
+  const library = host.querySelector('.sfLibrary'),
+    props = host.querySelector('.sfProps');
+  const libraryToggle = StudioShell.iconButton('sfLibraryToggle', 'Sounds', 'sound');
+  StudioShell.bindPanel({
+    panel: library,
+    button: libraryToggle,
+    group: 'sfLeft',
+    closeGroups: ['sfLeft'],
+  });
+  const toolButton = (id, label, icon, name) =>
+    Object.assign(StudioShell.iconButton(id, label, icon), { onclick: () => setTool(name) });
+  const action = (id, label, icon, fn) =>
+    Object.assign(StudioShell.iconButton(id, label, icon), { onclick: fn });
+  const rail = StudioShell.toolRail('sfRail', 'Sound tools');
+  host.prepend(rail);
+  StudioShell.railLayout(
+    rail,
+    [
+      [libraryToggle],
+      [
+        toolButton(
+          'sfSelectTool',
+          'Select frames (S) — drag across frames, then copy, move, reverse or transpose them',
+          'select',
+          'select',
+        ),
+        toolButton(
+          'sfPencilTool',
+          'Pencil (B) — draw values in a lane; right-drag writes 0',
+          'pencil',
+          'pencil',
+        ),
+        toolButton(
+          'sfLineTool',
+          'Line (L) — drag a straight ramp in a lane: an even pitch sweep, a volume fade',
+          'line',
+          'line',
+        ),
+        toolButton('sfEraserTool', 'Eraser (E) — write 0: silence, no gate', 'eraser', 'eraser'),
+        toolButton(
+          'sfPanTool',
+          'Pan (H) — drag to scroll; Space or the middle button pan with any other tool active',
+          'pan',
+          'pan',
+        ),
+      ],
+    ],
+    [
+      action('sfCopy', 'Copy frames (Ctrl/Cmd+C)', 'copy', copyFrames),
+      action('sfPaste', 'Paste frames after the selection (Ctrl/Cmd+V)', 'paste', pasteFrames),
+      action('sfUndo', 'Undo (Ctrl/Cmd+Z)', 'undo', ProjectHistory.undo),
+      action('sfRedo', 'Redo (Ctrl/Cmd+Shift+Z)', 'redo', ProjectHistory.redo),
+    ],
+  );
+  const propsToggle = StudioShell.iconButton(
+    'sfPropsToggle',
+    'Sound — envelope, pan, length and presets',
+    'properties',
+  );
+  StudioShell.bindPanel({
+    panel: props,
+    button: propsToggle,
+    group: 'sfRight',
+    closeGroups: ['sfRight'],
+    asset: true,
+  });
+  const sideRail = StudioShell.toolRail('sfSideRail', 'Frames', 'right');
+  host.append(sideRail);
+  StudioShell.railLayout(sideRail, [
+    [propsToggle],
+    [
+      action(
+        'sfReverse',
+        'Reverse (Shift+H) — the selected frames, or the whole sound',
+        'flipH',
+        reverse,
+      ),
+      action(
+        'sfInvert',
+        'Invert pitch (Shift+V) — the selected frames, or the whole sound',
+        'flipV',
+        invert,
+      ),
+    ],
+    [
+      action('sfTransposeUp', 'Transpose up a semitone (↑; Shift: an octave)', 'transposeUp', () =>
+        transpose(1),
+      ),
+      action(
+        'sfTransposeDown',
+        'Transpose down a semitone (↓; Shift: an octave)',
+        'transposeDown',
+        () => transpose(-1),
+      ),
+    ],
+    [
+      action(
+        'sfDuplicateFrames',
+        'Duplicate the selected frames (Ctrl/Cmd+D)',
+        'duplicate',
+        duplicateFrames,
+      ),
+      action('sfDeleteFrames', 'Delete the selected frames (Delete)', 'delete', removeFrames),
+    ],
+  ]);
+  library.hidden = true;
+  libraryToggle.setAttribute('aria-expanded', 'false');
+}
