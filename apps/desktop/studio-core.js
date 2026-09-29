@@ -62,7 +62,6 @@ $('configPicker').onchange = () => {
 
 // ===== project =====
 newProject.after(() => {
-  if (dirty && !confirm('Discard unsaved changes?')) return;
   window.studio?.newProject();
   resetBuilderFolder();
   clearProject();
@@ -92,7 +91,11 @@ export async function studioAction(action) {
     setStatus(e.message);
   }
 }
-$('newBtn').onclick = () => newProject();
+// Ask before any editor resets, so Cancel keeps everything as it was.
+$('newBtn').onclick = () => {
+  if (dirty && !confirm('Discard unsaved changes?')) return;
+  newProject();
+};
 $('nativeOpen').onclick = () =>
   studioAction(async () => {
     if (dirty && !confirm('Discard unsaved changes?')) return;

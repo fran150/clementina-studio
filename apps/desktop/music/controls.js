@@ -156,7 +156,12 @@ export function musicKeys() {
     },
     true,
   );
+  // Switching windows mid-drag never delivers the pointerup, so drop the drag
+  // here; otherwise the next click would carry it on.
   window.addEventListener('blur', () => {
     mu.space = false;
+    if (!mu.drag) return;
+    mu.drag = null;
+    mu.render();
   });
 }

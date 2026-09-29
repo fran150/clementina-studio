@@ -44,6 +44,9 @@ import {
 test('RGB565 converts to and from CSS and color inputs', () => {
   assert.equal(to565(255, 255, 255), 0xffff);
   assert.equal(to565(255, 0, 0), 0xf800);
+  // Each channel rounds to the nearest level: 5/255 of red is closer to 1/31 than to 0.
+  assert.equal(to565(5, 0, 0), 0x0800);
+  assert.equal(to565(3, 0, 0), 0x0000);
   assert.deepEqual(rgbOf565(0x07e0), [0, 255, 0]);
   assert.equal(css565(0xf800), 'rgb(255,0,0)');
   assert.equal(css565ToInput(0x001f), '#0000ff');
@@ -187,9 +190,9 @@ test('strokes, shapes and patterns', () => {
   assert.ok(patternAt('stripes', 1, 2) && !patternAt('stripes', 1, 1));
 });
 
-test('objects get fresh names, case sensitive', () => {
+test('objects get fresh names, ignoring case like every other name', () => {
   const t = newTileset('id', 'Tiles');
   assert.equal(freshObjectName(t), 'Object_1');
   t.compositions.push({ name: 'Object_1' }, { name: 'object_2' });
-  assert.equal(freshObjectName(t), 'Object_2');
+  assert.equal(freshObjectName(t), 'Object_3');
 });

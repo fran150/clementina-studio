@@ -5,8 +5,16 @@
 export const PAL_BANKS = 16,
   PAL_COLORS = 8;
 
-/** Packs 8-bit red, green and blue into an RGB565 word. */
-export const to565 = (r, g, b) => ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
+/**
+ * Packs 8-bit red, green and blue into an RGB565 word, rounding each channel
+ * to the nearest level. Image import (packages/assets/image-import.ts rgb565)
+ * rounds the same way, so a color picked by hand and the same color imported
+ * from a picture give the same word.
+ */
+export const to565 = (r, g, b) =>
+  (Math.round((r * 31) / 255) << 11) |
+  (Math.round((g * 63) / 255) << 5) |
+  Math.round((b * 31) / 255);
 
 /** The 8-bit red, green and blue an RGB565 word stands for. */
 export function rgbOf565(v) {

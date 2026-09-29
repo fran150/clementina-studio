@@ -31,6 +31,10 @@ export interface ImageImportResult {
   limitedTiles: number;
   transparentPixels: number;
 }
+/**
+ * Packs 8-bit red, green and blue into an RGB565 word, rounding each channel to
+ * the nearest level, as the editor's color picker does (domain/colors.js to565).
+ */
 export function rgb565(r: number, g: number, b: number): number {
   return (
     (Math.round((r * 31) / 255) << 11) |

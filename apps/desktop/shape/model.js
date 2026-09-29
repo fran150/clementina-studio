@@ -74,7 +74,8 @@ export function checkpoint(label) {
 }
 /**
  * Makes one undoable edit: edit('Delete X', fn) runs fn, marks the project
- * changed and redraws the animations (which show shapes) and this editor.
+ * changed and redraws the animations (which show shapes). This editor listens
+ * to renderAnimations too, so that one call redraws it as well.
  */
 export function edit(...args) {
   const label = typeof args[0] === 'string' ? args.shift() : 'Edit the shape';
@@ -82,7 +83,6 @@ export function edit(...args) {
   args[0]();
   markDirty();
   renderAnimations();
-  sc.render();
 }
 
 /** Hides the tiles that follow the pointer while placing. */

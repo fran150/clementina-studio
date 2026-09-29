@@ -180,6 +180,19 @@ app.whenReady().then(async () => {
     assert.equal(shape.up, '2,1,3', 'move up steps a sprite one OAM index forward');
     assert.equal(shape.down, '1,2,3', 'move down steps it back');
 
+    // Cancelling File > New leaves every editor as it was, selections included.
+    const cancelled = await run(`
+   const wasDirty=dirty;setDirty(true);
+   const original=window.confirm;window.confirm=()=>false;
+   $('newBtn').click();window.confirm=original;
+   showView('shapes');
+   const result={shapes:shapes.length,selected:$('scParts').querySelectorAll('.on').length,dirty};
+   setDirty(wasDirty);
+   return result;`);
+    assert.equal(cancelled.shapes, 1, 'Cancel keeps the project');
+    assert.equal(cancelled.selected, 1, 'Cancel keeps the shape selection');
+    assert.ok(cancelled.dirty, 'Cancel keeps the unsaved mark');
+
     // A 1bpp tileset reveals the tile-picker's plane selector (hidden for the
     // 3bpp one), and switching planes changes which page the picker renders.
     const plane = await run(`

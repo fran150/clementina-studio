@@ -31,7 +31,7 @@ function step() {
 export const redrawAll = /** @type {Step<[]>} */ (step());
 /** Switches the workspace to another editor. */
 export const showView = /** @type {Step<[view: string]>} */ (step());
-/** File > New: asks before discarding edits, then starts an empty project. */
+/** File > New: starts an empty project. The caller asks before discarding edits. */
 export const newProject = /** @type {Step<[]>} */ (step());
 /** Opens a project, from a file or a recovery snapshot, under the given name. */
 export const restoreStudioProject = /** @type {Step<[project: any, name?: string]>} */ (step());

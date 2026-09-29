@@ -3,7 +3,7 @@
 // and importing artwork.
 import { $ } from '../dom.js';
 import { copyAsset, newId, removeAt } from '../domain/assets.js';
-import { canRename, FILE_NAME, freshName, uniqueName } from '../domain/names.js';
+import { canRename, FILE_NAME, freshName, nameTaken, uniqueName } from '../domain/names.js';
 import { freshObjectName, newTileset } from '../domain/tilesets.js';
 import { ProjectHistory } from '../history.js';
 import { openTilesetImageImport } from '../image-import-ui.js';
@@ -36,7 +36,7 @@ export function renameBank(i, name) {
 }
 /** Renames object `i`; false (with a hint) when the name is taken. */
 export function renameObject(i, name) {
-  if (!name || asset().compositions.some((a, j) => j !== i && a.name === name)) {
+  if (!name || nameTaken(asset().compositions, name, i)) {
     setStatus('Use a unique object name.');
     return false;
   }
