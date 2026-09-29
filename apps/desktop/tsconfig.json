@@ -21,6 +21,7 @@
     "music/*.js",
     "tiles/*.js",
     "shell/*.js",
+    "builder/*.js",
     "types/*.d.ts",
     "preload.cts"
   ]
