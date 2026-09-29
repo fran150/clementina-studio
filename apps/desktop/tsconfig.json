@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "types": []
   },
-  "include": ["*.js", "domain/*.js", "grid/*.js", "types/*.d.ts", "preload.cts"]
+  "include": ["*.js", "domain/*.js", "grid/*.js", "animation/*.js", "types/*.d.ts", "preload.cts"]
 }
