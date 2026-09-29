@@ -6,6 +6,16 @@
 import { StudioAudio } from './audio-shared.js';
 import { canAdd, copyAsset, newId, removeAt } from './domain/assets.js';
 import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
+import {
+  ZERO,
+  interpolate,
+  invertFrames,
+  inversionAxis,
+  resizeFrames,
+  reverseFrames,
+  semitoneFreq as freqForSemitone,
+  transposeFrames,
+} from './domain/sounds.js';
 import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { newProject, redrawAll, restoreStudioProject, showView } from './lifecycle.js';
@@ -82,7 +92,7 @@ function laneAt(clientY) {
     y = clientY - r.top;
   return lanes().find((l) => y >= l.top - GAP / 2 && y < l.top + l.height + GAP / 2) ?? null;
 }
-const semitoneFreq = (s) => A().hzToFrequency(440 * 2 ** ((s - 57) / 12));
+const semitoneFreq = (s) => freqForSemitone(A(), s);
 // A lane's position, 0 at the top and 1 at the bottom, for a pointer.
 function laneT(lane, clientY) {
   const r = canvas.getBoundingClientRect();
@@ -103,19 +113,10 @@ function valueAt(lane, clientY) {
       return Math.round(255 * (1 - t));
   }
 }
-// What right-click and the eraser write: the register's 0, the way a
+// Right-click and the eraser write ZERO, the register's 0, the way a
 // painting tool's right button paints color 0 elsewhere.
-const ZERO = { freq: 0, volume: 0, pulse: 0, wave: 0, gate: false };
 // Interpolates along a lane: pitch in semitones, so a line is an even sweep.
-function between(key, a, b, t) {
-  if (key === 'gate') return a;
-  if (key === 'freq') {
-    if (!a || !b) return t < 0.5 ? a : b;
-    const s = A().frequencyNote(a) + (A().frequencyNote(b) - A().frequencyNote(a)) * t;
-    return semitoneFreq(snap ? Math.round(s) : s);
-  }
-  return Math.round(a + (b - a) * t);
-}
+const between = (key, a, b, t) => interpolate(A(), key, a, b, t, snap);
 
 // ---- Drawing ----
 function draw() {
@@ -312,34 +313,19 @@ function setFrames(label, fn) {
 }
 function transpose(semitones) {
   const { from, to } = inRange();
-  setFrames(semitones > 0 ? 'Transpose up' : 'Transpose down', (s) => {
-    for (let f = from; f < to; f++) {
-      const fr = s.frames[f];
-      if (fr.freq)
-        fr.freq = Math.max(1, Math.min(A().MAX_FREQ, Math.round(fr.freq * 2 ** (semitones / 12))));
-    }
-  });
+  setFrames(semitones > 0 ? 'Transpose up' : 'Transpose down', (s) =>
+    transposeFrames(A(), s.frames, { from, to }, semitones),
+  );
 }
 function reverse() {
   const { from, to } = inRange();
-  setFrames('Reverse the frames', (s) => {
-    s.frames.splice(from, to - from, ...s.frames.slice(from, to).reverse());
-  });
+  setFrames('Reverse the frames', (s) => reverseFrames(s.frames, { from, to }));
 }
 function invert() {
-  const { from, to } = inRange(),
-    notes = frames()
-      .slice(from, to)
-      .filter((f) => f.freq)
-      .map((f) => A().frequencyNote(f.freq));
-  if (!notes.length) return;
-  const axis = Math.min(...notes) + Math.max(...notes);
-  setFrames('Invert the pitch', (s) => {
-    for (let f = from; f < to; f++) {
-      const fr = s.frames[f];
-      if (fr.freq) fr.freq = semitoneFreq(axis - A().frequencyNote(fr.freq));
-    }
-  });
+  const range = inRange(),
+    axis = inversionAxis(A(), frames(), range);
+  if (axis === null) return;
+  setFrames('Invert the pitch', (s) => invertFrames(A(), s.frames, range, axis));
 }
 function removeFrames() {
   if (!selection) return false;
@@ -392,8 +378,7 @@ function setLength(n) {
   }
   // Growing repeats the last frame; shrinking cuts from the end.
   setFrames('Change the length', (x) => {
-    while (x.frames.length < n) x.frames.push({ ...x.frames.at(-1) });
-    x.frames.length = n;
+    resizeFrames(x.frames, n);
     if (selection && selection.to > n) selection = null;
   });
 }
