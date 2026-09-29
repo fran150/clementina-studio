@@ -2,6 +2,22 @@
 // palette bank numbers are authoring intent, recorded alongside the pixels.
 import { copyAsset, newId, removeAt } from './domain/assets.js';
 import { FILE_NAME, canRename, freshName, uniqueName } from './domain/names.js';
+import {
+  applyPixels as domainApplyPixels,
+  areaTile,
+  capturePixels as domainCapturePixels,
+  clearPixels as domainClearPixels,
+  floodPixels,
+  freshObjectName,
+  inArea,
+  newTileset,
+  patternAt as domainPatternAt,
+  setTilePixel,
+  shapePixels as domainShapePixels,
+  strokePixels,
+  tilePixel,
+  transformPixels,
+} from './domain/tilesets.js';
 import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { openTilesetImageImport } from './image-import-ui.js';
@@ -107,17 +123,9 @@ function mutate(...args) {
   fn();
   changed();
 }
+// One pixel of a tile, on the 1bpp page being viewed.
 function sample(a, t, x, y) {
-  let n = 0;
-  for (let p = 0; p < 3; p++) n |= ((a.chr[p * 2048 + t * 8 + y] >> x) & 1) << p;
-  return a.bpp === 1 ? (n >> plane) & 1 : n;
-}
-function write(a, t, x, y, value) {
-  for (const p of a.bpp === 1 ? [plane] : [0, 1, 2]) {
-    const pos = p * 2048 + t * 8 + y,
-      bit = a.bpp === 1 ? (value ? 1 : 0) : (value >> p) & 1;
-    a.chr[pos] = (a.chr[pos] & ~(1 << x)) | (bit << x);
-  }
+  return tilePixel(a, t, x, y, plane);
 }
 function render() {
   host.hidden = currentView !== 'tiles';
@@ -436,11 +444,13 @@ $('bankMap').onpointerup = $('bankMap').onpointercancel = () => {
   anchor = null;
   render();
 };
+// Paints one pixel of the drawing area, recording the bank it was drawn
+// against unless erasing.
 function paintAt(x, y, value) {
-  if (x < 0 || y < 0 || x >= selection.width * 8 || y >= selection.height * 8) return;
-  const t = (selection.y + Math.floor(y / 8)) * 16 + selection.x + Math.floor(x / 8);
+  if (!inArea(selection, x, y)) return;
+  const t = areaTile(selection, x, y);
   if (!erasing) asset().tilePaletteBanks[t] = palette;
-  write(asset(), t, x % 8, y % 8, value);
+  setTilePixel(asset(), t, x % 8, y % 8, value, plane);
 }
 /** @returns {[number, number]} */
 function point(e) {
@@ -451,16 +461,7 @@ function point(e) {
   ];
 }
 function drawTo(pnt) {
-  const [x, y] = pnt;
-  if (last) {
-    const steps = Math.max(Math.abs(x - last[0]), Math.abs(y - last[1]));
-    for (let i = 0; i <= steps; i++)
-      paintAt(
-        Math.round(last[0] + ((x - last[0]) * i) / (steps || 1)),
-        Math.round(last[1] + ((y - last[1]) * i) / (steps || 1)),
-        stroke,
-      );
-  } else paintAt(x, y, stroke);
+  for (const [x, y] of last ? strokePixels(last, pnt) : [pnt]) paintAt(x, y, stroke);
   last = pnt;
   changed();
 }
@@ -511,7 +512,7 @@ $('bankSelection').onpointerdown = (e) => {
   }
   if (tool === 'picker') {
     const [x, y] = point(e),
-      t = (selection.y + Math.floor(y / 8)) * 16 + selection.x + Math.floor(x / 8);
+      t = areaTile(selection, x, y);
     palette = asset().tilePaletteBanks[t];
     ink = sample(asset(), t, x % 8, y % 8);
     refreshPalettes();
@@ -650,35 +651,18 @@ $('bankSelection').oncontextmenu = (e) => {
   ]);
 };
 function hoverTile([x, y]) {
-  if (!asset() || x < 0 || y < 0 || x >= selection.width * 8 || y >= selection.height * 8) return;
-  const tile = (selection.y + Math.floor(y / 8)) * 16 + selection.x + Math.floor(x / 8);
+  if (!asset() || !inArea(selection, x, y)) return;
+  const tile = areaTile(selection, x, y);
   hovering = true;
   lastPixel = [x, y];
   targetTile = tile;
   refreshPalettes();
   updateStatus();
 }
-function flood([sx, sy], value) {
-  const w = selection.width * 8,
-    h = selection.height * 8;
-  if (sx < 0 || sy < 0 || sx >= w || sy >= h) return;
-  const get = (x, y) =>
-    sample(
-      asset(),
-      (selection.y + Math.floor(y / 8)) * 16 + selection.x + Math.floor(x / 8),
-      x % 8,
-      y % 8,
-    );
-  const old = get(sx, sy),
-    seen = new Uint8Array(w * h),
-    stack = [[sx, sy]];
-  while (stack.length) {
-    const [x, y] = stack.pop();
-    if (x < 0 || y < 0 || x >= w || y >= h || seen[y * w + x] || get(x, y) !== old) continue;
-    seen[y * w + x] = 1;
+// Fills the area of one color around a pixel, in the fill pattern.
+function flood(start, value) {
+  for (const [x, y] of floodPixels(asset(), selection, start, plane))
     if (value === 0 || patternAt(x, y)) paintAt(x, y, value);
-    stack.push([x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]);
-  }
 }
 // The dock shows palette RAM as the active config arranges it: sixteen banks,
 // fixed. Nothing binds a palette to this tileset, so a tile simply records the
@@ -784,14 +768,7 @@ function selectBank(i) {
 $('addBankFile').onclick = () =>
   mutate('New tileset', () => {
     const name = freshName(tilesets, 'Tileset');
-    tilesets.push({
-      id: newId(),
-      name,
-      bpp: 3,
-      chr: Array(6144).fill(0),
-      tilePaletteBanks: Array(256).fill(0),
-      compositions: [],
-    });
+    tilesets.push(newTileset(newId(), name));
     index = tilesets.length - 1;
     objectIndex = -1;
     targetTile = 0;
@@ -877,9 +854,7 @@ $('bankFilePlane').onchange = () => {
 $('bankUndo').onclick = ProjectHistory.undo;
 $('bankRedo').onclick = ProjectHistory.redo;
 $('saveComposition').onclick = () => {
-  let n = 1;
-  while (asset().compositions.some((c) => c.name === 'Object_' + n)) n++;
-  const name = 'Object_' + n;
+  const name = freshObjectName(asset());
   mutate('New object', () => {
     asset().compositions.push({ name, ...selection });
     objectIndex = asset().compositions.length - 1;
@@ -1112,61 +1087,12 @@ function boundedPoint(e) {
   }
   return [x, y];
 }
+// The pixels the line, rectangle or ellipse tool covers, in the fill pattern
+// when filled.
 function shapePixels(kind, a, b) {
-  const out = new Map(),
-    add = (x, y) => out.set(x + ',' + y, [x, y]);
-  const line = (x0, y0, x1, y1) => {
-    const dx = Math.abs(x1 - x0),
-      sx = x0 < x1 ? 1 : -1,
-      dy = -Math.abs(y1 - y0),
-      sy = y0 < y1 ? 1 : -1;
-    let err = dx + dy;
-    while (true) {
-      add(x0, y0);
-      if (x0 === x1 && y0 === y1) break;
-      const e = 2 * err;
-      if (e >= dy) {
-        err += dy;
-        x0 += sx;
-      }
-      if (e <= dx) {
-        err += dx;
-        y0 += sy;
-      }
-    }
-  };
-  const x0 = Math.min(a[0], b[0]),
-    x1 = Math.max(a[0], b[0]),
-    y0 = Math.min(a[1], b[1]),
-    y1 = Math.max(a[1], b[1]);
-  if (kind === 'line' || x0 === x1 || y0 === y1) line(...a, ...b);
-  else if (kind === 'rectangle') {
-    line(x0, y0, x1, y0);
-    line(x1, y0, x1, y1);
-    line(x1, y1, x0, y1);
-    line(x0, y1, x0, y0);
-  } else {
-    const cx = (x0 + x1) / 2,
-      cy = (y0 + y1) / 2,
-      rx = (x1 - x0) / 2,
-      ry = (y1 - y0) / 2,
-      steps = Math.ceil(8 * Math.PI * Math.max(rx, ry));
-    let prev = [x1, Math.round(cy)];
-    for (let n = 1; n <= steps; n++) {
-      const angle = (n * 2 * Math.PI) / steps,
-        next = [Math.round(cx + rx * Math.cos(angle)), Math.round(cy + ry * Math.sin(angle))];
-      line(...prev, ...next);
-      prev = next;
-    }
-  }
-  if (kind !== 'line' && $('filledShapes').checked) {
-    for (let y = y0; y <= y1; y++) {
-      const row = [...out.values()].filter((p) => p[1] === y).map((p) => p[0]);
-      if (row.length) for (let x = Math.min(...row); x <= Math.max(...row); x++) add(x, y);
-    }
-  }
-  return [...out.values()].filter(
-    ([x, y]) => kind === 'line' || !$('filledShapes').checked || erasing || patternAt(x, y),
+  const filled = $('filledShapes').checked;
+  return domainShapePixels(kind, a, b, filled).filter(
+    ([x, y]) => kind === 'line' || !filled || erasing || patternAt(x, y),
   );
 }
 function previewShape() {
@@ -1240,8 +1166,7 @@ function drawMiniature() {
   const ctx = canvas.getContext('2d');
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++) {
-      const t = (selection.y + Math.floor(y / 8)) * 16 + selection.x + Math.floor(x / 8);
-      ctx.fillStyle = pixelColor(asset(), t, x % 8, y % 8);
+      ctx.fillStyle = pixelColor(asset(), areaTile(selection, x, y), x % 8, y % 8);
       ctx.fillRect(x, y, 1, 1);
     }
   const factor = Math.min(4, 180 / Math.max(w, h));
@@ -1281,7 +1206,7 @@ function drawPixelOverlay() {
         }
       for (let y = 0; y < selection.height * 8; y++)
         for (let x = 0; x < selection.width * 8; x++) {
-          ctx.fillStyle = pixelColor(preview, tileAt(x, y), x % 8, y % 8);
+          ctx.fillStyle = pixelColor(preview, areaTile(selection, x, y), x % 8, y % 8);
           ctx.fillRect(x * zoom, y * zoom, zoom, zoom);
         }
     });
@@ -1328,9 +1253,6 @@ function drawPixelOverlay() {
     }
   }
 }
-function tileAt(x, y) {
-  return (selection.y + Math.floor(y / 8)) * 16 + selection.x + Math.floor(x / 8);
-}
 // Previews may bind palettes; they must not reach the project's library.
 function withScratchLibrary(fn) {
   const saved = paletteLibrary;
@@ -1341,49 +1263,15 @@ function withScratchLibrary(fn) {
     setPaletteLibrary(saved);
   }
 }
+// The drawing area's pixels, on the page being viewed; see domain/tilesets.js.
 function capturePixels(r) {
-  const data = [],
-    banks = [];
-  for (let y = 0; y < r.height; y++)
-    for (let x = 0; x < r.width; x++) {
-      const sx = r.x + x,
-        sy = r.y + y,
-        t = tileAt(sx, sy);
-      data.push(sample(asset(), t, sx % 8, sy % 8));
-      banks.push(asset().tilePaletteBanks[t]);
-    }
-  return { width: r.width, height: r.height, data, banks };
+  return domainCapturePixels(asset(), selection, r, plane);
 }
-// Pasted pixels bring the bank number they were drawn against. Banks are
-// global under a config, so the same number means the same colors and there is
-// nothing to rebind — unlike the old per-tileset slots this replaced.
 function applyPixels(a, clip, at, opaque, source) {
-  const assigned = new Set();
-  for (let y = 0; y < clip.height; y++)
-    for (let x = 0; x < clip.width; x++) {
-      const i = y * clip.width + x,
-        v = clip.data[i],
-        dx = at[0] + x,
-        dy = at[1] + y;
-      if (
-        (!opaque && !v) ||
-        dx < 0 ||
-        dy < 0 ||
-        dx >= selection.width * 8 ||
-        dy >= selection.height * 8
-      )
-        continue;
-      const t = tileAt(dx, dy);
-      if (source && !assigned.has(t)) {
-        a.tilePaletteBanks[t] = clip.banks[i];
-        assigned.add(t);
-      }
-      write(a, t, dx % 8, dy % 8, v);
-    }
+  domainApplyPixels(a, selection, clip, at, opaque, source, plane);
 }
 function clearPixels(a, r) {
-  for (let y = r.y; y < r.y + r.height; y++)
-    for (let x = r.x; x < r.x + r.width; x++) write(a, tileAt(x, y), x % 8, y % 8, 0);
+  domainClearPixels(a, selection, r, plane);
 }
 function movePosition(dx, dy, r) {
   return [
@@ -1405,24 +1293,16 @@ function movePixels(r, clip, at) {
 function transformSelection(kind) {
   if (!pixelSelection) return;
   const r = pixelSelection,
-    old = capturePixels(r),
+    clip = transformPixels(capturePixels(r), kind),
     rot = kind === 'rotate',
-    w = rot ? r.height : r.width,
-    h = rot ? r.width : r.height;
+    w = clip.width,
+    h = clip.height;
   if (r.x + w > selection.width * 8 || r.y + h > selection.height * 8) {
     setStatus(
       'The rotated selection does not fit. Move it away from the edge or select a larger drawing area.',
     );
     return;
   }
-  const clip = { width: w, height: h, data: Array(w * h), banks: Array(w * h) };
-  for (let y = 0; y < r.height; y++)
-    for (let x = 0; x < r.width; x++) {
-      const dx = rot ? r.height - 1 - y : kind === 'horizontal' ? r.width - 1 - x : x,
-        dy = rot ? x : kind === 'vertical' ? r.height - 1 - y : y;
-      clip.data[dy * w + dx] = old.data[y * r.width + x];
-      clip.banks[dy * w + dx] = old.banks[y * r.width + x];
-    }
   mutate(rot ? 'Rotate pixels' : 'Flip pixels', () => {
     clearPixels(asset(), r);
     applyPixels(asset(), clip, [r.x, r.y], true, false);
@@ -1512,7 +1392,7 @@ StudioShell.editActions('tiles', {
   },
 });
 function patternAt(x, y) {
-  return fillPattern === 'solid' || (fillPattern === 'checker' ? (x + y) % 2 === 0 : y % 2 === 0);
+  return domainPatternAt(fillPattern, x, y);
 }
 function updateStatus() {
   if (!$('drawingStatus')) return;

@@ -1,18 +1,32 @@
 // The project being edited and the editors' shared selection, with the model
 // helpers every editor draws and edits through. Nothing here touches the page.
+import { newId } from './domain/assets.js';
+import { CLEMENTINA_16_565, PAL_BANKS } from './domain/colors.js';
+import { freshName } from './domain/names.js';
+import {
+  configBankPalette,
+  freshSpacedName,
+  newConfig,
+  newPalette,
+  paletteWithColors,
+  BLACK_PALETTE,
+} from './domain/palettes.js';
+import { newTileset } from './domain/tilesets.js';
 
-// A tileset is one CHR bank's worth of graphics: 3 planes * 2048 B, each plane
-// 256 tiles * 8 rows. 3bpp color index = p0|p1<<1|p2<<2; a 1bpp tileset holds
-// three independent mono pages, one per plane. Bit 0 is leftmost.
-// Palette RAM is 16 banks of 8 RGB565 colors, shared by every layer. A config
-// names the palette in each bank; the active one is a preview choice only.
-// See docs/model.md.
-export const GH = 8,
-  TILES = 256,
-  PLANE = TILES * GH,
-  TILESET_BYTES = 3 * PLANE; // 2048, 6144
-export const PAL_BANKS = 16,
-  PAL_COLORS = 8;
+// The data model's own operations live in domain/; these re-exports keep the
+// names the editors import from here. See docs/model.md.
+export { PAL_BANKS, PAL_COLORS } from './domain/colors.js';
+export { GH, TILES, PLANE, TILESET_BYTES, tilePixel, setTilePixel } from './domain/tilesets.js';
+export {
+  to565,
+  css565,
+  css565ToInput,
+  inputTo565,
+  BACKDROP_BLUE_565,
+  RAINBOW_565,
+  CLEMENTINA_16_565,
+} from './domain/colors.js';
+export { BLACK_PALETTE } from './domain/palettes.js';
 
 // ===== state =====
 export let paletteLibrary = [],
@@ -57,32 +71,9 @@ export const setAnimations = (v) => (animations = v);
 export const setSounds = (v) => (sounds = v);
 export const setSongs = (v) => (songs = v);
 
-// ===== RGB565 helpers =====
-export const to565 = (r, g, b) => ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
-export function css565(v) {
-  const r = (v >> 11) & 31,
-    g = (v >> 5) & 63,
-    b = v & 31;
-  return `rgb(${Math.round((r * 255) / 31)},${Math.round((g * 255) / 63)},${Math.round((b * 255) / 31)})`;
-}
-export function css565ToInput(v) {
-  const r = Math.round((((v >> 11) & 31) * 255) / 31),
-    g = Math.round((((v >> 5) & 63) * 255) / 63),
-    b = Math.round(((v & 31) * 255) / 31);
-  return '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('');
-}
-export function inputTo565(h) {
-  return to565(
-    parseInt(h.slice(1, 3), 16),
-    parseInt(h.slice(3, 5), 16),
-    parseInt(h.slice(5, 7), 16),
-  );
-}
-
 // ===== Palettes and bank configs =====
 // Nothing binds a palette to a bank except a config, so every color question
 // goes through the active one. A bank holding nothing reads as black.
-export const BLACK_PALETTE = Object.freeze(Array(PAL_COLORS).fill(0));
 export function libraryPalette(id) {
   return paletteLibrary.find((p) => p.id === id);
 }
@@ -91,7 +82,7 @@ export function activeConfig() {
 }
 /** The palette showing in a bank right now, or undefined when the bank is empty. */
 export function bankPalette(bank) {
-  return libraryPalette(activeConfig()?.banks?.[bank]);
+  return configBankPalette(paletteLibrary, activeConfig(), bank);
 }
 export function bankColors(bank) {
   return bankPalette(bank)?.colors ?? BLACK_PALETTE;
@@ -111,85 +102,28 @@ export function resolveActiveConfig() {
 }
 
 export function uniquePaletteName() {
-  const taken = new Set(paletteLibrary.map((p) => p.name.toLowerCase()));
-  let n = 1;
-  while (taken.has(`palette ${n}`)) n++;
-  return `Palette ${n}`;
+  return freshSpacedName(paletteLibrary, 'Palette');
 }
 export function createPalette(colors, name) {
-  const palette = {
-    id: crypto.randomUUID(),
-    name: name ?? uniquePaletteName(),
-    colors: [...colors],
-  };
+  const palette = newPalette(newId(), name ?? uniquePaletteName(), colors);
   paletteLibrary.push(palette);
   return palette;
 }
 /** Reuses a palette with the same colors so configs keep sharing it. */
 export function internPalette(colors, name) {
-  return (
-    paletteLibrary.find((p) => p.colors.every((v, i) => v === colors[i])) ??
-    createPalette(colors, name)
-  );
+  return paletteWithColors(paletteLibrary, colors) ?? createPalette(colors, name);
 }
 export function uniqueConfigName() {
-  const taken = new Set(paletteConfigs.map((c) => c.name.toLowerCase()));
-  let n = 1;
-  while (taken.has(`config ${n}`)) n++;
-  return `Config ${n}`;
+  return freshSpacedName(paletteConfigs, 'Config');
 }
 /** A new config fills its banks from the library in order so drawing can start at once. */
 export function createConfig(name, banks) {
-  const config = {
-    id: crypto.randomUUID(),
-    name: name ?? uniqueConfigName(),
-    banks: banks
-      ? [...banks]
-      : Array.from({ length: PAL_BANKS }, (_, i) => paletteLibrary[i]?.id ?? null),
-  };
+  const config = newConfig(newId(), name ?? uniqueConfigName(), paletteLibrary, banks);
   paletteConfigs.push(config);
   return config;
 }
 
-export const BACKDROP_BLUE_565 = 0x1a1f;
-// A fresh palette starts as a rainbow so its colors are distinguishable while
-// drawing; color 0 keeps the backdrop, being the key rather than an ink.
-export const RAINBOW_565 = [
-  BACKDROP_BLUE_565,
-  to565(255, 0, 0),
-  to565(255, 127, 0),
-  to565(255, 255, 0),
-  to565(0, 255, 0),
-  to565(0, 255, 255),
-  to565(0, 0, 255),
-  to565(139, 0, 255),
-];
-// Clementina's 16 startup colors: the text ink each of palette RAM's sixteen
-// banks holds by default at boot (clementina-text.palette.bin, loaded by
-// video.c video_load_default_palette / video.go videoLoadDefaultPalette),
-// in bank order 0-15 - white, red, orange, yellow, green, cyan, backdrop
-// blue, violet, magenta, black, gray, light gray, dark red/brown, dark
-// green, a brighter blue, bright white (docs/phase5-charset-keyboard.md
-// SS2.4, the startup text-ink table).
-export const CLEMENTINA_16_565 = [
-  0xffff,
-  0xf800,
-  0xfc60,
-  0xfec0,
-  0x07e0,
-  0x075f,
-  BACKDROP_BLUE_565,
-  0xa81f,
-  0xfa7f,
-  0x0000,
-  0x8410,
-  0xc618,
-  0x7920,
-  0x03e0,
-  0x6aff,
-  0xffff,
-];
-/** The sixteen colors above, eight to a palette, in palette banks 0 and 1. */
+/** Clementina's sixteen startup colors (domain/colors.js), eight to a palette, in banks 0 and 1. */
 export function loadDefaultPalettes() {
   paletteLibrary = [];
   paletteConfigs = [];
@@ -200,41 +134,15 @@ export function loadDefaultPalettes() {
 
 // ===== Tilesets =====
 export function uniqueTilesetName() {
-  const taken = new Set(tilesets.map((t) => t.name.toLowerCase()));
-  let n = 1;
-  while (taken.has('tileset_' + n)) n++;
-  return 'Tileset_' + n;
+  return freshName(tilesets, 'Tileset');
 }
 export function createTileset(name) {
-  const tileset = {
-    id: crypto.randomUUID(),
-    name: name ?? uniqueTilesetName(),
-    bpp: 3,
-    chr: Array(TILESET_BYTES).fill(0),
-    tilePaletteBanks: Array(TILES).fill(0),
-    compositions: [],
-  };
+  const tileset = newTileset(newId(), name ?? uniqueTilesetName());
   tilesets.push(tileset);
   return tileset;
 }
 export function tilesetById(id) {
   return tilesets.find((t) => t.id === id);
-}
-/**
- * One pixel of a tile. A 1bpp tileset reads a single plane; `plane` is the page
- * being viewed, which belongs to the editor rather than the tileset.
- */
-export function tilePixel(tileset, tile, x, y, plane = 0) {
-  const bit = (p) => (tileset.chr[p * PLANE + tile * GH + y] >> x) & 1;
-  return tileset.bpp === 1 ? bit(plane) : bit(0) | (bit(1) << 1) | (bit(2) << 2);
-}
-export function setTilePixel(tileset, tile, x, y, value, plane = 0) {
-  for (const p of tileset.bpp === 1 ? [plane] : [0, 1, 2]) {
-    const i = p * PLANE + tile * GH + y,
-      bit = tileset.bpp === 1 ? (value ? 1 : 0) : (value >> p) & 1;
-    if (bit) tileset.chr[i] |= 1 << x;
-    else tileset.chr[i] &= ~(1 << x);
-  }
 }
 
 // ===== the project as a whole =====
