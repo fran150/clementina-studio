@@ -81,8 +81,11 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   flip, resize), `backgrounds.js` (BGMODE windows, tables and scrolling),
   `overlays.js` (the fixed overlay and its placeholders), `colors.js` (RGB565
   and the default colors), `palettes.js` (palettes, bank configs and which
-  banks use a palette) and `tilesets.js` (tile pixels, drawing areas, pixel
-  blocks, fill, strokes and shapes). `state.js` holds the project itself and
+  banks use a palette), `tilesets.js` (tile pixels, drawing areas, pixel
+  blocks, fill, strokes and shapes), `shapes.js` (sprite arrangements: OAM
+  limits, bounds, origin and canvas resizing, flips and draw order) and
+  `animations.js` (frames, their tileset pin, flips and offsets, playback
+  timing). `state.js` holds the project itself and
   re-exports the model helpers the editors import from it.
   `npm run typecheck` checks them with TypeScript's checkJs;
   `types/globals.d.ts` types the DOM helpers they share.

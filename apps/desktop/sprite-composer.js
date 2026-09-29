@@ -2,6 +2,24 @@
 // are pixels relative to the shape's origin; list order is OAM order.
 import { canAdd, copyAsset, newId, removeAt } from './domain/assets.js';
 import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
+import {
+  MAX_CANVAS_HEIGHT,
+  MAX_CANVAS_WIDTH,
+  MAX_SPRITES,
+  canvasSize,
+  flipSprites,
+  newShape,
+  offsetSprites,
+  resizedOrigin,
+  spriteAt,
+  spriteBounds,
+  spritesForOrigin,
+  spritesForTiles,
+  spritesStepped,
+  spritesToEnd,
+  translateSprites,
+  validSprites,
+} from './domain/shapes.js';
 import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import {
@@ -78,21 +96,12 @@ const byId = (id) => tilesets.find((t) => t.id === id);
 function shapeTileset() {
   return byId(shape()?.tilesetId);
 }
-const width = () => Math.min(320, shape()?.canvasPixelWidth ?? (shape()?.canvasWidth ?? 4) * 8),
-  height = () => Math.min(200, shape()?.canvasPixelHeight ?? (shape()?.canvasHeight ?? 4) * 8);
+// The canvas size in pixels and the origin's place on it.
+const width = () => canvasSize(shape()).width,
+  height = () => canvasSize(shape()).height;
 const ox = () => shape()?.originX ?? 0,
   oy = () => shape()?.originY ?? 0;
-function bounds(list = spritesOf()) {
-  if (!list.length) return { x: 0, y: 0, width: 0, height: 0 };
-  const x = Math.min(...list.map((p) => p.x)),
-    y = Math.min(...list.map((p) => p.y));
-  return {
-    x,
-    y,
-    width: Math.max(...list.map((p) => p.x + 8)) - x,
-    height: Math.max(...list.map((p) => p.y + 8)) - y,
-  };
-}
+const bounds = (list = spritesOf()) => spriteBounds(list);
 function checkpoint(label) {
   ProjectHistory.checkpoint(['shapes'], label);
 }
@@ -106,17 +115,7 @@ function edit(...args) {
   render();
 }
 // OAM carries X as 10-bit signed and Y as 9-bit signed.
-function valid(list) {
-  return list.every(
-    (p) =>
-      Number.isInteger(p.x) &&
-      Number.isInteger(p.y) &&
-      p.x >= -512 &&
-      p.x <= 511 &&
-      p.y >= -256 &&
-      p.y <= 255,
-  );
-}
+const valid = validSprites;
 function render() {
   host.hidden = currentView !== 'shapes';
   document.body.classList.toggle('spriteCompose', !host.hidden);
@@ -154,8 +153,8 @@ function render() {
   renderPaletteDock();
   $('scWidth').value = String(units === 'pixels' ? width() : width() / 8);
   $('scHeight').value = String(units === 'pixels' ? height() : height() / 8);
-  $('scWidth').max = String(units === 'pixels' ? 320 : 40);
-  $('scHeight').max = String(units === 'pixels' ? 200 : 25);
+  $('scWidth').max = String(units === 'pixels' ? MAX_CANVAS_WIDTH : 40);
+  $('scHeight').max = String(units === 'pixels' ? MAX_CANVAS_HEIGHT : 25);
   $('scWidth').step = $('scHeight').step = '1';
   zoomControls?.sync();
   for (const id of ['scDelete', 'scDuplicate', 'scWidth', 'scHeight', 'scOriginTool'])
@@ -403,7 +402,7 @@ function draw() {
   ).length;
   const b = bounds();
   $('scStatus').textContent =
-    `${width()} × ${height()} px · ${spritesOf().length}/64 sprites · ${selected.size} selected · Bounds ${b.width} × ${b.height} px at (${b.x}, ${b.y})` +
+    `${width()} × ${height()} px · ${spritesOf().length}/${MAX_SPRITES} sprites · ${selected.size} selected · Bounds ${b.width} × ${b.height} px at (${b.x}, ${b.y})` +
     (outside ? ` · ${outside} outside canvas` : '') +
     (placing ? ' · Click to place tiles' : originTool ? ' · Click to position origin' : '');
   $('scPreview').hidden = !previewVisible;
@@ -433,26 +432,12 @@ function fit() {
   render();
 }
 function resizeCanvas(w, h) {
-  w = Math.max(1, Math.min(320, Math.round(w)));
-  h = Math.max(1, Math.min(200, Math.round(h)));
+  w = Math.max(1, Math.min(MAX_CANVAS_WIDTH, Math.round(w)));
+  h = Math.max(1, Math.min(MAX_CANVAS_HEIGHT, Math.round(h)));
   const a = shape();
   if (!a) return;
-  const anchor = a.originAnchor ?? 'custom',
-    nx =
-      anchor === 'top-left'
-        ? 0
-        : anchor === 'center' || anchor === 'bottom-center'
-          ? Math.floor(w / 2)
-          : Math.round((ox() / width()) * w),
-    ny =
-      anchor === 'top-left'
-        ? 0
-        : anchor === 'center'
-          ? Math.floor(h / 2)
-          : anchor === 'bottom-center'
-            ? h
-            : Math.round((oy() / height()) * h);
-  const next = spritesOf().map((p) => ({ ...p, x: p.x + ox() - nx, y: p.y + oy() - ny }));
+  const { x: nx, y: ny } = resizedOrigin(a, w, h);
+  const next = spritesForOrigin(a, nx, ny);
   if (!valid(next)) return;
   edit('Resize the canvas', () => {
     a.canvasPixelWidth = w;
@@ -475,9 +460,7 @@ function setOrigin(x, y, anchor = 'custom') {
     Math.abs(y) > 32767
   )
     return;
-  const dx = x - ox(),
-    dy = y - oy(),
-    next = spritesOf().map((p) => ({ ...p, x: p.x - dx, y: p.y - dy }));
+  const next = spritesForOrigin(shape(), x, y);
   if (!valid(next)) {
     setStatus('Origin would put a part outside its supported coordinate range.');
     return;
@@ -501,7 +484,7 @@ function place(pos) {
     setStatus('Place the selected tiles inside the canvas, or resize the canvas.');
     return;
   }
-  if (spritesOf().length + sourceRect.width * sourceRect.height > 64) {
+  if (spritesOf().length + sourceRect.width * sourceRect.height > MAX_SPRITES) {
     setStatus('A shape holds at most 64 sprites.');
     return;
   }
@@ -520,19 +503,7 @@ function place(pos) {
     setStatus('Snapped tiles would exceed the canvas.');
     return;
   }
-  const add = [];
-  for (let row = 0; row < sourceRect.height; row++)
-    for (let col = 0; col < sourceRect.width; col++) {
-      const t = (sourceRect.y + row) * 16 + sourceRect.x + col;
-      add.push({
-        tile: t,
-        x: x + col * 8,
-        y: y + row * 8,
-        paletteBank: b.tilePaletteBanks[t],
-        flipX: false,
-        flipY: false,
-      });
-    }
+  const add = spritesForTiles(sourceRect, x, y, b.tilePaletteBanks);
   if (!valid(add)) return;
   // New sprites go on the end, which puts them on top.
   edit('Place tiles', () => {
@@ -544,22 +515,8 @@ function place(pos) {
   hideGhost();
   render();
 }
-function hit(pos) {
-  // Hit-test from the top down, which is the end of the list.
-  const ordered = spritesOf()
-    .map((p, i) => ({ p, i }))
-    .reverse();
-  for (const { p, i } of ordered) {
-    if (
-      pos.x >= p.x + ox() &&
-      pos.x < p.x + ox() + 8 &&
-      pos.y >= p.y + oy() &&
-      pos.y < p.y + oy() + 8
-    )
-      return i;
-  }
-  return -1;
-}
+// The topmost sprite under a canvas point, or -1.
+const hit = (pos) => spriteAt(shape(), pos);
 canvas.onpointerdown = (e) => {
   if (!shape()) return;
   e.preventDefault();
@@ -673,11 +630,11 @@ canvas.onpointermove = (e) => {
     drag.size = {
       w: Math.max(
         units === 'tiles' ? 8 : 1,
-        Math.min(320, units === 'tiles' ? Math.round(pos.x / 8) * 8 : pos.x),
+        Math.min(MAX_CANVAS_WIDTH, units === 'tiles' ? Math.round(pos.x / 8) * 8 : pos.x),
       ),
       h: Math.max(
         units === 'tiles' ? 8 : 1,
-        Math.min(200, units === 'tiles' ? Math.round(pos.y / 8) * 8 : pos.y),
+        Math.min(MAX_CANVAS_HEIGHT, units === 'tiles' ? Math.round(pos.y / 8) * 8 : pos.y),
       ),
     };
     draw();
@@ -854,17 +811,7 @@ host.querySelectorAll('[data-origin]').forEach(
 $('scNew').onclick = () => {
   if (!canAdd(shapes)) return;
   edit('New shape', () => {
-    shapes.push({
-      id: newId(),
-      name: freshName(shapes, 'shape'),
-      tilesetId: tilesets[0]?.id,
-      canvasWidth: 4,
-      canvasHeight: 4,
-      originX: 0,
-      originY: 0,
-      originAnchor: 'top-left',
-      sprites: [],
-    });
+    shapes.push(newShape(newId(), freshName(shapes, 'shape'), tilesets[0]?.id));
     setShapeIndex(shapes.length - 1);
     setFrameIndex(0);
   });
@@ -899,28 +846,19 @@ for (const id of ['scWidth', 'scHeight'])
       Number.isInteger(n) &&
       (units === 'pixels' || Number.isInteger(Number($(id).value))) &&
       n >= 1 &&
-      n <= (id === 'scWidth' ? 320 : 200)
+      n <= (id === 'scWidth' ? MAX_CANVAS_WIDTH : MAX_CANVAS_HEIGHT)
     ) {
       resizeCanvas(id === 'scWidth' ? n : width(), id === 'scHeight' ? n : height());
       fit();
     } else render();
   };
 function translate(dx, dy) {
-  const next = spritesOf().map((p, i) =>
-    selected.has(i) ? { ...p, x: p.x + dx, y: p.y + dy } : p,
-  );
+  const next = translateSprites(spritesOf(), selected, dx, dy);
   if (valid(next)) edit('Nudge sprites', () => (shape().sprites = next));
   else setStatus('Offset is outside the supported range.');
 }
 function flip(axis) {
-  const b = bounds([...selected].map((i) => spritesOf()[i]));
-  edit('Flip sprites', () =>
-    selected.forEach((i) => {
-      const p = spritesOf()[i];
-      p[axis] = 2 * b[axis] + b[axis === 'x' ? 'width' : 'height'] - 8 - p[axis];
-      p[axis === 'x' ? 'flipX' : 'flipY'] = !p[axis === 'x' ? 'flipX' : 'flipY'];
-    }),
-  );
+  edit('Flip sprites', () => flipSprites(spritesOf(), selected, axis));
 }
 $('scRemove').onclick = () =>
   edit('Remove sprites', () => {
@@ -933,11 +871,11 @@ $('scRemove').onclick = () =>
 const selectedSprites = () => [...selected].sort((a, b) => a - b).map((i) => spritesOf()[i]);
 function addSprites(list, offset) {
   if (!shape() || !list?.length) return false;
-  if (spritesOf().length + list.length > 64) {
+  if (spritesOf().length + list.length > MAX_SPRITES) {
     setStatus('A shape holds at most 64 sprites.');
     return false;
   }
-  const add = list.map((p) => ({ ...p, x: p.x + offset, y: p.y + offset }));
+  const add = offsetSprites(list, offset);
   if (!valid(add)) {
     setStatus('Those sprites would fall outside the supported coordinate range.');
     return false;
@@ -966,10 +904,7 @@ StudioShell.editActions('shapes', { copy: copySprites, cut: cutSprites, paste: p
 // where OAM index order draws it last (front) or first (back).
 function moveToEnd(front) {
   edit(front ? 'Bring to front' : 'Send to back', () => {
-    const chosen = spritesOf().filter((_, i) => selected.has(i)),
-      other = spritesOf().filter((_, i) => !selected.has(i));
-    shape().sprites = front ? [...other, ...chosen] : [...chosen, ...other];
-    selected = new Set(chosen.map((_, i) => i + (front ? other.length : 0)));
+    ({ sprites: shape().sprites, selected } = spritesToEnd(spritesOf(), selected, front));
   });
 }
 // Move up/down shifts each selected run past its single non-selected neighbor,
@@ -977,38 +912,11 @@ function moveToEnd(front) {
 // multi-sprite selection stays contiguous instead of tangling with itself.
 function moveSelection(dir) {
   if (!shape() || !selected.size) return;
-  const idxs = [...selected].sort((a, b) => a - b),
-    runs = [];
-  for (const i of idxs) {
-    const last = runs[runs.length - 1];
-    if (last && i === last[1] + 1) last[1] = i;
-    else runs.push([i, i]);
-  }
-  const ordered = dir > 0 ? [...runs].reverse() : runs,
-    next = [...spritesOf()],
-    moved = [];
-  for (const run of ordered) {
-    const [lo, hi] = run;
-    if (dir > 0) {
-      if (hi + 1 >= next.length) continue;
-      const [item] = next.splice(hi + 1, 1);
-      next.splice(lo, 0, item);
-    } else {
-      if (lo - 1 < 0) continue;
-      const [item] = next.splice(lo - 1, 1);
-      next.splice(hi, 0, item);
-    }
-    moved.push(run);
-  }
-  if (!moved.length) return;
-  // Two passes, so a run's own vacated indices can't collide with the indices
-  // it is about to occupy (they can be adjacent, e.g. a two-sprite block).
-  const newSelected = new Set(selected);
-  for (const [lo, hi] of moved) for (let k = lo; k <= hi; k++) newSelected.delete(k);
-  for (const [lo, hi] of moved) for (let k = lo; k <= hi; k++) newSelected.add(k + dir);
+  const moved = spritesStepped(spritesOf(), selected, dir);
+  if (!moved) return;
   edit(dir > 0 ? 'Move up' : 'Move down', () => {
-    shape().sprites = next;
-    selected = newSelected;
+    shape().sprites = moved.sprites;
+    selected = moved.selected;
   });
 }
 $('scUndo').onclick = ProjectHistory.undo;
