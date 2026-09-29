@@ -165,52 +165,12 @@ const pageRequests = {
 window.studio?.onRequest?.((name, arg) => pageRequests[name](arg));
 
 // ===== views =====
-const descriptions = {
-  builder: [
-    'Builder',
-    'Choose asset files and memory slots, build a portable SD card, and run your assembly program.',
-  ],
-  palettes: [
-    'Palettes',
-    'Palettes hold eight colors. A bank config places sixteen of them in palette RAM; a game loads one config at a time.',
-  ],
-  tiles: [
-    'Tilesets',
-    'Each tileset fills one CHR bank. Draw tiles and record which palette bank each was drawn against.',
-  ],
-  overlays: [
-    'Overlays',
-    'Paint the fixed 40 × 25 text/HUD layer. Placeholders mark regions the build step can fill at runtime; whatever you paint there is the default content.',
-  ],
-  backgrounds: [
-    'Backgrounds',
-    'Paint a background from two tilesets. A cell reads the primary or alternate tileset, chosen by its CHR_ALT bit.',
-  ],
-  shapes: [
-    'Shapes',
-    'One arrangement of sprites from a single tileset. Later sprites draw on top.',
-  ],
-  animations: [
-    'Animations',
-    'Sequence shapes and set their timing. Editing a shape updates every frame showing it.',
-  ],
-  sounds: [
-    'Sounds',
-    "A sound effect is one voice's registers, frame by frame at 60 Hz: pitch, volume, pulse width, waveform and gate.",
-  ],
-  music: [
-    'Music',
-    "A song plays up to four voices on MIA's background sequencer. Voices without notes stay free for sound effects.",
-  ],
-};
 showView.after((view) => {
   StudioShell.selectView(view);
   setCurrentView(view);
   setPlaying(false);
   setFrameIndex(0);
   window.scrollTo(0, 0);
-  $('viewTitle').textContent = descriptions[view][0];
-  $('viewHelp').textContent = descriptions[view][1];
   renderConfigPicker();
   // A control the switch hid would keep focus until the next frame and
   // swallow keys meant for the new view.

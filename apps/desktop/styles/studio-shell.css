@@ -17,10 +17,7 @@ body.studioWorkspace #workflowNav .brand {
   font-size: 12px;
   margin-right: 18px;
 }
-body.studioWorkspace #workflowNav .brand span,
-body.studioWorkspace #workflowNav .navGroup,
-body.studioWorkspace #workflowNav .navNote,
-body.studioWorkspace #workflowHeading {
+body.studioWorkspace #workflowNav .navGroup {
   display: none;
 }
 body.studioWorkspace #workflowNav button {
@@ -462,9 +459,6 @@ header .projectIcon svg {
   gap: 14px;
   padding: 24px;
   text-align: center;
-}
-.studioEmpty[hidden] {
-  display: none;
 }
 .studioIsEmpty > .studioAssetDock {
   display: none !important;

@@ -122,7 +122,6 @@ export function draw() {
   const a = shape();
   if (!a) {
     $('scStatus').textContent = '';
-    ctx.fillStyle = '#ccc';
     return;
   }
   const [left, top] = screen(0, 0);
@@ -160,23 +159,20 @@ export function draw() {
     }
     ctx.stroke();
   }
-  const [ax, ay] = screen(0, 0);
   ctx.strokeStyle = '#ffffff60';
   ctx.setLineDash([5, 5]);
-  ctx.strokeRect(ax, ay, width() * sc.zoom, height() * sc.zoom);
+  ctx.strokeRect(left, top, width() * sc.zoom, height() * sc.zoom);
   ctx.setLineDash([]);
   const preview = sc.drag?.kind === 'move' ? sc.drag.sprites : spritesOf();
-  preview
-    .map((p, i) => ({ p, i }))
-    .forEach(({ p, i }) => {
-      const [x, y] = screen(p.x + ox(), p.y + oy());
-      tile(ctx, shapeTileset(), p, x, y, sc.zoom);
-      if (sc.selected.has(i)) {
-        ctx.strokeStyle = '#36c9d6';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x + 0.5, y + 0.5, 8 * sc.zoom - 1, 8 * sc.zoom - 1);
-      }
-    });
+  preview.forEach((p, i) => {
+    const [x, y] = screen(p.x + ox(), p.y + oy());
+    tile(ctx, shapeTileset(), p, x, y, sc.zoom);
+    if (sc.selected.has(i)) {
+      ctx.strokeStyle = '#36c9d6';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 0.5, y + 0.5, 8 * sc.zoom - 1, 8 * sc.zoom - 1);
+    }
+  });
   ctx.restore();
   ctx.strokeStyle = '#3a3f4a';
   ctx.strokeRect(left + 0.5, top + 0.5, width() * sc.zoom - 1, height() * sc.zoom - 1);
@@ -238,11 +234,8 @@ export function draw() {
   mc.beginPath();
   mc.rect(8, 8, width() * scale, height() * scale);
   mc.clip();
-  preview
-    .map((p, i) => ({ p, i }))
-    .forEach(({ p }) =>
-      tile(mc, shapeTileset(), p, 8 + (p.x + ox()) * scale, 8 + (p.y + oy()) * scale, scale),
-    );
+  for (const p of preview)
+    tile(mc, shapeTileset(), p, 8 + (p.x + ox()) * scale, 8 + (p.y + oy()) * scale, scale);
   mc.restore();
 }
 /** Centers the shape and zooms it to fill the canvas. */

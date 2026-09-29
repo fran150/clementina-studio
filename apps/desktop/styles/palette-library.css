@@ -90,11 +90,6 @@
 #palList .assetRow.unusedPalette {
   opacity: 0.6;
 }
-#palStatus {
-  padding: 6px 18px;
-  font-size: 10px;
-  color: var(--text-dim);
-}
 #palConfigs h3 {
   font-size: 12px;
   color: var(--text-dim);
@@ -138,6 +133,9 @@
   display: flex;
   align-items: center;
   gap: 5px;
+  padding: 2px 3px;
+  border: 1px solid transparent;
+  border-radius: 4px;
 }
 .palBankRow > span {
   width: 17px;

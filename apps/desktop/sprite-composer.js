@@ -82,12 +82,10 @@ host.append(
 /** Redraws the whole editor: the bars, panels, sprite list and canvas. */
 function render() {
   host.hidden = currentView !== 'shapes';
-  document.body.classList.toggle('spriteCompose', !host.hidden);
   if (host.hidden) {
     hideGhost();
     return;
   }
-  $('spritePanel').hidden = true;
   const a = shape();
   $('scGroupTitle').textContent = a?.name ?? 'No shapes';
   $('scEmpty').hidden = !!a;

@@ -104,7 +104,7 @@ function canvasWheel(element, { get, steps, zoomTo, pan, busy }) {
     { passive: false },
   );
 }
-export const canvasCommands = new Map();
+const canvasCommands = new Map();
 // One editor's zoom: the Fit, 100%, −, level, + cluster every canvas editor
 // shows in the middle of its top bar, the wheel, and the View menu's zoom
 // commands. `ids` names the cluster's elements; missing ones are created.

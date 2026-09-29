@@ -193,7 +193,6 @@ const preview = animationPreview({ host, render: () => render(), actions });
 // ===== rendering =====
 function render() {
   host.hidden = currentView !== 'animations';
-  document.body.classList.toggle('animationView', !host.hidden);
   if (host.hidden) return;
   const a = currentAnimation();
   setFrameIndex(Math.max(0, Math.min(frameIndex, (a?.frames.length ?? 1) - 1)));

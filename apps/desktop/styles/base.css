@@ -80,9 +80,6 @@ button.on {
 select {
   padding: 4px 6px;
 }
-input[type='file'] {
-  display: none;
-}
 label.lbl {
   color: var(--text-dim);
   display: inline-flex;
@@ -97,79 +94,7 @@ main {
   align-items: flex-start;
   flex-wrap: wrap;
 }
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 12px;
-}
-.panel h2 {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-dim);
-  margin: 0 0 10px;
-  font-weight: 600;
-}
-.row {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  flex-wrap: wrap;
-}
-#editor {
-  image-rendering: pixelated;
-  cursor: crosshair;
-  touch-action: none;
-  background: #000;
-  border-radius: 4px;
-}
 
-.previews {
-  display: flex;
-  gap: 16px;
-  align-items: flex-end;
-}
-.preview {
-  text-align: center;
-}
-.preview canvas {
-  image-rendering: pixelated;
-  background: #000;
-  border: 1px solid var(--line);
-  display: block;
-}
-.preview span {
-  color: var(--text-dim);
-  font-size: 10px;
-  display: block;
-  margin-top: 4px;
-}
-
-.palBankRow {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 3px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-}
-.palBankRow.active {
-  border-color: var(--sel);
-  background: #0e1517;
-}
-.sw {
-  width: 22px;
-  height: 22px;
-  border-radius: 3px;
-  border: 2px solid var(--line);
-  cursor: pointer;
-  position: relative;
-}
-.sw.sel {
-  border-color: var(--sel);
-  box-shadow: 0 0 0 1px var(--sel);
-}
 input[type='color'] {
   width: 40px;
   height: 28px;
@@ -193,31 +118,6 @@ input[type='text']:focus {
   border-color: var(--ink);
 }
 
-.planes {
-  display: flex;
-  gap: 10px;
-}
-.planes canvas {
-  image-rendering: pixelated;
-  background: #000;
-  border: 1px solid var(--line);
-}
-
-.info {
-  line-height: 1.7;
-}
-.info b {
-  color: var(--ink);
-}
-.info .bytes {
-  color: var(--text-dim);
-}
-.hint {
-  color: var(--text-dim);
-  font-size: 11px;
-  line-height: 1.6;
-}
-
 footer {
   position: sticky;
   bottom: 0;
@@ -234,48 +134,6 @@ footer .dirty {
   color: var(--ink);
 }
 
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: #000a;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 50;
-}
-.overlay.show {
-  display: flex;
-}
-.modal {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 20px;
-  width: 460px;
-}
-.modal h3 {
-  margin: 0 0 14px;
-  color: var(--ink);
-  font-size: 14px;
-}
-.modal .field {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 9px 0;
-}
-.modal .actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  margin-top: 16px;
-}
-.modal .note {
-  color: var(--text-dim);
-  font-size: 11px;
-  line-height: 1.6;
-  margin-top: 6px;
-}
 [hidden] {
   display: none !important;
 }
@@ -296,12 +154,6 @@ body {
   font-weight: bold;
   letter-spacing: 2px;
 }
-.brand span {
-  display: block;
-  font-size: 11px;
-  margin-top: 5px;
-  color: var(--text-dim);
-}
 .navGroup {
   font-size: 10px;
   letter-spacing: 2px;
@@ -314,23 +166,6 @@ body {
   text-align: left;
   margin: 5px 0;
   padding: 12px;
-}
-.navNote {
-  color: var(--text-dim);
-  line-height: 1.6;
-  margin: 28px 10px;
-  font-size: 11px;
-}
-#workflowHeading {
-  padding: 24px 26px 12px;
-}
-#workflowHeading h1 {
-  font-size: 24px;
-  margin: 0 0 8px;
-}
-#viewHelp {
-  color: var(--text-dim);
-  margin: 0;
 }
 header h1,
 header .sep,

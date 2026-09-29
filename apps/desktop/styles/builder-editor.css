@@ -191,10 +191,6 @@
 .buProps button {
   margin: 4px 0;
 }
-#buStatus {
-  font-size: 10px;
-  color: var(--text-dim);
-}
 @media (max-width: 1100px) {
   body.studioWorkspace #workflowNav .brand {
     margin-right: 4px;

@@ -13,7 +13,7 @@
 // live in grid/: the tile picker, the stamp settings and palette dock,
 // painting on the canvas, the rails, and the keys and panning. They share
 // one object, `ed`, of the editor's state and helpers.
-import { CellGrid } from './cell-grid.js';
+import { cellSelection } from './cell-grid.js';
 import { blankCell } from './domain/cells.js';
 import { $ } from './dom.js';
 import { gridKeys } from './grid/keys.js';
@@ -130,7 +130,7 @@ export function gridEditor(options) {
 
   // The Select tool (cell-grid.js): with cells selected, the flips, Priority
   // and a palette bank click edit those cells rather than the next stamp.
-  const selection = (ed.selection = CellGrid.cellSelection({
+  const selection = (ed.selection = cellSelection({
     grid,
     edit: (label, fn) => edit(label, fn),
     render: () => {

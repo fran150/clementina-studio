@@ -19,7 +19,7 @@ import { StudioShell } from './studio-shell.js';
 
 // grid() returns {width, height, cells}; edit(label, fn) runs fn as one
 // undo step named label and re-renders; render() repaints.
-function cellSelection({ grid, edit, render }) {
+export function cellSelection({ grid, edit, render }) {
   let rect = null,
     anchor = null,
     moving = null,
@@ -289,4 +289,3 @@ function cellSelection({ grid, edit, render }) {
   };
   return api;
 }
-export const CellGrid = Object.freeze({ cellSelection });
