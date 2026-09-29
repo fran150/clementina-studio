@@ -17,6 +17,7 @@
     "grid/*.js",
     "animation/*.js",
     "shape/*.js",
+    "sound/*.js",
     "types/*.d.ts",
     "preload.cts"
   ]

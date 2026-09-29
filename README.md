@@ -77,7 +77,9 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   whose parts live in `grid/`. An editor too big for one file keeps its
   parts in a folder named after it, such as `animation/` for the animation
   editor's frames, timeline, player and rails, and `shape/` for the shape
-  editor's canvas, edits, pointer input, panels and rails.
+  editor's canvas, edits, pointer input, panels and rails, and `sound/` for
+  the sound editor's lanes, edits, pointer input, properties, playback and
+  rails.
   `domain/` holds the operations on the project's data, with no page code, so
   unit tests cover them directly (`tests/domain-*.test.mjs`): `names.js` (name
   patterns, fresh and unique names), `assets.js` (adding, copying and removing
