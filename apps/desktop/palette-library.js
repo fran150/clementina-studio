@@ -1,6 +1,7 @@
 // The project's palette library. One palette can be bound by many banks and
 // named by many sprite parts, so every edit here is visible everywhere at once.
 import { graphicsEdit } from './bank-editor.js';
+import { paletteUsage, repointBanks } from './domain/palettes.js';
 import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import {
@@ -40,9 +41,7 @@ const iconButton = (id, label, icon) => StudioShell.iconButton(id, label, icon);
 // A palette is used by the configs that place it in a bank. Nothing else binds
 // one: a tile records a bank number, and a sprite part names a bank outright.
 function usage(id) {
-  return paletteConfigs
-    .map((c) => ({ config: c, banks: c.banks.flatMap((b, i) => (b === id ? [i] : [])) }))
-    .filter((u) => u.banks.length);
+  return paletteUsage(paletteConfigs, id);
 }
 const library = $('palLibrary'),
   configsPanel = $('palConfigs');
@@ -158,17 +157,11 @@ for (const [id, label, path, fn] of [
 const dialog = $('palDeleteDialog');
 /** Repoints every bank of every config from one palette to another. */
 function repoint(fromId, toId) {
-  let banks = 0;
-  for (const config of paletteConfigs)
-    config.banks = config.banks.map((b) => (b === fromId ? (banks++, toId) : b));
-  return banks;
+  return repointBanks(paletteConfigs, fromId, toId);
 }
 /** Clears a palette out of every bank, for a delete with no replacement. */
 function unbind(id) {
-  let cleared = 0;
-  for (const config of paletteConfigs)
-    config.banks = config.banks.map((b) => (b === id ? (cleared++, null) : b));
-  return cleared;
+  return repointBanks(paletteConfigs, id, null);
 }
 function destroy() {
   const target = palette();
