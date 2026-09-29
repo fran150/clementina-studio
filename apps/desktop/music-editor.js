@@ -7,6 +7,20 @@
 import { StudioAudio } from './audio-shared.js';
 import { canAdd, clampIndex, copyAsset, newId, removeAt } from './domain/assets.js';
 import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
+import {
+  NOTES,
+  clampPitch,
+  invertedNotes,
+  noteAt as noteUnder,
+  noteSpan as span,
+  notesAt,
+  relativeNotes,
+  reversedNotes,
+  setLegato,
+  settle,
+  shiftBlocked,
+  shiftedNotes,
+} from './domain/songs.js';
 import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { newProject, redrawAll, restoreStudioProject, showView } from './lifecycle.js';
@@ -22,7 +36,6 @@ const KEYS_W = 54,
   RULER_H = 24,
   ROW_H = 12,
   STEP_W = 16,
-  NOTES = 96,
   BLACK = [1, 3, 6, 8, 10];
 let songIndex = 0,
   instrumentIndex = 0,
@@ -71,12 +84,8 @@ function point(e) {
 }
 const stepAt = (x) => (x - KEYS_W + scrollX) / stepW(),
   pitchAt = (y) => NOTES - 1 - Math.floor((y - RULER_H + scrollY) / ROW_H);
-const clampPitch = (p) => Math.max(0, Math.min(NOTES - 1, p));
-function noteAt(x, y) {
-  const s = stepAt(x),
-    p = pitchAt(y);
-  return notes().find((n) => n.pitch === p && s >= n.step && s < n.step + n.length) ?? null;
-}
+// The note under a canvas point on the voice being drawn on, or null.
+const noteAt = (x, y) => noteUnder(notes(), stepAt(x), pitchAt(y));
 function clampScroll() {
   const s = song();
   if (!s) return;
@@ -91,36 +100,6 @@ function clampScroll() {
 }
 
 // ---- Notes ----
-// A voice plays one note at a time, so notes placed on it cut whatever they
-// land on: a note they start inside keeps its head, one they cover goes,
-// one whose start they cover keeps its tail. Placed notes come back sorted.
-function settle(others, placed, length) {
-  const kept = [];
-  for (const n of others) {
-    let a = n.step,
-      b = n.step + n.length;
-    for (const p of placed) {
-      const pa = p.step,
-        pb = p.step + p.length;
-      if (pb <= a || pa >= b) continue;
-      if (a < pa) b = pa;
-      else if (b > pb) a = pb;
-      else {
-        a = b;
-        break;
-      }
-    }
-    if (b > a)
-      kept.push(a === n.step && b === n.step + n.length ? n : { ...n, step: a, length: b - a });
-  }
-  const clipped = placed
-    .filter((p) => p.step < length)
-    .map((p) => {
-      p.length = Math.min(p.length, length - p.step);
-      return p;
-    });
-  return [...kept, ...clipped].sort((x, y) => x.step - y.step);
-}
 // Replaces the selected notes with `moved` (new objects), settling the voice around them.
 function place(label, moved) {
   const s = song(),
@@ -132,27 +111,13 @@ function place(label, moved) {
   });
 }
 const selected = () => notes().filter((n) => selection.has(n));
-function span(list) {
-  return {
-    from: Math.min(...list.map((n) => n.step)),
-    to: Math.max(...list.map((n) => n.step + n.length)),
-    low: Math.min(...list.map((n) => n.pitch)),
-    high: Math.max(...list.map((n) => n.pitch)),
-  };
-}
 function shift(steps, semitones) {
   const list = selected();
   if (!list.length) return false;
-  const b = span(list),
-    s = song();
-  if (
-    b.from + steps < 0 ||
-    b.to + steps > s.length ||
-    b.low + semitones < 0 ||
-    b.high + semitones >= NOTES
-  ) {
+  const blocked = shiftBlocked(list, steps, semitones, song().length);
+  if (blocked) {
     setStatus(
-      semitones
+      blocked === 'pitch'
         ? 'The notes would leave the pitch range, C0 to B7.'
         : 'The notes would leave the song.',
     );
@@ -160,7 +125,7 @@ function shift(steps, semitones) {
   }
   place(
     semitones ? (semitones > 0 ? 'Transpose up' : 'Transpose down') : 'Move notes',
-    list.map((n) => ({ ...n, step: n.step + steps, pitch: n.pitch + semitones })),
+    shiftedNotes(list, steps, semitones),
   );
   if (semitones) hear(list[0].pitch + semitones, list[0].instrumentId);
   return true;
@@ -168,31 +133,18 @@ function shift(steps, semitones) {
 function reverseNotes() {
   const list = selected();
   if (!list.length) return;
-  const b = span(list);
-  place(
-    'Reverse the notes',
-    list.map((n) => ({ ...n, step: b.from + b.to - (n.step + n.length) })),
-  );
+  place('Reverse the notes', reversedNotes(list));
 }
 function invertNotes() {
   const list = selected();
   if (!list.length) return;
-  const b = span(list);
-  place(
-    'Invert the notes',
-    list.map((n) => ({ ...n, pitch: b.low + b.high - n.pitch })),
-  );
+  place('Invert the notes', invertedNotes(list));
 }
 function toggleLegato() {
   const list = selected();
   if (!list.length) return;
   const on = !list.every((n) => n.legato);
-  edit(on ? 'Slide into the notes' : 'Restart the notes', () => {
-    for (const n of list) {
-      if (on) n.legato = true;
-      else delete n.legato;
-    }
-  });
+  edit(on ? 'Slide into the notes' : 'Restart the notes', () => setLegato(list, on));
 }
 function removeNotes() {
   const list = selected();
@@ -207,11 +159,7 @@ function removeNotes() {
 function copyNotes() {
   const list = selected();
   if (!list.length) return false;
-  const b = span(list);
-  StudioShell.clipboard.set(
-    'notes',
-    list.map((n) => ({ ...n, step: n.step - b.from })),
-  );
+  StudioShell.clipboard.set('notes', relativeNotes(list));
   return true;
 }
 function cutNotes() {
@@ -224,12 +172,7 @@ function addNotes(list, at, label) {
     setStatus('Move the cursor inside the song to paste there.');
     return false;
   }
-  const fallback = instrument()?.id,
-    added = list.map((n) => ({
-      ...n,
-      step: n.step + at,
-      instrumentId: instrumentById(n.instrumentId) ? n.instrumentId : fallback,
-    }));
+  const added = notesAt(list, at, (id) => !!instrumentById(id), instrument()?.id);
   const v = s.voices[voice];
   edit(label, () => {
     v.notes = settle(v.notes, added, s.length);
@@ -241,12 +184,7 @@ const pasteNotes = () => addNotes(StudioShell.clipboard.get('notes'), cursor, 'P
 function duplicateNotes() {
   const list = selected();
   if (!list.length) return false;
-  const b = span(list);
-  return addNotes(
-    list.map((n) => ({ ...n, step: n.step - b.from })),
-    b.to,
-    'Duplicate notes',
-  );
+  return addNotes(relativeNotes(list), span(list).to, 'Duplicate notes');
 }
 StudioShell.editActions('music', { copy: copyNotes, cut: cutNotes, paste: pasteNotes });
 function selectAll() {

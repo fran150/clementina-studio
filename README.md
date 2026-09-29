@@ -85,7 +85,9 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   blocks, fill, strokes and shapes), `shapes.js` (sprite arrangements: OAM
   limits, bounds, origin and canvas resizing, flips and draw order) and
   `animations.js` (frames, their tileset pin, flips and offsets, playback
-  timing). `state.js` holds the project itself and
+  timing), `sounds.js` (sound frames: pitch sweeps, transpose, reverse,
+  invert, length) and `songs.js` (notes on a voice: settling overlaps,
+  moving, reversing, inverting, legato, copy and paste). `state.js` holds the project itself and
   re-exports the model helpers the editors import from it.
   `npm run typecheck` checks them with TypeScript's checkJs;
   `types/globals.d.ts` types the DOM helpers they share.
