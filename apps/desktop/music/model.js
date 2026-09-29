@@ -15,6 +15,26 @@ export const KEYS_W = 54,
   ROW_H = 12,
   STEP_W = 16,
   BLACK = [1, 3, 6, 8, 10];
+/** The tools, in rail order, with the letter that picks each. */
+export const TOOLS = [
+  {
+    name: 'select',
+    key: 's',
+    label: 'Select (S) — click or box notes, then move, transpose, copy or delete them',
+  },
+  {
+    name: 'pencil',
+    key: 'b',
+    label:
+      'Pencil (B) — click to add a note, drag to size it; drag a note to move it, its end to resize it',
+  },
+  { name: 'eraser', key: 'e', label: 'Eraser (E) — click or drag across notes to remove them' },
+  {
+    name: 'pan',
+    key: 'h',
+    label: 'Pan (H) — drag to scroll; Space or the middle button pan with any other tool active',
+  },
+];
 
 /** The editor's working state; songs and instruments live in state.js. */
 export const mu = {

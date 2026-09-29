@@ -12,7 +12,8 @@ import {
   reverse,
   transpose,
 } from './editing.js';
-import { setTool } from './model.js';
+import { TOOLS, setTool } from './model.js';
+import { toolButtons } from '../audio/tools.js';
 
 const host = $('soundEditor');
 
@@ -20,69 +21,34 @@ const host = $('soundEditor');
 export function soundRails() {
   const library = host.querySelector('.sfLibrary'),
     props = host.querySelector('.sfProps');
-  const libraryToggle = StudioShell.iconButton('sfLibraryToggle', 'Sounds', 'sound');
-  StudioShell.bindPanel({
-    panel: library,
-    button: libraryToggle,
-    group: 'sfLeft',
-    closeGroups: ['sfLeft'],
-  });
-  const toolButton = (id, label, icon, name) =>
-    Object.assign(StudioShell.iconButton(id, label, icon), { onclick: () => setTool(name) });
+  const libraryToggle = StudioShell.panelToggle(
+    library,
+    'sfLibraryToggle',
+    'Sounds',
+    'sound',
+    'sfLeft',
+  );
   const action = (id, label, icon, fn) =>
     Object.assign(StudioShell.iconButton(id, label, icon), { onclick: fn });
   const rail = StudioShell.toolRail('sfRail', 'Sound tools');
   host.prepend(rail);
   StudioShell.railLayout(
     rail,
-    [
-      [libraryToggle],
-      [
-        toolButton(
-          'sfSelectTool',
-          'Select frames (S) — drag across frames, then copy, move, reverse or transpose them',
-          'select',
-          'select',
-        ),
-        toolButton(
-          'sfPencilTool',
-          'Pencil (B) — draw values in a lane; right-drag writes 0',
-          'pencil',
-          'pencil',
-        ),
-        toolButton(
-          'sfLineTool',
-          'Line (L) — drag a straight ramp in a lane: an even pitch sweep, a volume fade',
-          'line',
-          'line',
-        ),
-        toolButton('sfEraserTool', 'Eraser (E) — write 0: silence, no gate', 'eraser', 'eraser'),
-        toolButton(
-          'sfPanTool',
-          'Pan (H) — drag to scroll; Space or the middle button pan with any other tool active',
-          'pan',
-          'pan',
-        ),
-      ],
-    ],
+    [[libraryToggle], toolButtons('sf', TOOLS, setTool)],
     [
       action('sfCopy', 'Copy frames (Ctrl/Cmd+C)', 'copy', copyFrames),
       action('sfPaste', 'Paste frames after the selection (Ctrl/Cmd+V)', 'paste', pasteFrames),
       ...StudioShell.historyButtons('sf'),
     ],
   );
-  const propsToggle = StudioShell.iconButton(
+  const propsToggle = StudioShell.panelToggle(
+    props,
     'sfPropsToggle',
     'Sound — envelope, pan, length and presets',
     'properties',
+    'sfRight',
+    true,
   );
-  StudioShell.bindPanel({
-    panel: props,
-    button: propsToggle,
-    group: 'sfRight',
-    closeGroups: ['sfRight'],
-    asset: true,
-  });
   const sideRail = StudioShell.toolRail('sfSideRail', 'Frames', 'right');
   host.append(sideRail);
   StudioShell.railLayout(sideRail, [

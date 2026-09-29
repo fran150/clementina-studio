@@ -19,6 +19,7 @@
     "shape/*.js",
     "sound/*.js",
     "music/*.js",
+    "audio/*.js",
     "tiles/*.js",
     "shell/*.js",
     "builder/*.js",

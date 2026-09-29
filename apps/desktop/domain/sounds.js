@@ -10,11 +10,6 @@ import { clamp } from './geometry.js';
 /** What an erase writes to each register: its zero. */
 export const ZERO = Object.freeze({ freq: 0, volume: 0, pulse: 0, wave: 0, gate: false });
 
-/** The frequency register for a (fractional) semitone, C0 = 0. */
-export function semitoneFreq(audio, semitone) {
-  return audio.hzToFrequency(440 * 2 ** ((semitone - 57) / 12));
-}
-
 /**
  * The value `t` (0 to 1) of the way from `a` to `b` on the register `key`.
  * Pitch moves in semitones, so a line is an even sweep, rounded to whole
@@ -26,7 +21,7 @@ export function interpolate(audio, key, a, b, t, snap) {
   if (key === 'freq') {
     if (!a || !b) return t < 0.5 ? a : b;
     const s = audio.frequencyNote(a) + (audio.frequencyNote(b) - audio.frequencyNote(a)) * t;
-    return semitoneFreq(audio, snap ? Math.round(s) : s);
+    return audio.noteFrequency(snap ? Math.round(s) : s);
   }
   return Math.round(a + (b - a) * t);
 }
@@ -60,7 +55,7 @@ export function inversionAxis(audio, frames, { from, to }) {
 export function invertFrames(audio, frames, { from, to }, axis) {
   for (let f = from; f < to; f++) {
     const fr = frames[f];
-    if (fr.freq) fr.freq = semitoneFreq(audio, axis - audio.frequencyNote(fr.freq));
+    if (fr.freq) fr.freq = audio.noteFrequency(axis - audio.frequencyNote(fr.freq));
   }
 }
 

@@ -3,6 +3,7 @@
 // end and loop, the cursor or playhead, the ruler and the keyboard.
 import { NOTES } from '../domain/songs.js';
 import { $ } from '../dom.js';
+import { StudioShell } from '../studio-shell.js';
 import { canvas, pitchY, stepW, stepX, stepsPerBar } from './geometry.js';
 import { A, BLACK, COLORS, KEYS_W, ROW_H, RULER_H, mu, mutes, song } from './model.js';
 
@@ -12,16 +13,7 @@ const host = $('musicEditor');
 export function draw() {
   const s = song();
   if (host.hidden || !s) return;
-  const dpr = devicePixelRatio || 1,
-    w = canvas.clientWidth,
-    h = canvas.clientHeight;
-  if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
-    canvas.width = Math.round(w * dpr);
-    canvas.height = Math.round(h * dpr);
-  }
-  const ctx = canvas.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, w, h);
+  const { ctx, w, h } = StudioShell.sizedContext(canvas);
   const sw = stepW(),
     bar = stepsPerBar(s),
     end = stepX(s.length),

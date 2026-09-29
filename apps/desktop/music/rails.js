@@ -3,7 +3,8 @@
 // song and instrument properties and holds the note actions.
 import { $ } from '../dom.js';
 import { StudioShell } from '../studio-shell.js';
-import { setTool } from './model.js';
+import { TOOLS, setTool } from './model.js';
+import { toolButtons } from '../audio/tools.js';
 import {
   copyNotes,
   duplicateNotes,
@@ -23,8 +24,6 @@ export function musicRails() {
     instrumentLibrary = host.querySelector('.muInstrumentLibrary'),
     songProps = host.querySelector('.muSongProps'),
     instrumentProps = host.querySelector('.muInstrumentProps');
-  const toolButton = (id, label, icon, name) =>
-    Object.assign(StudioShell.iconButton(id, label, icon), { onclick: () => setTool(name) });
   const action = (id, label, icon, fn) =>
     Object.assign(StudioShell.iconButton(id, label, icon), { onclick: fn });
   const rail = StudioShell.toolRail('muRail', 'Music tools');
@@ -42,32 +41,7 @@ export function musicRails() {
           'muLeft',
         ),
       ],
-      [
-        toolButton(
-          'muSelectTool',
-          'Select (S) — click or box notes, then move, transpose, copy or delete them',
-          'select',
-          'select',
-        ),
-        toolButton(
-          'muPencilTool',
-          'Pencil (B) — click to add a note, drag to size it; drag a note to move it, its end to resize it',
-          'pencil',
-          'pencil',
-        ),
-        toolButton(
-          'muEraserTool',
-          'Eraser (E) — click or drag across notes to remove them',
-          'eraser',
-          'eraser',
-        ),
-        toolButton(
-          'muPanTool',
-          'Pan (H) — drag to scroll; Space or the middle button pan with any other tool active',
-          'pan',
-          'pan',
-        ),
-      ],
+      toolButtons('mu', TOOLS, setTool),
     ],
     [
       action('muCopy', 'Copy notes (Ctrl/Cmd+C)', 'copy', copyNotes),

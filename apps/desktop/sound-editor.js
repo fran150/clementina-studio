@@ -9,13 +9,14 @@
 // pointer input, the properties panel, playback with the top bar and keys,
 // and the rails.
 import { StudioAudio } from './audio-shared.js';
+import { syncTools } from './audio/tools.js';
 import { canAdd, clampIndex, copyAsset, newId, removeAt } from './domain/assets.js';
 import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
 import { $ } from './dom.js';
 import { play, soundKeys, soundZoom } from './sound/controls.js';
 import { copyFrames, cutFrames, pasteFrames } from './sound/editing.js';
 import { canvas, clampScroll, fitLevel, frameX, lanes } from './sound/geometry.js';
-import { A, edit, sf, sound } from './sound/model.js';
+import { A, edit, sf, sound, TOOLS } from './sound/model.js';
 import { canvasPointer } from './sound/pointer.js';
 import { buildPresets, soundProps, syncProps } from './sound/props.js';
 import { soundRails } from './sound/rails.js';
@@ -121,14 +122,7 @@ function render() {
     sf.selection = null;
   buildPresets();
   $('sfTitle').textContent = s.name;
-  for (const [id, name] of [
-    ['sfSelectTool', 'select'],
-    ['sfPencilTool', 'pencil'],
-    ['sfLineTool', 'line'],
-    ['sfEraserTool', 'eraser'],
-    ['sfPanTool', 'pan'],
-  ])
-    $(id).classList.toggle('on', sf.tool === name);
+  syncTools('sf', TOOLS, sf.tool);
   $('sfSnapToggle').classList.toggle('on', sf.snap);
   $('sfSnapToggle').setAttribute('aria-pressed', String(sf.snap));
   const playing = StudioAudio.playing();

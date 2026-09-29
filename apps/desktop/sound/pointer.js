@@ -171,30 +171,26 @@ export function canvasPointer() {
   canvas.oncontextmenu = (e) => {
     e.preventDefault();
     if (!sound() || painting()) return;
-    const sel = !!sf.selection,
-      paste = StudioShell.clipboard.has('soundFrames');
-    StudioShell.contextMenu(e.clientX, e.clientY, [
-      { label: 'Cut', hint: 'Mod+X', disabled: !sel, run: cutFrames },
-      { label: 'Copy', hint: 'Mod+C', disabled: !sel, run: copyFrames },
-      { label: 'Paste', hint: 'Mod+V', disabled: !paste, run: pasteFrames },
-      { label: 'Duplicate', hint: 'Mod+D', disabled: !sel, run: duplicateFrames },
-      { label: 'Delete', hint: 'Delete', disabled: !sel, run: removeFrames },
-      '-',
-      { label: 'Reverse', hint: 'Shift+H', run: reverse },
-      { label: 'Invert pitch', hint: 'Shift+V', run: invert },
-      { label: 'Transpose up', hint: '↑', run: () => transpose(1) },
-      { label: 'Transpose down', hint: '↓', run: () => transpose(-1) },
-      '-',
-      { label: 'Select all', hint: 'Mod+A', run: selectAll },
-      {
-        label: 'Deselect',
-        hint: 'Esc',
-        disabled: !sel,
-        run: () => {
-          sf.selection = null;
-          sf.render();
-        },
+    // The transforms act on the selection, or on the whole sound without one.
+    StudioShell.editMenu(e, {
+      selected: !!sf.selection,
+      kind: 'soundFrames',
+      cut: cutFrames,
+      copy: copyFrames,
+      paste: pasteFrames,
+      duplicate: duplicateFrames,
+      remove: removeFrames,
+      transform: [
+        { label: 'Reverse', hint: 'Shift+H', run: reverse },
+        { label: 'Invert pitch', hint: 'Shift+V', run: invert },
+        { label: 'Transpose up', hint: '↑', run: () => transpose(1) },
+        { label: 'Transpose down', hint: '↓', run: () => transpose(-1) },
+      ],
+      selectAll,
+      deselect: () => {
+        sf.selection = null;
+        sf.render();
       },
-    ]);
+    });
   };
 }

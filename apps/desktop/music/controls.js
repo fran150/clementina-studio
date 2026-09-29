@@ -1,10 +1,11 @@
 // The music editor's top bar and keyboard: the zoom buttons (the wheel
 // scrolls), help, and the shortcuts.
-import { $, isField } from '../dom.js';
-import { currentView } from '../state.js';
+import { timelineKeys } from '../audio/keys.js';
+import { toolKeys } from '../audio/tools.js';
+import { $ } from '../dom.js';
 import { StudioShell } from '../studio-shell.js';
 import { canvas, clampScroll, fitLevel, stepAt, stepW } from './geometry.js';
-import { KEYS_W, mu, setTool, song } from './model.js';
+import { KEYS_W, mu, setTool, song, TOOLS } from './model.js';
 import {
   copyNotes,
   cutNotes,
@@ -61,89 +62,41 @@ export function musicZoom() {
 
 /** Wires the shortcuts. Space plays and pauses when tapped, and pans while held. */
 export function musicKeys() {
-  StudioShell.viewKeys('music', (e, { key, mod, handled }) => {
-    if (
-      /** @type {HTMLElement} */ (e.target).closest?.('button,[role="option"]') &&
-      (e.code === 'Space' || e.key === 'Enter')
-    )
-      return;
-    if (e.code === 'Space') {
-      handled();
-      if (!e.repeat && !mu.drag) mu.space = true;
-      return;
-    }
-    if (!song()) return;
-    if (mod && key === 'a') {
-      handled();
-      selectAll();
-      return;
-    }
-    if (mod && ['c', 'x', 'v', 'd'].includes(key)) {
-      const done = { c: copyNotes, x: cutNotes, v: pasteNotes, d: duplicateNotes }[key]();
-      if (done || key === 'd') handled();
-      return;
-    }
-    if (mod || e.altKey) return;
-    if (/** @type {HTMLElement} */ (e.target).closest?.('[role="option"]')) return;
-    if (key === 'escape') {
-      mu.selection = new Set();
-      mu.drag = null;
-      mu.render();
-      return;
-    }
-    if (key === 'delete' || key === 'backspace') {
-      if (removeNotes()) handled();
-      return;
-    }
-    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key) && mu.selection.size) {
-      handled();
-      if (key === 'arrowup' || key === 'arrowdown')
-        shift(0, (key === 'arrowup' ? 1 : -1) * (e.shiftKey ? 12 : 1));
-      else shift(key === 'arrowleft' ? -1 : 1, 0);
-      return;
-    }
-    if (e.shiftKey && (key === 'h' || key === 'v')) {
-      handled();
-      (key === 'h' ? reverseNotes : invertNotes)();
-      return;
-    }
-    if (!e.shiftKey && /^[1-4]$/.test(key)) {
-      handled();
-      chooseVoice(Number(key) - 1);
-      return;
-    }
-    if (key === 'l' && !e.shiftKey) {
-      handled();
-      toggleLegato();
-      return;
-    }
-    const name = { s: 'select', b: 'pencil', e: 'eraser', h: 'pan' }[key];
-    if (name && !e.shiftKey) {
-      handled();
-      setTool(name);
-    }
-  });
-  // Space plays and pauses when tapped, and pans while held, as elsewhere.
-  let spacePanned = false;
-  window.addEventListener('keyup', (e) => {
-    if (e.code !== 'Space' || currentView !== 'music' || !mu.space) return;
-    mu.space = false;
-    if (!spacePanned && !isField(e.target)) toggle();
-    spacePanned = false;
-  });
-  canvas.addEventListener(
-    'pointerdown',
-    () => {
-      if (mu.space) spacePanned = true;
+  timelineKeys({
+    view: 'music',
+    canvas,
+    state: mu,
+    open: () => !!song(),
+    tap: toggle,
+    clipboard: { c: copyNotes, x: cutNotes, v: pasteNotes, d: duplicateNotes },
+    selectAll,
+    deselect: () => (mu.selection = new Set()),
+    remove: removeNotes,
+    flip: { h: reverseNotes, v: invertNotes },
+    tools: toolKeys(TOOLS),
+    setTool,
+    extra: (e, key, handled) => {
+      // The arrows move the selected notes: Up and Down by a semitone, or an
+      // octave with Shift; Left and Right by a step.
+      if (key.startsWith('arrow') && mu.selection.size) {
+        handled();
+        if (key === 'arrowup' || key === 'arrowdown')
+          shift(0, (key === 'arrowup' ? 1 : -1) * (e.shiftKey ? 12 : 1));
+        else shift(key === 'arrowleft' ? -1 : 1, 0);
+        return true;
+      }
+      // 1 to 4 pick the voice to draw on; L makes the selected notes legato.
+      if (!e.shiftKey && /^[1-4]$/.test(key)) {
+        handled();
+        chooseVoice(Number(key) - 1);
+        return true;
+      }
+      if (key === 'l' && !e.shiftKey) {
+        handled();
+        toggleLegato();
+        return true;
+      }
+      return false;
     },
-    true,
-  );
-  // Switching windows mid-drag never delivers the pointerup, so drop the drag
-  // here; otherwise the next click would carry it on.
-  window.addEventListener('blur', () => {
-    mu.space = false;
-    if (!mu.drag) return;
-    mu.drag = null;
-    mu.render();
   });
 }

@@ -1,8 +1,9 @@
 // The sound editor's playback, top bar and keyboard: play and stop with a
 // moving playhead, the zoom buttons and pitch snap, and the shortcuts.
 import { StudioAudio } from '../audio-shared.js';
-import { $, isField } from '../dom.js';
-import { currentView } from '../state.js';
+import { timelineKeys } from '../audio/keys.js';
+import { toolKeys } from '../audio/tools.js';
+import { $ } from '../dom.js';
 import { StudioShell } from '../studio-shell.js';
 import {
   copyFrames,
@@ -16,7 +17,7 @@ import {
   transpose,
 } from './editing.js';
 import { canvas, clampScroll, fitLevel, frameW } from './geometry.js';
-import { A, LABEL_W, setTool, sf, sound } from './model.js';
+import { A, LABEL_W, setTool, sf, sound, TOOLS } from './model.js';
 import { draw, sync } from './view.js';
 
 const host = $('soundEditor');
@@ -93,73 +94,25 @@ export function soundZoom() {
 // ===== keys =====
 /** Wires the shortcuts. Space plays and stops: on its own, a tap; held, it pans. */
 export function soundKeys() {
-  StudioShell.viewKeys('sounds', (e, { key, mod, handled }) => {
-    // Keys a focused button or list row already answers are left to it.
-    if (
-      /** @type {HTMLElement} */ (e.target).closest?.('button,[role="option"]') &&
-      (e.code === 'Space' || e.key === 'Enter')
-    )
-      return;
-    if (e.code === 'Space') {
-      handled();
-      if (!e.repeat && !sf.drag) sf.space = true;
-      return;
-    }
-    if (!sound()) return;
-    if (mod && key === 'a') {
-      handled();
-      selectAll();
-      return;
-    }
-    if (mod && ['c', 'x', 'v', 'd'].includes(key)) {
-      const done = { c: copyFrames, x: cutFrames, v: pasteFrames, d: duplicateFrames }[key]();
-      if (done || key === 'd') handled();
-      return;
-    }
-    if (mod || e.altKey) return;
-    if (/** @type {HTMLElement} */ (e.target).closest?.('[role="option"]')) return;
-    if (key === 'escape') {
-      sf.selection = null;
-      sf.drag = null;
-      sf.render();
-      return;
-    }
-    if (key === 'delete' || key === 'backspace') {
-      if (removeFrames()) handled();
-      return;
-    }
-    if (key === 'arrowup' || key === 'arrowdown') {
+  timelineKeys({
+    view: 'sounds',
+    canvas,
+    state: sf,
+    open: () => !!sound(),
+    tap: play,
+    clipboard: { c: copyFrames, x: cutFrames, v: pasteFrames, d: duplicateFrames },
+    selectAll,
+    deselect: () => (sf.selection = null),
+    remove: removeFrames,
+    flip: { h: reverse, v: invert },
+    tools: toolKeys(TOOLS),
+    setTool,
+    // Up and Down transpose the selection, or the whole sound; Shift by an octave.
+    extra: (e, key, handled) => {
+      if (key !== 'arrowup' && key !== 'arrowdown') return false;
       handled();
       transpose((key === 'arrowup' ? 1 : -1) * (e.shiftKey ? 12 : 1));
-      return;
-    }
-    if (e.shiftKey && (key === 'h' || key === 'v')) {
-      handled();
-      (key === 'h' ? reverse : invert)();
-      return;
-    }
-    const name = { s: 'select', b: 'pencil', l: 'line', e: 'eraser', h: 'pan' }[key];
-    if (name && !e.shiftKey) {
-      handled();
-      setTool(name);
-    }
-  });
-  let spacePanned = false;
-  window.addEventListener('keyup', (e) => {
-    if (e.code !== 'Space' || currentView !== 'sounds' || !sf.space) return;
-    sf.space = false;
-    if (!spacePanned && !isField(e.target)) play();
-    spacePanned = false;
-  });
-  canvas.addEventListener(
-    'pointerdown',
-    () => {
-      if (sf.space) spacePanned = true;
+      return true;
     },
-    true,
-  );
-  window.addEventListener('blur', () => {
-    sf.space = false;
-    sf.drag = null;
   });
 }

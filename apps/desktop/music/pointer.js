@@ -356,34 +356,27 @@ export function canvasPointer() {
       mu.render();
     }
     const sel = mu.selection.size > 0;
-    StudioShell.contextMenu(e.clientX, e.clientY, [
-      { label: 'Cut', hint: 'Mod+X', disabled: !sel, run: cutNotes },
-      { label: 'Copy', hint: 'Mod+C', disabled: !sel, run: copyNotes },
-      {
-        label: 'Paste at the cursor',
-        hint: 'Mod+V',
-        disabled: !StudioShell.clipboard.has('notes'),
-        run: pasteNotes,
+    StudioShell.editMenu(e, {
+      selected: sel,
+      kind: 'notes',
+      cut: cutNotes,
+      copy: copyNotes,
+      paste: pasteNotes,
+      pasteLabel: 'Paste at the cursor',
+      duplicate: duplicateNotes,
+      remove: removeNotes,
+      transform: [
+        { label: 'Transpose up', hint: '↑', disabled: !sel, run: () => shift(0, 1) },
+        { label: 'Transpose down', hint: '↓', disabled: !sel, run: () => shift(0, -1) },
+        { label: 'Reverse', hint: 'Shift+H', disabled: !sel, run: reverseNotes },
+        { label: 'Invert', hint: 'Shift+V', disabled: !sel, run: invertNotes },
+        { label: 'Legato', hint: 'L', disabled: !sel, run: toggleLegato },
+      ],
+      selectAll,
+      deselect: () => {
+        mu.selection = new Set();
+        mu.render();
       },
-      { label: 'Duplicate', hint: 'Mod+D', disabled: !sel, run: duplicateNotes },
-      { label: 'Delete', hint: 'Delete', disabled: !sel, run: removeNotes },
-      '-',
-      { label: 'Transpose up', hint: '↑', disabled: !sel, run: () => shift(0, 1) },
-      { label: 'Transpose down', hint: '↓', disabled: !sel, run: () => shift(0, -1) },
-      { label: 'Reverse', hint: 'Shift+H', disabled: !sel, run: reverseNotes },
-      { label: 'Invert', hint: 'Shift+V', disabled: !sel, run: invertNotes },
-      { label: 'Legato', hint: 'L', disabled: !sel, run: toggleLegato },
-      '-',
-      { label: 'Select all', hint: 'Mod+A', run: selectAll },
-      {
-        label: 'Deselect',
-        hint: 'Esc',
-        disabled: !sel,
-        run: () => {
-          mu.selection = new Set();
-          mu.render();
-        },
-      },
-    ]);
+    });
   };
 }

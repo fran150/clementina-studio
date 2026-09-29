@@ -84,7 +84,8 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   editor's canvas, edits, pointer input, panels and rails, and `sound/` for
   the sound editor's lanes, edits, pointer input, properties, playback and
   rails, `music/` for the music editor's piano roll, note edits,
-  playback, voices, song and instrument panels, and rails, `tiles/` for
+  playback, voices, song and instrument panels, and rails, `audio/` for the
+  keyboard and tool table the sound and music editors share, `tiles/` for
   the tileset editor (`bank-editor.js`): its drawing, palette dock, pixel
   selections, libraries, zoom and keys, and layout, `builder/` for the
   Builder's asset list and memory map, properties, slots, rails and SDK calls,
@@ -109,9 +110,10 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   `npm run typecheck` checks them with TypeScript's checkJs;
   `types/globals.d.ts` types the DOM helpers they share.
 - `packages/assets`: Studio project persistence and attribute encoders. Its
-  validators delegate to the SDK. `audio.ts` holds the audio model and MIA
-  preview engine and imports the browser-safe SDK audio module through the
-  import map in `editor.html`, which exposes it as `window.MiaAudio`.
+  validators delegate to the SDK. `audio.ts` gathers the audio model, MIA
+  preview engine, playback streams and sound presets from `audio/`, and
+  imports the browser-safe SDK audio module through the import map in
+  `editor.html`, which exposes it as `window.MiaAudio`.
 - `tests/firmware`: the harness that runs clementina-mia's `audio.c` on the
   desktop to check Studio's engine against it (`npm run test:firmware`).
 - `apps/vscode`, `packages/basic`, `packages/cli`, `examples`: planned.

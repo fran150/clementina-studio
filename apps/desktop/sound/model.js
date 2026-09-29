@@ -22,6 +22,26 @@ export const LANES = [
   { key: 'gate', label: 'Gate', color: '#a48bff', height: 22 },
 ];
 export const WAVE_SHORT = ['Sine', 'Pulse', 'Saw', 'Tri', 'Noise'];
+/** The tools, in rail order, with the letter that picks each. */
+export const TOOLS = [
+  {
+    name: 'select',
+    key: 's',
+    label: 'Select frames (S) — drag across frames, then copy, move, reverse or transpose them',
+  },
+  { name: 'pencil', key: 'b', label: 'Pencil (B) — draw values in a lane; right-drag writes 0' },
+  {
+    name: 'line',
+    key: 'l',
+    label: 'Line (L) — drag a straight ramp in a lane: an even pitch sweep, a volume fade',
+  },
+  { name: 'eraser', key: 'e', label: 'Eraser (E) — write 0: silence, no gate' },
+  {
+    name: 'pan',
+    key: 'h',
+    label: 'Pan (H) — drag to scroll; Space or the middle button pan with any other tool active',
+  },
+];
 
 /** The editor's working state; the sounds themselves live in state.js. */
 export const sf = {

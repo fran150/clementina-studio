@@ -1,7 +1,7 @@
 // The sound canvas's geometry: where each lane and frame sits, which lane,
 // frame and value a pointer is over, and the horizontal scroll and fit.
 import { clamp } from '../domain/geometry.js';
-import { interpolate, semitoneFreq as freqForSemitone } from '../domain/sounds.js';
+import { interpolate } from '../domain/sounds.js';
 import { $ } from '../dom.js';
 import {
   A,
@@ -46,8 +46,6 @@ export function laneAt(clientY) {
     y = clientY - r.top;
   return lanes().find((l) => y >= l.top - GAP / 2 && y < l.top + l.height + GAP / 2) ?? null;
 }
-/** The register value for semitone `s`. */
-const semitoneFreq = (s) => freqForSemitone(A(), s);
 // A lane's position, 0 at the top and 1 at the bottom, for a pointer.
 function laneT(lane, clientY) {
   const r = canvas.getBoundingClientRect();
@@ -59,7 +57,7 @@ export function valueAt(lane, clientY) {
   switch (lane.key) {
     case 'freq': {
       const s = PITCH_HIGH - t * (PITCH_HIGH - PITCH_LOW);
-      return semitoneFreq(sf.snap ? Math.round(s) : s);
+      return A().noteFrequency(sf.snap ? Math.round(s) : s);
     }
     case 'wave':
       return Math.min(4, Math.floor(t * 5));

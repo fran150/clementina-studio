@@ -6,7 +6,7 @@
 // shortcut sheet.
 // Setting up the page's shared parts runs here, in order, once.
 import { bankDock, hoverBankDock, syncBankDock, TRANSPARENT_ZERO } from './shell/bank-dock.js';
-import { dashedRect, pointerCell } from './shell/canvas.js';
+import { dashedRect, pointerCell, sizedContext } from './shell/canvas.js';
 import { clipboard, editActions, installEditCommands } from './shell/clipboard.js';
 import { defineEditor } from './shell/editor.js';
 import { historyButtons } from './shell/history-buttons.js';
@@ -67,6 +67,7 @@ export const StudioShell = Object.freeze({
   fitZoom,
   pointerCell,
   dashedRect,
+  sizedContext,
   zoomScrolled,
   stagePan,
   canvasZoom,
