@@ -10,19 +10,11 @@
 // tile-ID bytes in that region, left-to-right/top-to-bottom; mapping a value
 // (a score, a string) to tile IDs is the programmer's job, not Studio's.
 import { CellGrid } from './cell-grid.js';
-import { $, isField } from './dom.js';
-import { ProjectHistory } from './history.js';
+import { $ } from './dom.js';
+import { dragRegion, gridEditor, outlineDrag } from './grid-editor.js';
 import { redrawAll, showView } from './lifecycle.js';
-import {
-  bankColor,
-  bankPalette,
-  css565,
-  currentView,
-  overlays,
-  tilePixel,
-  tilesets,
-} from './state.js';
-import { markDirty, setStatus } from './status.js';
+import { currentView, overlays, tilesets } from './state.js';
+import { setStatus } from './status.js';
 import { StudioShell } from './studio-shell.js';
 
 const host = $('overlayEditor');
@@ -34,66 +26,29 @@ const OVERLAY_COLUMNS = 40,
   OVERLAY_CELLS = 1000;
 
 let overlayIndex = 0;
-let ovTool = 'pencil',
-  ovZoom = 1,
-  ovFittedId = null,
-  zoomControls = null,
-  ovErasing = false,
-  ovPainting = false,
-  ovLast = null,
-  ovAnchor = null;
-// Panning at high zoom: the Pan tool, Space-drag and middle-drag all scroll
-// #ovStage instead of painting, mirroring the tileset editor's shortcut.
-let ovSpaceHeld = false,
-  ovPanDrag = null;
-// The pointer's last position over the canvas, so the palette dock's hover
-// marks follow a paint, an undo or a zoom made while it rests there.
-let ovHover = null;
-let ovStamp = {
-  tile: 0,
-  paletteBank: 0,
-  flipX: false,
-  flipY: false,
-  priority: false,
-  chrAlt: false,
-};
-let ovPickAlt = false,
-  placeholderIndex = -1;
-// The tile picker's current pick, in tile coordinates of whichever tileset
-// ovPickAlt points at: one tile, or a group dragged out or loaded from an
-// Object, which the pencil stamps whole.
-let ovPickAnchor = null,
-  ovPickRegion = { col: 0, row: 0, width: 1, height: 1 };
-// Which of a 1bpp tileset's three pages the primary/alternate picker shows —
-// ephemeral preview state; the real CHRPLANE register is a build/runtime
-// concern, not authored here.
-let ovPrimaryPlane = 0,
-  ovAltPlane = 0;
+// The placeholder chosen in the list, or -1 for none.
+let placeholderIndex = -1;
 
 const overlay = () => overlays[overlayIndex];
-// The Select tool (cell-grid.js): with cells selected, the flips, Priority
-// and a palette bank click edit those cells rather than the next stamp.
-const selection = CellGrid.cellSelection({
+// Tools, tile picker, stamp, palette dock and rails: see grid-editor.js.
+const editor = gridEditor({
+  prefix: 'ov',
+  view: 'overlays',
+  host,
+  historyKey: 'overlays',
+  editLabel: 'Edit the overlay',
+  railLabel: 'Overlay tools',
+  asset: overlay,
   grid: () =>
     overlay() ? { width: OVERLAY_COLUMNS, height: OVERLAY_ROWS, cells: overlay().cells } : null,
-  edit: (label, fn) => ovEdit(label, fn),
-  render: () => {
-    paintCanvas();
-    layoutPlaceholders();
-    updateStampBar();
-    renderPaletteDock();
-    syncEditActions();
-  },
+  render: () => render(),
+  transparentZero: true,
+  layout: () => layoutPlaceholders(),
+  dragTools: { placeholder: { preview: previewPlaceholder, commit: commitPlaceholder } },
 });
-const ovTilesetById = (id) => tilesets.find((t) => t.id === id);
-const primaryTileset = () => ovTilesetById(overlay()?.tilesetId);
-const altTileset = () => ovTilesetById(overlay()?.altTilesetId);
-const pickingTileset = () => (ovPickAlt ? altTileset() : primaryTileset());
-function blankCell() {
-  return { tile: 0, paletteBank: 0, flipX: false, flipY: false, priority: false, chrAlt: false };
-}
+const { selection, edit: ovEdit, primaryTileset, altTileset } = editor;
 function makeCells() {
-  return Array.from({ length: OVERLAY_CELLS }, blankCell);
+  return Array.from({ length: OVERLAY_CELLS }, CellGrid.blank);
 }
 function overlapsRect(a, b) {
   return (
@@ -112,20 +67,6 @@ function firstFreeSpot(width, height, placeholders) {
   return null;
 }
 
-// An overlay's own data never mutates tilesets/palettes/shapes/animations/
-// backgrounds and nothing in those domains mutates an overlay, so this
-// history is independent rather than shared with theirs.
-function ovCheckpoint(label = 'Edit the overlay') {
-  ProjectHistory.checkpoint(['overlays'], label);
-}
-// An edit's label names it in the history: ovEdit('Delete X', fn).
-function ovEdit(...args) {
-  const label = typeof args[0] === 'string' ? args.shift() : 'Edit the overlay';
-  ovCheckpoint(label);
-  args[0]();
-  markDirty();
-  render();
-}
 document.addEventListener('studiohistory', () => {
   overlayIndex = Math.max(0, Math.min(overlayIndex, overlays.length - 1));
   selection.revalidate();
@@ -141,13 +82,11 @@ function freshPlaceholderName(a) {
   while (a.placeholders.some((p) => p.name.toLowerCase() === 'placeholder_' + n)) n++;
   return 'Placeholder_' + n;
 }
+// Opens another overlay with no placeholder chosen and a fresh pick.
 function chooseOverlay(i) {
   overlayIndex = i;
   placeholderIndex = -1;
-  ovPrimaryPlane = 0;
-  ovAltPlane = 0;
-  ovPickRegion = { col: 0, row: 0, width: 1, height: 1 };
-  selection.reset();
+  editor.resetPick();
   render();
 }
 function renameOverlay(i, name) {
@@ -179,323 +118,11 @@ function renderOverlayList() {
   });
 }
 
-function renderTilesetAssignment() {
-  const a = overlay();
-  for (const [listId, field] of [
-    ['ovPrimaryList', 'tilesetId'],
-    ['ovAltList', 'altTilesetId'],
-  ]) {
-    StudioShell.renderOptions($(listId), tilesets, {
-      label: (t) => t.name,
-      selected: (t) => !!a && t.id === a[field],
-      choose: (t) => {
-        if (!a || t.id === a[field]) return;
-        ovEdit(
-          field === 'tilesetId' ? 'Change the primary tileset' : 'Change the alternate tileset',
-          () => {
-            a[field] = t.id;
-          },
-        );
-      },
-    });
-  }
-  $('ovPrimaryPlaneLabel').hidden = primaryTileset()?.bpp !== 1;
-  $('ovPrimaryPlane').value = String(ovPrimaryPlane);
-  $('ovAltPlaneLabel').hidden = altTileset()?.bpp !== 1;
-  $('ovAltPlane').value = String(ovAltPlane);
-}
-$('ovPrimaryPlane').onchange = () => {
-  ovPrimaryPlane = Number($('ovPrimaryPlane').value);
-  paintCanvas();
-  drawTileMap();
-};
-$('ovAltPlane').onchange = () => {
-  ovAltPlane = Number($('ovAltPlane').value);
-  paintCanvas();
-  drawTileMap();
-};
-
-function drawTileMap() {
-  const source = pickingTileset(),
-    canvas = $('ovTileMap'),
-    ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#252830';
-  ctx.fillRect(0, 0, 256, 256);
-  if (source)
-    for (let t = 0; t < 256; t++) {
-      const bank = source.tilePaletteBanks[t];
-      for (let y = 0; y < 8; y++)
-        for (let x = 0; x < 8; x++) {
-          const ink = tilePixel(source, t, x, y, ovPickAlt ? ovAltPlane : ovPrimaryPlane);
-          ctx.fillStyle = ink === 0 ? '#252830' : css565(bankColor(bank, ink));
-          ctx.fillRect(((t % 16) * 8 + x) * 2, (Math.floor(t / 16) * 8 + y) * 2, 2, 2);
-        }
-    }
-  ctx.strokeStyle = '#ffffff30';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let n = 0; n <= 16; n++) {
-    ctx.moveTo(n * 16, 0);
-    ctx.lineTo(n * 16, 256);
-    ctx.moveTo(0, n * 16);
-    ctx.lineTo(256, n * 16);
-  }
-  ctx.stroke();
-  if (source && ovStamp.chrAlt === ovPickAlt) {
-    ctx.strokeStyle = '#36c9d6';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(
-      ovPickRegion.col * 16 + 1,
-      ovPickRegion.row * 16 + 1,
-      ovPickRegion.width * 16 - 2,
-      ovPickRegion.height * 16 - 2,
-    );
-  }
-}
-function tileMapCell(e) {
-  const r = $('ovTileMap').getBoundingClientRect();
-  return {
-    x: Math.max(0, Math.min(15, Math.floor(((e.clientX - r.left) / r.width) * 16))),
-    y: Math.max(0, Math.min(15, Math.floor(((e.clientY - r.top) / r.height) * 16))),
-  };
-}
-// Dragging on the tile picker picks a rectangular group, as in the
-// background editor; a click is a 1×1 drag.
-function selectPickRegion(x, y) {
-  const source = pickingTileset();
-  if (!source || !ovPickAnchor) return;
-  pick({
-    col: Math.min(ovPickAnchor.x, x),
-    row: Math.min(ovPickAnchor.y, y),
-    width: Math.abs(x - ovPickAnchor.x) + 1,
-    height: Math.abs(y - ovPickAnchor.y) + 1,
-  });
-}
-function pick(region) {
-  const source = pickingTileset();
-  ovPickRegion = region;
-  const tile = region.row * 16 + region.col;
-  ovStamp = { ...ovStamp, tile, paletteBank: source.tilePaletteBanks[tile], chrAlt: ovPickAlt };
-  stampTool();
-  render();
-}
-// Picking tiles is picking what to paint, so it switches to the pencil
-// unless a stamping tool is already active.
-function stampTool() {
-  if (!['pencil', 'rectangle', 'fill'].includes(ovTool)) setTool('pencil');
-}
-// The selection belongs to the Select tool, as in Photoshop: taking up a
-// painting tool drops it (panning keeps it), so the flips, Priority and a
-// palette bank click act on the selection while selecting and on the next
-// stamp while painting — never ambiguously on both.
-function setTool(name) {
-  if (name !== 'select' && name !== 'pan') selection.reset();
-  ovTool = name;
-  render();
-}
-$('ovTileMap').onpointerdown = (e) => {
-  if (!pickingTileset()) return;
-  ovPickAnchor = tileMapCell(e);
-  $('ovTileMap').setPointerCapture(e.pointerId);
-  selectPickRegion(ovPickAnchor.x, ovPickAnchor.y);
-};
-$('ovTileMap').onpointermove = (e) => {
-  if (ovPickAnchor) {
-    const { x, y } = tileMapCell(e);
-    selectPickRegion(x, y);
-  }
-};
-$('ovTileMap').onpointerup = $('ovTileMap').onpointercancel = () => (ovPickAnchor = null);
-$('ovPickSlot').onchange = () => {
-  ovPickAlt = $('ovPickSlot').value === 'alt';
-  ovPickRegion = { col: 0, row: 0, width: 1, height: 1 };
-  render();
-};
-// Objects are managed in the tileset editor; here they re-pick a saved group.
-function renderObjectList() {
-  const objects = pickingTileset()?.compositions ?? [];
-  StudioShell.renderList($('ovObjectList'), objects, {
-    selected: (o) =>
-      o.x === ovPickRegion.col &&
-      o.y === ovPickRegion.row &&
-      o.width === ovPickRegion.width &&
-      o.height === ovPickRegion.height,
-    choose: (o) => pick({ col: o.x, row: o.y, width: o.width, height: o.height }),
-    render,
-  });
-}
-
-function paintCellAt(col, row) {
-  const a = overlay();
-  if (col < 0 || row < 0 || col >= OVERLAY_COLUMNS || row >= OVERLAY_ROWS) return;
-  a.cells[row * OVERLAY_COLUMNS + col] = ovErasing ? blankCell() : { ...ovStamp };
-}
-// A multi-tile pick stamps its whole footprint with the pencil, each tile
-// keeping its own authored bank; a flipped group is mirrored whole.
-function paintGroupAt(col, row) {
-  if (ovErasing) {
-    paintCellAt(col, row);
-    return;
-  }
-  const a = overlay(),
-    source = ovStamp.chrAlt ? altTileset() : primaryTileset();
-  for (let dy = 0; dy < ovPickRegion.height; dy++)
-    for (let dx = 0; dx < ovPickRegion.width; dx++) {
-      const cx = col + dx,
-        cy = row + dy;
-      if (cx >= OVERLAY_COLUMNS || cy >= OVERLAY_ROWS) continue;
-      const sx = ovStamp.flipX ? ovPickRegion.width - 1 - dx : dx,
-        sy = ovStamp.flipY ? ovPickRegion.height - 1 - dy : dy;
-      const tile = (ovPickRegion.row + sy) * 16 + (ovPickRegion.col + sx);
-      a.cells[cy * OVERLAY_COLUMNS + cx] = {
-        tile,
-        paletteBank: source?.tilePaletteBanks[tile] ?? 0,
-        flipX: ovStamp.flipX,
-        flipY: ovStamp.flipY,
-        priority: ovStamp.priority,
-        chrAlt: ovStamp.chrAlt,
-      };
-    }
-}
-function paintAt(col, row) {
-  (ovPickRegion.width > 1 || ovPickRegion.height > 1 ? paintGroupAt : paintCellAt)(col, row);
-}
-function drawCell(ctx, cell, col, row) {
-  const source = cell.chrAlt ? altTileset() : primaryTileset();
-  for (let y = 0; y < 8; y++)
-    for (let x = 0; x < 8; x++) {
-      const px = cell.flipX ? 7 - x : x,
-        py = cell.flipY ? 7 - y : y;
-      const ink = source
-        ? tilePixel(source, cell.tile, px, py, cell.chrAlt ? ovAltPlane : ovPrimaryPlane)
-        : 0;
-      ctx.fillStyle = ink === 0 ? '#101113' : css565(bankColor(cell.paletteBank, ink));
-      ctx.fillRect(col * 8 + x, row * 8 + y, 1, 1);
-    }
-}
-function paintCanvas() {
-  const a = overlay();
-  if (!a) return;
-  const canvas = $('ovCanvas');
-  canvas.width = OVERLAY_COLUMNS * 8;
-  canvas.height = OVERLAY_ROWS * 8;
-  canvas.style.width = OVERLAY_COLUMNS * 8 * ovZoom + 'px';
-  canvas.style.height = OVERLAY_ROWS * 8 * ovZoom + 'px';
-  const ctx = canvas.getContext('2d');
-  for (let row = 0; row < OVERLAY_ROWS; row++)
-    for (let col = 0; col < OVERLAY_COLUMNS; col++)
-      drawCell(ctx, a.cells[row * OVERLAY_COLUMNS + col], col, row);
-  selection.drawFloating(ctx, drawCell);
-  selection.layout($('ovMarquee'), ovZoom);
-  markHover();
-}
-// Outlines, in the palette dock, the bank and color of the overlay pixel
-// under the pointer — as drawn, so a block being moved or pasted counts.
-function markHover() {
-  const a = overlay();
-  let hover = null;
-  if (a && ovHover) {
-    const r = $('ovCanvas').getBoundingClientRect(),
-      x = Math.floor(((ovHover.x - r.left) / r.width) * OVERLAY_COLUMNS * 8),
-      y = Math.floor(((ovHover.y - r.top) / r.height) * OVERLAY_ROWS * 8);
-    if (x >= 0 && y >= 0 && x < OVERLAY_COLUMNS * 8 && y < OVERLAY_ROWS * 8) {
-      const cell = selection.cellAt({ col: x >> 3, row: y >> 3 }),
-        source = cell.chrAlt ? altTileset() : primaryTileset();
-      const px = cell.flipX ? 7 - (x % 8) : x % 8,
-        py = cell.flipY ? 7 - (y % 8) : y % 8;
-      hover = {
-        bank: cell.paletteBank,
-        ink: source
-          ? tilePixel(source, cell.tile, px, py, cell.chrAlt ? ovAltPlane : ovPrimaryPlane)
-          : 0,
-      };
-    }
-  }
-  StudioShell.hoverBankDock($('ovSwatches'), hover);
-}
-function canvasCell(e) {
-  const r = $('ovCanvas').getBoundingClientRect();
-  const px = ((e.clientX - r.left) / r.width) * OVERLAY_COLUMNS * 8,
-    py = ((e.clientY - r.top) / r.height) * OVERLAY_ROWS * 8;
-  return {
-    col: Math.max(0, Math.min(OVERLAY_COLUMNS - 1, Math.floor(px / 8))),
-    row: Math.max(0, Math.min(OVERLAY_ROWS - 1, Math.floor(py / 8))),
-  };
-}
-function ovDrawTo(col, row) {
-  if (ovLast) {
-    const steps = Math.max(Math.abs(col - ovLast.col), Math.abs(row - ovLast.row));
-    for (let i = 0; i <= steps; i++)
-      paintAt(
-        Math.round(ovLast.col + ((col - ovLast.col) * i) / (steps || 1)),
-        Math.round(ovLast.row + ((row - ovLast.row) * i) / (steps || 1)),
-      );
-  } else paintAt(col, row);
-  ovLast = { col, row };
-  markDirty();
-  paintCanvas();
-}
-function ovFlood(col, row) {
-  const old = overlay().cells[row * OVERLAY_COLUMNS + col].tile,
-    seen = new Uint8Array(OVERLAY_CELLS),
-    stack = [[col, row]];
-  while (stack.length) {
-    const [x, y] = stack.pop();
-    if (
-      x < 0 ||
-      y < 0 ||
-      x >= OVERLAY_COLUMNS ||
-      y >= OVERLAY_ROWS ||
-      seen[y * OVERLAY_COLUMNS + x] ||
-      overlay().cells[y * OVERLAY_COLUMNS + x].tile !== old
-    )
-      continue;
-    seen[y * OVERLAY_COLUMNS + x] = 1;
-    paintCellAt(x, y);
-    stack.push([x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]);
-  }
-}
-function previewRectangle(col, row) {
-  paintCanvas();
-  const ctx = $('ovCanvas').getContext('2d');
-  const x0 = Math.min(ovAnchor.col, col),
-    x1 = Math.max(ovAnchor.col, col),
-    y0 = Math.min(ovAnchor.row, row),
-    y1 = Math.max(ovAnchor.row, row);
-  ctx.save();
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
-  ctx.strokeRect(x0 * 8 + 0.5, y0 * 8 + 0.5, (x1 - x0 + 1) * 8 - 1, (y1 - y0 + 1) * 8 - 1);
-  ctx.lineDashOffset = 4;
-  ctx.strokeStyle = '#111';
-  ctx.strokeRect(x0 * 8 + 0.5, y0 * 8 + 0.5, (x1 - x0 + 1) * 8 - 1, (y1 - y0 + 1) * 8 - 1);
-  ctx.restore();
-}
-function commitRectangle(col, row) {
-  const x0 = Math.min(ovAnchor.col, col),
-    x1 = Math.max(ovAnchor.col, col),
-    y0 = Math.min(ovAnchor.row, row),
-    y1 = Math.max(ovAnchor.row, row);
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) paintCellAt(x, y);
-  ovAnchor = null;
-  markDirty();
-  paintCanvas();
-}
-function previewPlaceholder(col, row) {
-  paintCanvas();
+// While the Placeholder tool drags out a region, outlines it in yellow.
+function previewPlaceholder(anchor, col, row) {
+  editor.paintCanvas();
   layoutPlaceholders();
-  const ctx = $('ovCanvas').getContext('2d');
-  const x0 = Math.min(ovAnchor.col, col),
-    x1 = Math.max(ovAnchor.col, col),
-    y0 = Math.min(ovAnchor.row, row),
-    y1 = Math.max(ovAnchor.row, row);
-  ctx.save();
-  ctx.strokeStyle = '#ffcf40';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
-  ctx.strokeRect(x0 * 8 + 0.5, y0 * 8 + 0.5, (x1 - x0 + 1) * 8 - 1, (y1 - y0 + 1) * 8 - 1);
-  ctx.restore();
+  outlineDrag($('ovCanvas').getContext('2d'), anchor, col, row, '#ffcf40');
 }
 function addPlaceholder(rect) {
   const a = overlay();
@@ -509,141 +136,9 @@ function addPlaceholder(rect) {
     placeholderIndex = a.placeholders.length - 1;
   });
 }
-function commitPlaceholder(col, row) {
-  const x0 = Math.min(ovAnchor.col, col),
-    x1 = Math.max(ovAnchor.col, col),
-    y0 = Math.min(ovAnchor.row, row),
-    y1 = Math.max(ovAnchor.row, row);
-  ovAnchor = null;
-  addPlaceholder({ col: x0, row: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 });
+function commitPlaceholder(anchor, col, row) {
+  addPlaceholder(dragRegion(anchor, col, row));
 }
-$('ovCanvas').onpointerdown = (e) => {
-  e.preventDefault();
-  if (!overlay() || (e.button === 2 && !painting())) return;
-  const { col, row } = canvasCell(e);
-  if (selection.pasting || ovTool === 'select') {
-    $('ovCanvas').setPointerCapture(e.pointerId);
-    selection.down({ col, row });
-    return;
-  }
-  if (ovTool === 'picker') {
-    const cell = overlay().cells[row * OVERLAY_COLUMNS + col];
-    ovStamp = { ...cell };
-    ovPickAlt = cell.chrAlt;
-    ovPickRegion = { col: cell.tile % 16, row: Math.floor(cell.tile / 16), width: 1, height: 1 };
-    render();
-    return;
-  }
-  if (ovTool === 'placeholder') {
-    ovAnchor = { col, row };
-    $('ovCanvas').setPointerCapture(e.pointerId);
-    previewPlaceholder(col, row);
-    return;
-  }
-  ovErasing = e.button === 2 || ovTool === 'eraser';
-  ovCheckpoint(
-    ovTool === 'fill'
-      ? 'Fill'
-      : ovTool === 'rectangle'
-        ? 'Draw a rectangle'
-        : ovErasing
-          ? 'Erase'
-          : 'Paint',
-  );
-  if (ovTool === 'fill') {
-    ovFlood(col, row);
-    markDirty();
-    paintCanvas();
-    return;
-  }
-  if (ovTool === 'rectangle') {
-    ovAnchor = { col, row };
-    $('ovCanvas').setPointerCapture(e.pointerId);
-    previewRectangle(col, row);
-    return;
-  }
-  ovPainting = true;
-  ovLast = null;
-  $('ovCanvas').setPointerCapture(e.pointerId);
-  ovDrawTo(col, row);
-};
-$('ovCanvas').onpointermove = (e) => {
-  if (!overlay()) return;
-  ovHover = { x: e.clientX, y: e.clientY };
-  markHover();
-  const { col, row } = canvasCell(e);
-  if (selection.move({ col, row })) return;
-  if (ovTool === 'select')
-    $('ovCanvas').style.cursor = selection.contains({ col, row }) ? 'move' : '';
-  if (ovAnchor) {
-    ovTool === 'placeholder' ? previewPlaceholder(col, row) : previewRectangle(col, row);
-    return;
-  }
-  if (ovPainting) ovDrawTo(col, row);
-};
-$('ovCanvas').onpointerup = (e) => {
-  if (!overlay()) return;
-  if (selection.up()) return;
-  if (ovAnchor) {
-    const { col, row } = canvasCell(e);
-    ovTool === 'placeholder' ? commitPlaceholder(col, row) : commitRectangle(col, row);
-    return;
-  }
-  ovPainting = false;
-  ovLast = null;
-};
-$('ovCanvas').onpointercancel = () => {
-  ovAnchor = null;
-  ovPainting = false;
-  ovLast = null;
-  selection.cancel();
-  layoutPlaceholders();
-};
-$('ovCanvas').onpointerleave = () => {
-  ovHover = null;
-  markHover();
-};
-// Right-click erases while a painting tool is active, the Aseprite way;
-// with any other tool it opens the edit menu for the selection.
-function painting() {
-  return ['pencil', 'rectangle', 'fill', 'eraser'].includes(ovTool);
-}
-$('ovCanvas').oncontextmenu = (e) => {
-  e.preventDefault();
-  if (!overlay() || painting()) return;
-  const sel = !!selection.rect,
-    paste = () => {
-      if (selection.startPaste()) {
-        setTool('select');
-        setStatus('Click to place the paste. Escape cancels.');
-      }
-    };
-  StudioShell.contextMenu(e.clientX, e.clientY, [
-    { label: 'Cut', hint: 'Mod+X', disabled: !sel, run: () => selection.cut() },
-    { label: 'Copy', hint: 'Mod+C', disabled: !sel, run: () => selection.copy() },
-    { label: 'Paste', hint: 'Mod+V', disabled: !StudioShell.clipboard.has('cells'), run: paste },
-    { label: 'Delete', hint: 'Delete', disabled: !sel, run: () => selection.remove() },
-    '-',
-    {
-      label: 'Flip horizontally',
-      hint: 'Shift+H',
-      disabled: !sel,
-      run: () => selection.flip('x'),
-    },
-    { label: 'Flip vertically', hint: 'Shift+V', disabled: !sel, run: () => selection.flip('y') },
-    { label: 'Priority', disabled: !sel, run: () => $('ovPriority').click() },
-    '-',
-    {
-      label: 'Select all',
-      hint: 'Mod+A',
-      run: () => {
-        setTool('select');
-        selection.selectAll();
-      },
-    },
-    { label: 'Deselect', hint: 'Esc', disabled: !sel, run: () => selection.deselect() },
-  ]);
-};
 
 function layoutPlaceholders() {
   const a = overlay(),
@@ -657,10 +152,10 @@ function layoutPlaceholders() {
       const el = document.createElement('div');
       el.className = 'ovPlaceholderRect';
       el.classList.toggle('selected', i === placeholderIndex);
-      el.style.left = p.col * 8 * ovZoom + 'px';
-      el.style.top = p.row * 8 * ovZoom + 'px';
-      el.style.width = p.width * 8 * ovZoom + 'px';
-      el.style.height = p.height * 8 * ovZoom + 'px';
+      el.style.left = p.col * 8 * editor.zoom + 'px';
+      el.style.top = p.row * 8 * editor.zoom + 'px';
+      el.style.width = p.width * 8 * editor.zoom + 'px';
+      el.style.height = p.height * 8 * editor.zoom + 'px';
       const label = document.createElement('span');
       label.textContent = p.name;
       el.append(label);
@@ -743,107 +238,11 @@ $('ovPhRow').onchange = () => applyPlaceholderField($('ovPhRow'), 'row', 0, OVER
 $('ovPhWidth').onchange = () => applyPlaceholderField($('ovPhWidth'), 'width', 1, OVERLAY_COLUMNS);
 $('ovPhHeight').onchange = () => applyPlaceholderField($('ovPhHeight'), 'height', 1, OVERLAY_ROWS);
 
-function updateStampBar() {
-  const group = ovPickRegion.width > 1 || ovPickRegion.height > 1,
-    sel = selection.rect;
-  $('ovStampTile').textContent = String(ovStamp.tile);
-  $('ovGroupLabel').hidden = !group;
-  $('ovGroupLabel').textContent =
-    `Group ${ovPickRegion.width} × ${ovPickRegion.height} — each tile keeps its own bank`;
-  $('ovSelectionLabel').hidden = !sel;
-  if (sel)
-    $('ovSelectionLabel').textContent =
-      `Selected ${sel.width} × ${sel.height} — flips, Priority and a palette bank edit these tiles in place`;
-  $('ovSelectionClear').hidden = !sel;
-  // With a selection the flips and Priority act on it; otherwise they are the
-  // next stamp's settings, shown pressed when on.
-  $('ovFlipX').classList.toggle('on', !sel && ovStamp.flipX);
-  $('ovFlipY').classList.toggle('on', !sel && ovStamp.flipY);
-  $('ovPriority').classList.toggle('on', !sel && ovStamp.priority);
-  $('ovStampSource').textContent = ovStamp.chrAlt ? 'Reads: Alternate' : 'Reads: Primary';
-  const source = ovStamp.chrAlt ? altTileset() : primaryTileset(),
-    authored = source?.tilePaletteBanks?.[ovStamp.tile];
-  $('ovBankLabel').textContent =
-    group && !sel ? '' : 'Bank ' + String(ovStamp.paletteBank).padStart(2, '0');
-  $('ovBankReset').hidden = sel
-    ? false
-    : group || authored === undefined || authored === ovStamp.paletteBank;
-}
-// With a selection these edit the selected cells, as one undo step, the
-// same as in the background editor; otherwise they set up the next stamp.
-$('ovFlipX').onclick = () => {
-  if (selection.rect) selection.flip('x');
-  else {
-    ovStamp = { ...ovStamp, flipX: !ovStamp.flipX };
-    render();
-  }
-};
-$('ovFlipY').onclick = () => {
-  if (selection.rect) selection.flip('y');
-  else {
-    ovStamp = { ...ovStamp, flipY: !ovStamp.flipY };
-    render();
-  }
-};
-$('ovPriority').onclick = () => {
-  if (selection.rect) {
-    const on = !selection.selected().every((c) => c.priority);
-    selection.apply((c) => (c.priority = on), on ? 'Set priority' : 'Clear priority');
-  } else {
-    ovStamp = { ...ovStamp, priority: !ovStamp.priority };
-    render();
-  }
-};
-$('ovBankReset').onclick = () => {
-  if (selection.rect) {
-    selection.apply((cell) => {
-      const source = cell.chrAlt ? altTileset() : primaryTileset();
-      if (source) cell.paletteBank = source.tilePaletteBanks[cell.tile];
-    }, 'Reset palette banks');
-    return;
-  }
-  const source = ovStamp.chrAlt ? altTileset() : primaryTileset();
-  if (source) ovStamp = { ...ovStamp, paletteBank: source.tilePaletteBanks[ovStamp.tile] };
-  render();
-};
-$('ovSelectionClear').onclick = () => selection.deselect();
-
-// Each bank is a full 8-color palette, not one representative color — a
-// single swatch per bank made two banks that only differed past color 1
-// look identical. Clicking anywhere on a bank's row selects it, same as
-// the single-swatch buttons this replaces.
-function renderPaletteDock() {
-  StudioShell.bankDock($('ovSwatches'), (b) => {
-    if (selection.rect) selection.apply((cell) => (cell.paletteBank = b), `Set bank ${b}`);
-    else {
-      ovStamp = { ...ovStamp, paletteBank: b };
-      render();
-    }
-  });
-  // A picked group has no single bank to set — unless cells are selected,
-  // which a bank click then sets whatever is picked.
-  const sel = selection.rect,
-    group = !sel && (ovPickRegion.width > 1 || ovPickRegion.height > 1);
-  StudioShell.syncBankDock($('ovSwatches'), {
-    color: (b, i) => css565(bankColor(b, i)),
-    transparentZero: true,
-    chosen: group || sel ? null : ovStamp.paletteBank,
-    used: new Set(overlay().cells.map((c) => c.paletteBank)),
-    disabled: group,
-    title: (b) =>
-      group
-        ? "A group keeps each tile's own authored bank"
-        : sel
-          ? `Set the selected tiles to bank ${String(b).padStart(2, '0')} · ${bankPalette(b)?.name ?? 'empty'}`
-          : `Bank ${String(b).padStart(2, '0')} · ${bankPalette(b)?.name ?? 'empty'}`,
-  });
-}
-
 function render() {
   host.hidden = currentView !== 'overlays';
   document.body.classList.toggle('overlayView', !host.hidden);
   if (host.hidden) {
-    ovHover = null;
+    editor.clearHover();
     return;
   }
   overlayIndex = Math.min(overlayIndex, Math.max(0, overlays.length - 1));
@@ -863,84 +262,17 @@ function render() {
   }
   placeholderIndex = Math.min(placeholderIndex, a.placeholders.length - 1);
   $('ovTitle').textContent = a.name;
-  zoomControls?.sync();
-  for (const [id, tool] of [
-    ['ovSelectTool', 'select'],
-    ['ovPencilTool', 'pencil'],
-    ['ovRectangleTool', 'rectangle'],
-    ['ovFillTool', 'fill'],
-    ['ovEraserTool', 'eraser'],
-    ['ovPickerTool', 'picker'],
-    ['ovPlaceholderTool', 'placeholder'],
-    ['ovPanTool', 'pan'],
-  ])
-    $(id).classList.toggle('on', ovTool === tool);
-  $('ovCanvas').style.cursor = ovTool === 'pan' ? 'grab' : '';
-  $('ovUndo').disabled = !ProjectHistory.canUndo();
-  $('ovRedo').disabled = !ProjectHistory.canRedo();
-  syncEditActions();
-  renderTilesetAssignment();
-  $('ovPickSlot').value = ovPickAlt ? 'alt' : 'primary';
-  drawTileMap();
-  renderObjectList();
-  paintCanvas();
+  editor.renderControls();
+  editor.paintCanvas();
   layoutPlaceholders();
   renderPlaceholderList();
   updatePlaceholderFields();
-  renderPaletteDock();
-  updateStampBar();
+  editor.renderStamp();
   $('ovStatus').textContent =
     `${OVERLAY_COLUMNS} × ${OVERLAY_ROWS} tiles · ${a.cells.length} cells · ${a.placeholders.length} placeholder(s) · primary ${primaryTileset()?.name ?? 'missing'} · alternate ${altTileset()?.name ?? 'missing'}`;
-  // An overlay opens fitted to the window; returning to one keeps its zoom.
-  // Measured last, once the docks around the stage have their final size.
-  if (a.id !== ovFittedId) {
-    ovFittedId = a.id;
-    ovZoom = fitLevel();
-    render();
-  }
+  editor.fitOnOpen();
 }
 
-const fitLevel = () =>
-  StudioShell.fitZoom(
-    $('ovStage').clientWidth - 48,
-    $('ovStage').clientHeight - 48,
-    OVERLAY_COLUMNS * 8,
-    OVERLAY_ROWS * 8,
-  );
-zoomControls = StudioShell.canvasZoom({
-  view: 'overlays',
-  ids: {
-    fit: 'ovFit',
-    actual: 'ovActualSize',
-    zoomOut: 'ovZoomOut',
-    label: 'ovZoomLabel',
-    zoomIn: 'ovZoomIn',
-  },
-  get: () => ovZoom,
-  set: (next, x, y) =>
-    StudioShell.zoomScrolled(
-      $('ovStage'),
-      $('ovCanvas'),
-      ovZoom,
-      next,
-      (z) => {
-        ovZoom = z;
-        render();
-      },
-      x,
-      y,
-    ),
-  fit: () => {
-    if (!overlay()) return;
-    ovZoom = fitLevel();
-    render();
-    $('ovStage').scrollLeft = $('ovStage').scrollTop = 0;
-  },
-  wheel: $('ovStage'),
-  busy: () => !!(ovPainting || ovAnchor || selection.busy || ovPanDrag),
-});
-host.querySelector('.ovTop .studioBarStart').after(zoomControls.group);
-host.querySelector('.ovTop .studioBarEnd').append(StudioShell.helpButton());
 $('ovCreateTileset').onclick = () => {
   showView('tiles');
 };
@@ -972,8 +304,7 @@ $('ovNewAction').onclick = () => {
     });
     overlayIndex = overlays.length - 1;
     placeholderIndex = -1;
-    ovPrimaryPlane = 0;
-    ovAltPlane = 0;
+    editor.resetPlanes();
   });
   setStatus('Created ' + overlay().name + '.');
 };
@@ -1045,94 +376,6 @@ const panelToggle = (panel, id, label, icon, asset = false) => {
   StudioShell.bindPanel({ panel, button: b, group: 'ovLeft', closeGroups: ['ovLeft'], asset });
   return b;
 };
-const tool = (id, label, icon, name) => {
-  const b = StudioShell.iconButton(id, label, icon);
-  b.onclick = () => setTool(name);
-  return b;
-};
-const rail = StudioShell.toolRail('ovRail', 'Overlay tools');
-host.prepend(rail);
-StudioShell.railLayout(
-  rail,
-  [
-    [
-      panelToggle(library, 'ovLibraryToggle', 'Overlays', 'overlay'),
-      panelToggle(
-        tileLibrary,
-        'ovTileLibraryToggle',
-        'Tilesets and tile picker',
-        'tilePicker',
-        true,
-      ),
-      panelToggle(
-        placeholderLibrary,
-        'ovPlaceholderLibraryToggle',
-        'Placeholders',
-        'placeholder',
-        true,
-      ),
-    ],
-    [
-      tool(
-        'ovSelectTool',
-        'Select (S) — drag over cells, then flip, set Priority, click a palette bank, copy or move them',
-        'select',
-        'select',
-      ),
-      tool('ovPencilTool', 'Pencil (B)', 'pencil', 'pencil'),
-      tool('ovEraserTool', 'Eraser (E)', 'eraser', 'eraser'),
-      tool('ovFillTool', 'Fill (G)', 'fill', 'fill'),
-      tool('ovRectangleTool', 'Rectangle (R)', 'rectangle', 'rectangle'),
-      tool('ovPickerTool', 'Pick tile (I)', 'picker', 'picker'),
-      tool(
-        'ovPlaceholderTool',
-        'Placeholder — drag to define a region',
-        'placeholderTool',
-        'placeholder',
-      ),
-      tool(
-        'ovPanTool',
-        'Pan (H) — drag the canvas to scroll it; Space or the middle button pan with any other tool active',
-        'pan',
-        'pan',
-      ),
-    ],
-  ],
-  [
-    Object.assign(StudioShell.iconButton('ovCopy', 'Copy selection (Ctrl/Cmd+C)', 'copy'), {
-      onclick: () => selection.copy() && syncEditActions(),
-    }),
-    Object.assign(
-      StudioShell.iconButton('ovPaste', 'Paste (Ctrl/Cmd+V) — click to place it', 'paste'),
-      {
-        onclick: () => {
-          if (selection.startPaste()) {
-            setTool('select');
-            setStatus('Click to place the paste. Escape cancels.');
-          }
-        },
-      },
-    ),
-    Object.assign(StudioShell.iconButton('ovUndo', 'Undo (Ctrl/Cmd+Z)', 'undo'), {
-      onclick: ProjectHistory.undo,
-    }),
-    Object.assign(StudioShell.iconButton('ovRedo', 'Redo (Ctrl/Cmd+Shift+Z)', 'redo'), {
-      onclick: ProjectHistory.redo,
-    }),
-  ],
-);
-const sideRail = StudioShell.toolRail('ovSideRail', 'Selection', 'right');
-host.append(sideRail);
-for (const [id, icon, label] of [
-  ['ovFlipX', 'flipH', 'Flip horizontally (Shift+H) — the selection, or the next stamp'],
-  ['ovFlipY', 'flipV', 'Flip vertically (Shift+V) — the selection, or the next stamp'],
-  [
-    'ovPriority',
-    'priority',
-    'Priority, drawn in front of sprites — the selection, or the next stamp',
-  ],
-])
-  StudioShell.setIcon($(id), icon, label);
 const placeholderPropsToggle = StudioShell.iconButton(
   'ovPlaceholderPropsToggle',
   "Placeholder — the selected one's position and size",
@@ -1147,138 +390,43 @@ StudioShell.bindPanel({
   closeGroups: ['ovRight'],
   asset: true,
 });
-StudioShell.railLayout(sideRail, [
-  [placeholderPropsToggle],
-  [$('ovFlipX'), $('ovFlipY'), $('ovPriority')],
-  [
-    Object.assign(
-      StudioShell.iconButton('ovDeleteSelection', 'Clear the selected cells (Delete)', 'delete'),
-      { onclick: () => selection.remove() },
+editor.buildRails({
+  panels: [
+    panelToggle(library, 'ovLibraryToggle', 'Overlays', 'overlay'),
+    panelToggle(tileLibrary, 'ovTileLibraryToggle', 'Tilesets and tile picker', 'tilePicker', true),
+    panelToggle(
+      placeholderLibrary,
+      'ovPlaceholderLibraryToggle',
+      'Placeholders',
+      'placeholder',
+      true,
     ),
   ],
-]);
-StudioShell.editActions('overlays', {
-  copy: () => selection.copy(),
-  cut: () => selection.cut(),
-  paste: () => {
-    if (selection.startPaste()) {
-      setTool('select');
-      setStatus('Click to place the paste. Escape cancels.');
-    }
-  },
-});
-// Copy, Paste and Delete follow the selection and the clipboard.
-function syncEditActions() {
-  $('ovCopy').disabled = $('ovDeleteSelection').disabled = !selection.rect;
-  $('ovPaste').disabled = !StudioShell.clipboard.has('cells');
-}
-document.addEventListener('studioclipboard', () => {
-  if (!host.hidden) syncEditActions();
+  tools: [
+    editor.toolButton(
+      'Select (S) — drag over cells, then flip, set Priority, click a palette bank, copy or move them',
+      'select',
+      'select',
+    ),
+    editor.toolButton('Pencil (B)', 'pencil', 'pencil'),
+    editor.toolButton('Eraser (E)', 'eraser', 'eraser'),
+    editor.toolButton('Fill (G)', 'fill', 'fill'),
+    editor.toolButton('Rectangle (R)', 'rectangle', 'rectangle'),
+    editor.toolButton('Pick tile (I)', 'picker', 'picker'),
+    editor.toolButton('Placeholder — drag to define a region', 'placeholderTool', 'placeholder'),
+    editor.toolButton(
+      'Pan (H) — drag the canvas to scroll it; Space or the middle button pan with any other tool active',
+      'pan',
+      'pan',
+    ),
+  ],
+  sidePanels: [placeholderPropsToggle],
 });
 library.hidden = true;
 tileLibrary.hidden = true;
 placeholderLibrary.hidden = true;
 for (const id of ['ovLibraryToggle', 'ovTileLibraryToggle', 'ovPlaceholderLibraryToggle'])
   $(id).setAttribute('aria-expanded', 'false');
-
-window.addEventListener(
-  'keydown',
-  (e) => {
-    if (currentView !== 'overlays' || isField(e.target)) return;
-    // Selection and clipboard keys, the same in every grid editor.
-    const command = selection.key(e);
-    if (command) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      if ((command === 'selectAll' || command === 'paste') && ovTool !== 'select')
-        setTool('select');
-      if (command === 'paste') setStatus('Click to place the paste. Escape cancels.');
-      return;
-    }
-    // No `!ovSpaceHeld` guard here: held keys repeat-fire keydown, and every
-    // one of those must be prevented too, or the un-prevented repeats leave
-    // the browser's native "Space pages the nearest scrollable ancestor down"
-    // behavior free to fire on #ovStage in between them.
-    if (e.code === 'Space') {
-      ovSpaceHeld = true;
-      e.preventDefault();
-      $('ovCanvas').style.cursor = 'grab';
-    }
-    // Single-key tool shortcuts, the same letters as the tileset editor's.
-    if (e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]')) return;
-    if (e.shiftKey && (e.key.toLowerCase() === 'h' || e.key.toLowerCase() === 'v')) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      $(e.key.toLowerCase() === 'h' ? 'ovFlipX' : 'ovFlipY').click();
-      return;
-    }
-    const tool = {
-      s: 'ovSelectTool',
-      b: 'ovPencilTool',
-      r: 'ovRectangleTool',
-      g: 'ovFillTool',
-      e: 'ovEraserTool',
-      i: 'ovPickerTool',
-      h: 'ovPanTool',
-    }[e.key.toLowerCase()];
-    if (tool && !e.shiftKey) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      $(tool).click();
-    }
-  },
-  true,
-);
-window.addEventListener('keyup', (e) => {
-  if (e.code === 'Space') {
-    ovSpaceHeld = false;
-    $('ovCanvas').style.cursor = ovTool === 'pan' ? 'grab' : '';
-  }
-});
-window.addEventListener('blur', () => {
-  ovSpaceHeld = false;
-  ovPanDrag = null;
-  $('ovCanvas').style.cursor = ovTool === 'pan' ? 'grab' : '';
-});
-$('ovStage').addEventListener(
-  'pointerdown',
-  (e) => {
-    if (e.button === 2 || (!ovSpaceHeld && e.button !== 1 && ovTool !== 'pan')) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    ovPanDrag = {
-      x: e.clientX,
-      y: e.clientY,
-      left: $('ovStage').scrollLeft,
-      top: $('ovStage').scrollTop,
-    };
-    $('ovStage').setPointerCapture(e.pointerId);
-    $('ovCanvas').style.cursor = 'grabbing';
-  },
-  true,
-);
-$('ovStage').addEventListener(
-  'pointermove',
-  (e) => {
-    if (!ovPanDrag) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    $('ovStage').scrollLeft = ovPanDrag.left + ovPanDrag.x - e.clientX;
-    $('ovStage').scrollTop = ovPanDrag.top + ovPanDrag.y - e.clientY;
-  },
-  true,
-);
-for (const type of ['pointerup', 'pointercancel'])
-  $('ovStage').addEventListener(
-    type,
-    (e) => {
-      if (!ovPanDrag) return;
-      ovPanDrag = null;
-      e.stopImmediatePropagation();
-      $('ovCanvas').style.cursor = ovSpaceHeld || ovTool === 'pan' ? 'grab' : '';
-    },
-    true,
-  );
 
 StudioShell.viewStatus('overlays', $('ovStatus'));
 export { render as renderOverlays };

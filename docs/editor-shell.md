@@ -87,6 +87,14 @@ model mutation, undo and canvas geometry stay in each editor.
   nudge, copy, cut, paste, delete, select-all and flip, and `key(event)` maps
   the keyboard to them, so both editors behave identically. `cellAt(point)`
   is the cell drawn at a point, a block being moved or pasted included.
+- `grid-editor.js` is everything else the background and overlay editors
+  share. `gridEditor({prefix, view, host, asset, grid, render, ...})` wires up
+  the canvas tools (pencil, eraser, fill, rectangle, picker, select, pan), the
+  tile picker and Objects list, the stamp's flips, Priority and bank, the
+  palette dock, zoom, both rails, the context menu and the keyboard, all by
+  element ids that start with the editor's prefix (`bg`, `ov`). An editor
+  adds its own marks with `decorate(ctx)` and `layout()`, and its own drag
+  tools, like the overlay's placeholder, with `dragTools`.
 
 - `history.js` is the project's one undo history. An editor calls
   `ProjectHistory.checkpoint(parts, label)` before an edit — `parts` naming what

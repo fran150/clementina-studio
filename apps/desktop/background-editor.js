@@ -12,20 +12,19 @@
 // wraps too, and the camera panel's table-index math mirrors
 // clementina-video-client/internal/render/renderer.go's bgTableAndLocal.
 import { CellGrid } from './cell-grid.js';
-import { $, isField } from './dom.js';
-import { ProjectHistory } from './history.js';
+import { $ } from './dom.js';
+import { gridEditor } from './grid-editor.js';
 import { redrawAll, renderBackgrounds, showView } from './lifecycle.js';
 import {
   backgrounds,
   bankColor,
-  bankPalette,
   css565,
   currentView,
   overlays,
   tilePixel,
   tilesets,
 } from './state.js';
-import { markDirty, setStatus } from './status.js';
+import { setStatus } from './status.js';
 import { StudioShell } from './studio-shell.js';
 
 const host = $('backgroundEditor');
@@ -48,50 +47,16 @@ const MAX_BG_DIMENSION = 1024,
   MAX_BG_CELLS = 200000;
 
 let backgroundIndex = 0;
-let bgTool = 'pencil',
-  bgZoom = 1,
-  bgFittedId = null,
-  zoomControls = null,
-  bgErasing = false,
-  bgPainting = false,
-  bgLast = null,
-  bgAnchor = null;
-// Panning a canvas that can be much bigger than the window: the Pan tool,
-// Space-drag and middle-drag all scroll #bgStage instead of painting,
-// mirroring the tileset editor's existing shortcut.
-let bgSpaceHeld = false,
-  bgPanDrag = null;
-// The pointer's last position over the canvas, so the palette dock's hover
-// marks follow a paint, an undo or a zoom made while it rests there.
-let bgHover = null;
-let bgStamp = {
-  tile: 0,
-  paletteBank: 0,
-  flipX: false,
-  flipY: false,
-  priority: false,
-  chrAlt: false,
-};
-let bgPickAlt = false,
-  bgPreviewModeId = 0,
+// The viewport preview: which BGMODE window is shown, where it sits on the
+// canvas, and the drag moving it by its handle.
+let bgPreviewModeId = 0,
   bgViewportOrigin = { x: 0, y: 0 },
   bgOverlayDrag = null;
-// The tile picker's current selection, in tile coordinates of whichever
-// tileset bgPickAlt points at. 1x1 is the default single-tile pick; a
-// bigger region (dragged directly, or loaded from an Object) is stamped as
-// a group, each tile keeping its own authored palette bank.
-let bgPickAnchor = null,
-  bgPickRegion = { col: 0, row: 0, width: 1, height: 1 };
 // Camera preview: BGSET (0/1) and SCROLL_X/SCROLL_Y, ephemeral like the
 // viewport mode/origin above — never saved to the asset.
 let bgActiveSet = 0,
   bgScroll = { x: 0, y: 0 },
   bgScrollDrag = null;
-// Which of a 1bpp tileset's three pages the primary/alternate picker shows —
-// ephemeral preview state, exactly like the camera fields above; the real
-// CHRPLANE register is a build/runtime concern, not authored here.
-let bgPrimaryPlane = 0,
-  bgAltPlane = 0;
 // The "toggle overlay" composite preview — which overlay asset to render on
 // top of the inner (visible-screen) rectangle, and whether it's shown.
 let bgOverlayId = null,
@@ -161,42 +126,27 @@ function bgVisibleTables() {
 }
 
 const background = () => backgrounds[backgroundIndex];
-// The Select tool (cell-grid.js): with cells selected, the flips, Priority
-// and a palette bank click edit those cells rather than the next stamp.
-const selection = CellGrid.cellSelection({
+// Tools, tile picker, stamp, palette dock and rails: see grid-editor.js.
+const editor = gridEditor({
+  prefix: 'bg',
+  view: 'backgrounds',
+  host,
+  historyKey: 'backgrounds',
+  editLabel: 'Edit the background',
+  railLabel: 'Background tools',
+  asset: background,
   grid: background,
-  edit: (label, fn) => bgEdit(label, fn),
-  render: () => {
-    paintCanvas();
-    updateStampBar();
-    renderPaletteDock();
-    syncEditActions();
+  render: () => render(),
+  transparentZero: false,
+  decorate: (ctx) => {
+    drawCellLines(ctx);
+    if (bgShowOverlay) drawOverlayComposite(ctx);
   },
+  busy: () => !!(bgOverlayDrag || bgScrollDrag),
 });
-const bgTilesetById = (id) => tilesets.find((t) => t.id === id);
-const primaryTileset = () => bgTilesetById(background()?.tilesetId);
-const altTileset = () => bgTilesetById(background()?.altTilesetId);
-const pickingTileset = () => (bgPickAlt ? altTileset() : primaryTileset());
-function blankCell() {
-  return { tile: 0, paletteBank: 0, flipX: false, flipY: false, priority: false, chrAlt: false };
-}
+const { selection, edit: bgEdit, primaryTileset, altTileset } = editor;
 function makeCells(width, height) {
-  return Array.from({ length: width * height }, blankCell);
-}
-
-// A background's own data never mutates tilesets/palettes/shapes/animations
-// and nothing in those domains mutates a background, so this history is
-// independent rather than shared with theirs.
-function bgCheckpoint(label = 'Edit the background') {
-  ProjectHistory.checkpoint(['backgrounds'], label);
-}
-// An edit's label names it in the history: bgEdit('Delete X', fn).
-function bgEdit(...args) {
-  const label = typeof args[0] === 'string' ? args.shift() : 'Edit the background';
-  bgCheckpoint(label);
-  args[0]();
-  markDirty();
-  render();
+  return Array.from({ length: width * height }, CellGrid.blank);
 }
 document.addEventListener('studiohistory', () => {
   backgroundIndex = Math.max(0, Math.min(backgroundIndex, backgrounds.length - 1));
@@ -208,15 +158,13 @@ function freshBackgroundName() {
   while (backgrounds.some((b) => b.name.toLowerCase() === 'background_' + n)) n++;
   return 'Background_' + n;
 }
+// Opens another background with the camera reset and a fresh pick.
 function chooseBackground(i) {
   backgroundIndex = i;
   bgViewportOrigin = { x: 0, y: 0 };
   bgScroll = { x: 0, y: 0 };
   bgActiveSet = 0;
-  bgPrimaryPlane = 0;
-  bgAltPlane = 0;
-  bgPickRegion = { col: 0, row: 0, width: 1, height: 1 };
-  selection.reset();
+  editor.resetPick();
   render();
 }
 function renameBackground(i, name) {
@@ -248,232 +196,10 @@ function renderBackgroundList() {
   });
 }
 
-function renderTilesetAssignment() {
+// Marks where each cell (one nametable and attribute table entry) begins and
+// ends, so an empty cell doesn't read as featureless background.
+function drawCellLines(ctx) {
   const a = background();
-  for (const [listId, field] of [
-    ['bgPrimaryList', 'tilesetId'],
-    ['bgAltList', 'altTilesetId'],
-  ]) {
-    StudioShell.renderOptions($(listId), tilesets, {
-      label: (t) => t.name,
-      selected: (t) => !!a && t.id === a[field],
-      choose: (t) => {
-        if (!a || t.id === a[field]) return;
-        bgEdit(
-          field === 'tilesetId' ? 'Change the primary tileset' : 'Change the alternate tileset',
-          () => {
-            a[field] = t.id;
-          },
-        );
-      },
-    });
-  }
-  $('bgPrimaryPlaneLabel').hidden = primaryTileset()?.bpp !== 1;
-  $('bgPrimaryPlane').value = String(bgPrimaryPlane);
-  $('bgAltPlaneLabel').hidden = altTileset()?.bpp !== 1;
-  $('bgAltPlane').value = String(bgAltPlane);
-}
-$('bgPrimaryPlane').onchange = () => {
-  bgPrimaryPlane = Number($('bgPrimaryPlane').value);
-  paintCanvas();
-  drawTileMap();
-};
-$('bgAltPlane').onchange = () => {
-  bgAltPlane = Number($('bgAltPlane').value);
-  paintCanvas();
-  drawTileMap();
-};
-
-function drawTileMap() {
-  const source = pickingTileset(),
-    canvas = $('bgTileMap'),
-    ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#252830';
-  ctx.fillRect(0, 0, 256, 256);
-  if (source)
-    for (let t = 0; t < 256; t++) {
-      const bank = source.tilePaletteBanks[t];
-      for (let y = 0; y < 8; y++)
-        for (let x = 0; x < 8; x++) {
-          // As on the canvas, color 0 is the tile's bank color: backgrounds draw it.
-          const ink = tilePixel(source, t, x, y, bgPickAlt ? bgAltPlane : bgPrimaryPlane);
-          ctx.fillStyle = css565(bankColor(bank, ink));
-          ctx.fillRect(((t % 16) * 8 + x) * 2, (Math.floor(t / 16) * 8 + y) * 2, 2, 2);
-        }
-    }
-  ctx.strokeStyle = '#ffffff30';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let n = 0; n <= 16; n++) {
-    ctx.moveTo(n * 16, 0);
-    ctx.lineTo(n * 16, 256);
-    ctx.moveTo(0, n * 16);
-    ctx.lineTo(256, n * 16);
-  }
-  ctx.stroke();
-  if (source && bgStamp.chrAlt === bgPickAlt) {
-    ctx.strokeStyle = '#36c9d6';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(
-      bgPickRegion.col * 16 + 1,
-      bgPickRegion.row * 16 + 1,
-      bgPickRegion.width * 16 - 2,
-      bgPickRegion.height * 16 - 2,
-    );
-  }
-}
-function tileMapCell(e) {
-  const r = $('bgTileMap').getBoundingClientRect();
-  return {
-    x: Math.max(0, Math.min(15, Math.floor(((e.clientX - r.left) / r.width) * 16))),
-    y: Math.max(0, Math.min(15, Math.floor(((e.clientY - r.top) / r.height) * 16))),
-  };
-}
-// Dragging on the tile picker selects a rectangular group, the same way
-// the tileset editor's own tile map does; a plain click is just a 1x1 drag.
-function selectPickRegion(x, y) {
-  const source = pickingTileset();
-  if (!source || !bgPickAnchor) return;
-  bgPickRegion = {
-    col: Math.min(bgPickAnchor.x, x),
-    row: Math.min(bgPickAnchor.y, y),
-    width: Math.abs(x - bgPickAnchor.x) + 1,
-    height: Math.abs(y - bgPickAnchor.y) + 1,
-  };
-  const tile = bgPickRegion.row * 16 + bgPickRegion.col;
-  bgStamp = { ...bgStamp, tile, paletteBank: source.tilePaletteBanks[tile], chrAlt: bgPickAlt };
-  stampTool();
-  render();
-}
-// Picking tiles — on the map or from an object — is picking what to paint,
-// so it switches to the pencil unless a stamping tool is already active.
-function stampTool() {
-  if (!['pencil', 'rectangle', 'fill'].includes(bgTool)) setTool('pencil');
-}
-// The selection belongs to the Select tool, as in Photoshop: taking up a
-// painting tool drops it (panning keeps it), so the flips, Priority and a
-// palette bank click act on the selection while selecting and on the next
-// stamp while painting — never ambiguously on both.
-function setTool(name) {
-  if (name !== 'select' && name !== 'pan') selection.reset();
-  bgTool = name;
-  render();
-}
-$('bgTileMap').onpointerdown = (e) => {
-  if (!pickingTileset()) return;
-  bgPickAnchor = tileMapCell(e);
-  $('bgTileMap').setPointerCapture(e.pointerId);
-  selectPickRegion(bgPickAnchor.x, bgPickAnchor.y);
-};
-$('bgTileMap').onpointermove = (e) => {
-  if (bgPickAnchor) {
-    const { x, y } = tileMapCell(e);
-    selectPickRegion(x, y);
-  }
-};
-$('bgTileMap').onpointerup = $('bgTileMap').onpointercancel = () => (bgPickAnchor = null);
-$('bgPickSlot').onchange = () => {
-  bgPickAlt = $('bgPickSlot').value === 'alt';
-  bgPickRegion = { col: 0, row: 0, width: 1, height: 1 };
-  render();
-};
-// Objects are managed in the tileset editor; here they're just a shortcut
-// to load a previously-saved region as the current group pick.
-function renderObjectList() {
-  const source = pickingTileset(),
-    objects = source?.compositions ?? [];
-  StudioShell.renderList($('bgObjectList'), objects, {
-    selected: (o) =>
-      o.x === bgPickRegion.col &&
-      o.y === bgPickRegion.row &&
-      o.width === bgPickRegion.width &&
-      o.height === bgPickRegion.height,
-    choose: (o) => {
-      bgPickRegion = { col: o.x, row: o.y, width: o.width, height: o.height };
-      const tile = bgPickRegion.row * 16 + bgPickRegion.col;
-      bgStamp = {
-        ...bgStamp,
-        tile,
-        paletteBank: source.tilePaletteBanks[tile],
-        chrAlt: bgPickAlt,
-      };
-      stampTool();
-      render();
-    },
-    render,
-  });
-}
-
-function paintCellAt(col, row) {
-  const a = background();
-  if (col < 0 || row < 0 || col >= a.width || row >= a.height) return;
-  a.cells[row * a.width + col] = bgErasing ? blankCell() : { ...bgStamp };
-}
-// A multi-tile picker selection stamps its whole footprint anchored at
-// (col,row) — used only by the pencil tool, never fill/rectangle, since
-// flooding or dragging a rectangle with a group picked would stamp it
-// densely at every covered cell rather than placing it once. Each sub-tile
-// keeps its own authored palette bank. A flipped group is mirrored whole —
-// its tiles swap places as well as flipping — so the picture turns over.
-function paintGroupAt(col, row) {
-  if (bgErasing) {
-    paintCellAt(col, row);
-    return;
-  }
-  const a = background(),
-    source = bgStamp.chrAlt ? altTileset() : primaryTileset();
-  for (let dy = 0; dy < bgPickRegion.height; dy++)
-    for (let dx = 0; dx < bgPickRegion.width; dx++) {
-      const cx = col + dx,
-        cy = row + dy;
-      if (cx < 0 || cy < 0 || cx >= a.width || cy >= a.height) continue;
-      const sx = bgStamp.flipX ? bgPickRegion.width - 1 - dx : dx,
-        sy = bgStamp.flipY ? bgPickRegion.height - 1 - dy : dy;
-      const tile = (bgPickRegion.row + sy) * 16 + (bgPickRegion.col + sx);
-      a.cells[cy * a.width + cx] = {
-        tile,
-        paletteBank: source?.tilePaletteBanks[tile] ?? 0,
-        flipX: bgStamp.flipX,
-        flipY: bgStamp.flipY,
-        priority: bgStamp.priority,
-        chrAlt: bgStamp.chrAlt,
-      };
-    }
-}
-function paintAt(col, row) {
-  (bgPickRegion.width > 1 || bgPickRegion.height > 1 ? paintGroupAt : paintCellAt)(col, row);
-}
-function drawCell(ctx, cell, col, row) {
-  const source = cell.chrAlt ? altTileset() : primaryTileset();
-  for (let y = 0; y < 8; y++)
-    for (let x = 0; x < 8; x++) {
-      const px = cell.flipX ? 7 - x : x,
-        py = cell.flipY ? 7 - y : y;
-      // Color 0 is opaque on the background layer, in the cell's own bank:
-      // clementina-video-client renderer.go renderBackground draws every pixel
-      // with paletteColorByIndex, color 0 included. Only the overlay (and
-      // sprites) treat color 0 as transparent.
-      const ink = source
-        ? tilePixel(source, cell.tile, px, py, cell.chrAlt ? bgAltPlane : bgPrimaryPlane)
-        : 0;
-      ctx.fillStyle = css565(bankColor(cell.paletteBank, ink));
-      ctx.fillRect(col * 8 + x, row * 8 + y, 1, 1);
-    }
-}
-function paintCanvas() {
-  const a = background();
-  if (!a) return;
-  const canvas = $('bgCanvas');
-  canvas.width = a.width * 8;
-  canvas.height = a.height * 8;
-  canvas.style.width = a.width * 8 * bgZoom + 'px';
-  canvas.style.height = a.height * 8 * bgZoom + 'px';
-  const ctx = canvas.getContext('2d');
-  for (let row = 0; row < a.height; row++)
-    for (let col = 0; col < a.width; col++) drawCell(ctx, a.cells[row * a.width + col], col, row);
-  selection.drawFloating(ctx, drawCell);
-  // Marks where each cell — one nametable + attribute table entry — begins
-  // and ends, so an empty cell doesn't read as featureless background.
   ctx.strokeStyle = '#ffffff26';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -486,33 +212,6 @@ function paintCanvas() {
     ctx.lineTo(a.width * 8, row * 8 + 0.5);
   }
   ctx.stroke();
-  if (bgShowOverlay) drawOverlayComposite(ctx);
-  selection.layout($('bgMarquee'), bgZoom);
-  markHover();
-}
-// Outlines, in the palette dock, the bank and color of the background pixel
-// under the pointer — as drawn, so a block being moved or pasted counts.
-function markHover() {
-  const a = background();
-  let hover = null;
-  if (a && bgHover) {
-    const r = $('bgCanvas').getBoundingClientRect(),
-      x = Math.floor(((bgHover.x - r.left) / r.width) * a.width * 8),
-      y = Math.floor(((bgHover.y - r.top) / r.height) * a.height * 8);
-    if (x >= 0 && y >= 0 && x < a.width * 8 && y < a.height * 8) {
-      const cell = selection.cellAt({ col: x >> 3, row: y >> 3 }),
-        source = cell.chrAlt ? altTileset() : primaryTileset();
-      const px = cell.flipX ? 7 - (x % 8) : x % 8,
-        py = cell.flipY ? 7 - (y % 8) : y % 8;
-      hover = {
-        bank: cell.paletteBank,
-        ink: source
-          ? tilePixel(source, cell.tile, px, py, cell.chrAlt ? bgAltPlane : bgPrimaryPlane)
-          : 0,
-      };
-    }
-  }
-  StudioShell.hoverBankDock($('bgSwatches'), hover);
 }
 // The overlay never scrolls — it always sits 1:1 on the physical screen, so
 // it composites onto exactly the same wrapped pieces the inner (visible)
@@ -523,8 +222,8 @@ function markHover() {
 function drawOverlayComposite(ctx) {
   const overlay = overlays.find((o) => o.id === bgOverlayId);
   if (!overlay) return;
-  const primary = bgTilesetById(overlay.tilesetId),
-    alt = bgTilesetById(overlay.altTilesetId);
+  const primary = editor.tilesetById(overlay.tilesetId),
+    alt = editor.tilesetById(overlay.altTilesetId);
   const mode = VIEWPORT_MODES.find((m) => m.id === bgPreviewModeId),
     planeW = mode.columns * 8,
     planeH = mode.rows * 8;
@@ -562,193 +261,6 @@ function drawOverlayComposite(ctx) {
     sx0 += sxLen;
   }
 }
-function canvasCell(e) {
-  const r = $('bgCanvas').getBoundingClientRect(),
-    a = background();
-  const px = ((e.clientX - r.left) / r.width) * a.width * 8,
-    py = ((e.clientY - r.top) / r.height) * a.height * 8;
-  return {
-    col: Math.max(0, Math.min(a.width - 1, Math.floor(px / 8))),
-    row: Math.max(0, Math.min(a.height - 1, Math.floor(py / 8))),
-  };
-}
-function bgDrawTo(col, row) {
-  if (bgLast) {
-    const steps = Math.max(Math.abs(col - bgLast.col), Math.abs(row - bgLast.row));
-    for (let i = 0; i <= steps; i++)
-      paintAt(
-        Math.round(bgLast.col + ((col - bgLast.col) * i) / (steps || 1)),
-        Math.round(bgLast.row + ((row - bgLast.row) * i) / (steps || 1)),
-      );
-  } else paintAt(col, row);
-  bgLast = { col, row };
-  markDirty();
-  paintCanvas();
-}
-function bgFlood(col, row) {
-  const a = background(),
-    w = a.width,
-    h = a.height;
-  if (col < 0 || row < 0 || col >= w || row >= h) return;
-  const old = a.cells[row * w + col].tile,
-    seen = new Uint8Array(w * h),
-    stack = [[col, row]];
-  while (stack.length) {
-    const [x, y] = stack.pop();
-    if (x < 0 || y < 0 || x >= w || y >= h || seen[y * w + x] || a.cells[y * w + x].tile !== old)
-      continue;
-    seen[y * w + x] = 1;
-    paintCellAt(x, y);
-    stack.push([x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]);
-  }
-}
-function previewRectangle(col, row) {
-  paintCanvas();
-  const ctx = $('bgCanvas').getContext('2d');
-  const x0 = Math.min(bgAnchor.col, col),
-    x1 = Math.max(bgAnchor.col, col),
-    y0 = Math.min(bgAnchor.row, row),
-    y1 = Math.max(bgAnchor.row, row);
-  ctx.save();
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
-  ctx.strokeRect(x0 * 8 + 0.5, y0 * 8 + 0.5, (x1 - x0 + 1) * 8 - 1, (y1 - y0 + 1) * 8 - 1);
-  ctx.lineDashOffset = 4;
-  ctx.strokeStyle = '#111';
-  ctx.strokeRect(x0 * 8 + 0.5, y0 * 8 + 0.5, (x1 - x0 + 1) * 8 - 1, (y1 - y0 + 1) * 8 - 1);
-  ctx.restore();
-}
-function commitRectangle(col, row) {
-  const x0 = Math.min(bgAnchor.col, col),
-    x1 = Math.max(bgAnchor.col, col),
-    y0 = Math.min(bgAnchor.row, row),
-    y1 = Math.max(bgAnchor.row, row);
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) paintCellAt(x, y);
-  bgAnchor = null;
-  markDirty();
-  paintCanvas();
-}
-$('bgCanvas').onpointerdown = (e) => {
-  e.preventDefault();
-  if (!background() || (e.button === 2 && !painting())) return;
-  bgErasing = e.button === 2 || bgTool === 'eraser';
-  const { col, row } = canvasCell(e);
-  if (selection.pasting || bgTool === 'select') {
-    $('bgCanvas').setPointerCapture(e.pointerId);
-    selection.down({ col, row });
-    return;
-  }
-  if (bgTool === 'picker') {
-    const cell = background().cells[row * background().width + col];
-    bgStamp = { ...cell };
-    bgPickAlt = cell.chrAlt;
-    bgPickRegion = { col: cell.tile % 16, row: Math.floor(cell.tile / 16), width: 1, height: 1 };
-    render();
-    return;
-  }
-  bgCheckpoint(
-    bgTool === 'fill'
-      ? 'Fill'
-      : bgTool === 'rectangle'
-        ? 'Draw a rectangle'
-        : bgErasing
-          ? 'Erase'
-          : 'Paint',
-  );
-  if (bgTool === 'fill') {
-    bgFlood(col, row);
-    markDirty();
-    paintCanvas();
-    return;
-  }
-  if (bgTool === 'rectangle') {
-    bgAnchor = { col, row };
-    $('bgCanvas').setPointerCapture(e.pointerId);
-    previewRectangle(col, row);
-    return;
-  }
-  bgPainting = true;
-  bgLast = null;
-  $('bgCanvas').setPointerCapture(e.pointerId);
-  bgDrawTo(col, row);
-};
-$('bgCanvas').onpointermove = (e) => {
-  if (!background()) return;
-  bgHover = { x: e.clientX, y: e.clientY };
-  markHover();
-  const { col, row } = canvasCell(e);
-  if (selection.move({ col, row })) return;
-  if (bgTool === 'select')
-    $('bgCanvas').style.cursor = selection.contains({ col, row }) ? 'move' : '';
-  if (bgAnchor) {
-    previewRectangle(col, row);
-    return;
-  }
-  if (bgPainting) bgDrawTo(col, row);
-};
-$('bgCanvas').onpointerup = (e) => {
-  if (!background()) return;
-  if (selection.up()) return;
-  if (bgAnchor) {
-    const { col, row } = canvasCell(e);
-    commitRectangle(col, row);
-    return;
-  }
-  bgPainting = false;
-  bgLast = null;
-};
-$('bgCanvas').onpointercancel = () => {
-  bgAnchor = null;
-  bgPainting = false;
-  bgLast = null;
-  selection.cancel();
-};
-$('bgCanvas').onpointerleave = () => {
-  bgHover = null;
-  markHover();
-};
-// Right-click erases while a painting tool is active, the Aseprite way;
-// with any other tool it opens the edit menu for the selection.
-function painting() {
-  return ['pencil', 'rectangle', 'fill', 'eraser'].includes(bgTool);
-}
-$('bgCanvas').oncontextmenu = (e) => {
-  e.preventDefault();
-  if (!background() || painting()) return;
-  const sel = !!selection.rect,
-    paste = () => {
-      if (selection.startPaste()) {
-        setTool('select');
-        setStatus('Click to place the paste. Escape cancels.');
-      }
-    };
-  StudioShell.contextMenu(e.clientX, e.clientY, [
-    { label: 'Cut', hint: 'Mod+X', disabled: !sel, run: () => selection.cut() },
-    { label: 'Copy', hint: 'Mod+C', disabled: !sel, run: () => selection.copy() },
-    { label: 'Paste', hint: 'Mod+V', disabled: !StudioShell.clipboard.has('cells'), run: paste },
-    { label: 'Delete', hint: 'Delete', disabled: !sel, run: () => selection.remove() },
-    '-',
-    {
-      label: 'Flip horizontally',
-      hint: 'Shift+H',
-      disabled: !sel,
-      run: () => selection.flip('x'),
-    },
-    { label: 'Flip vertically', hint: 'Shift+V', disabled: !sel, run: () => selection.flip('y') },
-    { label: 'Priority', disabled: !sel, run: () => $('bgPriority').click() },
-    '-',
-    {
-      label: 'Select all',
-      hint: 'Mod+A',
-      run: () => {
-        setTool('select');
-        selection.selectAll();
-      },
-    },
-    { label: 'Deselect', hint: 'Esc', disabled: !sel, run: () => selection.deselect() },
-  ]);
-};
 
 function resizeBackground(newWidth, newHeight) {
   const a = background();
@@ -810,10 +322,10 @@ function layoutViewportOverlay() {
   bgViewportOrigin.x = Math.max(0, Math.min(a.width - cols, bgViewportOrigin.x));
   bgViewportOrigin.y = Math.max(0, Math.min(a.height - rows, bgViewportOrigin.y));
   overlay.hidden = false;
-  overlay.style.left = bgViewportOrigin.x * 8 * bgZoom + 'px';
-  overlay.style.top = bgViewportOrigin.y * 8 * bgZoom + 'px';
-  overlay.style.width = cols * 8 * bgZoom + 'px';
-  overlay.style.height = rows * 8 * bgZoom + 'px';
+  overlay.style.left = bgViewportOrigin.x * 8 * editor.zoom + 'px';
+  overlay.style.top = bgViewportOrigin.y * 8 * editor.zoom + 'px';
+  overlay.style.width = cols * 8 * editor.zoom + 'px';
+  overlay.style.height = rows * 8 * editor.zoom + 'px';
 }
 $('bgPreviewMode').onchange = () => {
   bgPreviewModeId = Number($('bgPreviewMode').value);
@@ -828,8 +340,8 @@ $('bgViewportHandle').onpointerdown = (e) => {
 };
 $('bgViewportHandle').onpointermove = (e) => {
   if (!bgOverlayDrag) return;
-  const dx = Math.round((e.clientX - bgOverlayDrag.startX) / (8 * bgZoom)),
-    dy = Math.round((e.clientY - bgOverlayDrag.startY) / (8 * bgZoom));
+  const dx = Math.round((e.clientX - bgOverlayDrag.startX) / (8 * editor.zoom)),
+    dy = Math.round((e.clientY - bgOverlayDrag.startY) / (8 * editor.zoom));
   bgViewportOrigin = { x: bgOverlayDrag.origin.x + dx, y: bgOverlayDrag.origin.y + dy };
   layoutViewportOverlay();
   layoutScrollOverlay();
@@ -853,10 +365,10 @@ function layoutScrollOverlay() {
     planeH = mode.rows * 8;
   const clip = $('bgScrollClip');
   clip.hidden = false;
-  clip.style.left = bgViewportOrigin.x * 8 * bgZoom + 'px';
-  clip.style.top = bgViewportOrigin.y * 8 * bgZoom + 'px';
-  clip.style.width = planeW * bgZoom + 'px';
-  clip.style.height = planeH * bgZoom + 'px';
+  clip.style.left = bgViewportOrigin.x * 8 * editor.zoom + 'px';
+  clip.style.top = bgViewportOrigin.y * 8 * editor.zoom + 'px';
+  clip.style.width = planeW * editor.zoom + 'px';
+  clip.style.height = planeH * editor.zoom + 'px';
   const localX = positiveMod(bgScroll.x, planeW),
     localY = positiveMod(bgScroll.y, planeH);
   const xRanges = bgWrapRanges(localX, 320, planeW),
@@ -867,16 +379,16 @@ function layoutScrollOverlay() {
     for (const [y0, y1] of yRanges) {
       const el = pieces[i++];
       el.hidden = false;
-      el.style.left = x0 * bgZoom + 'px';
-      el.style.top = y0 * bgZoom + 'px';
-      el.style.width = (x1 - x0) * bgZoom + 'px';
-      el.style.height = (y1 - y0) * bgZoom + 'px';
+      el.style.left = x0 * editor.zoom + 'px';
+      el.style.top = y0 * editor.zoom + 'px';
+      el.style.width = (x1 - x0) * editor.zoom + 'px';
+      el.style.height = (y1 - y0) * editor.zoom + 'px';
     }
   for (; i < pieces.length; i++) pieces[i].hidden = true;
   const handleX = positiveMod(localX + 160, planeW),
     handleY = positiveMod(localY + 100, planeH);
-  $('bgScrollHandle').style.left = handleX * bgZoom + 'px';
-  $('bgScrollHandle').style.top = handleY * bgZoom + 'px';
+  $('bgScrollHandle').style.left = handleX * editor.zoom + 'px';
+  $('bgScrollHandle').style.top = handleY * editor.zoom + 'px';
 }
 function clampScrollInput(v) {
   return Math.max(0, Math.min(65535, Math.round(v) || 0));
@@ -900,8 +412,8 @@ $('bgScrollHandle').onpointerdown = (e) => {
 };
 $('bgScrollHandle').onpointermove = (e) => {
   if (!bgScrollDrag) return;
-  const dx = Math.round((e.clientX - bgScrollDrag.startX) / bgZoom),
-    dy = Math.round((e.clientY - bgScrollDrag.startY) / bgZoom);
+  const dx = Math.round((e.clientX - bgScrollDrag.startX) / editor.zoom),
+    dy = Math.round((e.clientY - bgScrollDrag.startY) / editor.zoom);
   bgScroll = {
     x: positiveMod(bgScrollDrag.origin.x + dx, 65536),
     y: positiveMod(bgScrollDrag.origin.y + dy, 65536),
@@ -945,159 +457,19 @@ function renderOverlayToggle() {
 }
 $('bgOverlayPick').onchange = () => {
   bgOverlayId = $('bgOverlayPick').value || null;
-  paintCanvas();
+  editor.paintCanvas();
 };
 $('bgToggleOverlay').onclick = () => {
   bgShowOverlay = !bgShowOverlay;
   renderOverlayToggle();
-  paintCanvas();
+  editor.paintCanvas();
 };
-
-const fitLevel = (a) =>
-  StudioShell.fitZoom(
-    $('bgStage').clientWidth - 48,
-    $('bgStage').clientHeight - 48,
-    a.width * 8,
-    a.height * 8,
-  );
-zoomControls = StudioShell.canvasZoom({
-  view: 'backgrounds',
-  ids: {
-    fit: 'bgFit',
-    actual: 'bgActualSize',
-    zoomOut: 'bgZoomOut',
-    label: 'bgZoomLabel',
-    zoomIn: 'bgZoomIn',
-  },
-  get: () => bgZoom,
-  set: (next, x, y) =>
-    StudioShell.zoomScrolled(
-      $('bgStage'),
-      $('bgCanvas'),
-      bgZoom,
-      next,
-      (z) => {
-        bgZoom = z;
-        render();
-      },
-      x,
-      y,
-    ),
-  fit: () => {
-    if (!background()) return;
-    bgZoom = fitLevel(background());
-    render();
-    $('bgStage').scrollLeft = $('bgStage').scrollTop = 0;
-  },
-  wheel: $('bgStage'),
-  busy: () =>
-    !!(bgPainting || bgAnchor || selection.busy || bgPanDrag || bgOverlayDrag || bgScrollDrag),
-});
-host.querySelector('.bgTop .studioBarStart').after(zoomControls.group);
-host.querySelector('.bgTop .studioBarEnd').append(StudioShell.helpButton());
-
-function updateStampBar() {
-  const group = bgPickRegion.width > 1 || bgPickRegion.height > 1;
-  $('bgStampTile').textContent = String(bgStamp.tile);
-  $('bgGroupLabel').hidden = !group;
-  $('bgGroupLabel').textContent =
-    `Group ${bgPickRegion.width} × ${bgPickRegion.height} — each tile keeps its own bank`;
-  const sel = selection.rect;
-  $('bgSelectionLabel').hidden = !sel;
-  if (sel)
-    $('bgSelectionLabel').textContent =
-      `Selected ${sel.width} × ${sel.height} — flips, Priority and a palette bank edit these tiles in place`;
-  $('bgSelectionClear').hidden = !sel;
-  // With a selection the flips and Priority act on it; otherwise they are the
-  // next stamp's settings, shown pressed when on.
-  $('bgFlipX').classList.toggle('on', !sel && bgStamp.flipX);
-  $('bgFlipY').classList.toggle('on', !sel && bgStamp.flipY);
-  $('bgPriority').classList.toggle('on', !sel && bgStamp.priority);
-  $('bgStampSource').textContent = bgStamp.chrAlt ? 'Reads: Alternate' : 'Reads: Primary';
-  const source = bgStamp.chrAlt ? altTileset() : primaryTileset(),
-    authored = source?.tilePaletteBanks?.[bgStamp.tile];
-  $('bgBankLabel').textContent =
-    group && !sel ? '' : 'Bank ' + String(bgStamp.paletteBank).padStart(2, '0');
-  $('bgBankReset').hidden = sel
-    ? false
-    : group || authored === undefined || authored === bgStamp.paletteBank;
-}
-// With a selection these edit the selected cells, as one undo step: a flip
-// turns the selected block over, Priority turns on for all of them unless
-// all have it already. Otherwise they set up the next stamp.
-$('bgFlipX').onclick = () => {
-  if (selection.rect) selection.flip('x');
-  else {
-    bgStamp = { ...bgStamp, flipX: !bgStamp.flipX };
-    render();
-  }
-};
-$('bgFlipY').onclick = () => {
-  if (selection.rect) selection.flip('y');
-  else {
-    bgStamp = { ...bgStamp, flipY: !bgStamp.flipY };
-    render();
-  }
-};
-$('bgPriority').onclick = () => {
-  if (selection.rect) {
-    const on = !selection.selected().every((c) => c.priority);
-    selection.apply((c) => (c.priority = on), on ? 'Set priority' : 'Clear priority');
-  } else {
-    bgStamp = { ...bgStamp, priority: !bgStamp.priority };
-    render();
-  }
-};
-$('bgBankReset').onclick = () => {
-  if (selection.rect) {
-    selection.apply((cell) => {
-      const source = cell.chrAlt ? altTileset() : primaryTileset();
-      if (source) cell.paletteBank = source.tilePaletteBanks[cell.tile];
-    }, 'Reset palette banks');
-    return;
-  }
-  const source = bgStamp.chrAlt ? altTileset() : primaryTileset();
-  if (source) bgStamp = { ...bgStamp, paletteBank: source.tilePaletteBanks[bgStamp.tile] };
-  render();
-};
-$('bgSelectionClear').onclick = () => selection.deselect();
-
-// Each bank is a full 8-color palette, not one representative color — a
-// single swatch per bank made two banks that only differed past color 1
-// look identical. Clicking anywhere on a bank's row selects it, same as
-// the single-swatch buttons this replaces.
-function renderPaletteDock() {
-  StudioShell.bankDock($('bgSwatches'), (b) => {
-    if (selection.rect) selection.apply((cell) => (cell.paletteBank = b), `Set bank ${b}`);
-    else {
-      bgStamp = { ...bgStamp, paletteBank: b };
-      render();
-    }
-  });
-  // A picked group has no single bank to set — unless cells are selected,
-  // which a bank click then sets whatever is picked.
-  const sel = selection.rect,
-    group = !sel && (bgPickRegion.width > 1 || bgPickRegion.height > 1);
-  StudioShell.syncBankDock($('bgSwatches'), {
-    color: (b, i) => css565(bankColor(b, i)),
-    transparentZero: false,
-    chosen: group || sel ? null : bgStamp.paletteBank,
-    used: new Set(background().cells.map((c) => c.paletteBank)),
-    disabled: group,
-    title: (b) =>
-      group
-        ? "A group keeps each tile's own authored bank"
-        : sel
-          ? `Set the selected tiles to bank ${String(b).padStart(2, '0')} · ${bankPalette(b)?.name ?? 'empty'}`
-          : `Bank ${String(b).padStart(2, '0')} · ${bankPalette(b)?.name ?? 'empty'}`,
-  });
-}
 
 function render() {
   host.hidden = currentView !== 'backgrounds';
   document.body.classList.toggle('backgroundView', !host.hidden);
   if (host.hidden) {
-    bgHover = null;
+    editor.clearHover();
     return;
   }
   backgroundIndex = Math.min(backgroundIndex, Math.max(0, backgrounds.length - 1));
@@ -1119,41 +491,16 @@ function render() {
   $('bgWidth').value = a.width;
   $('bgHeight').value = a.height;
   $('bgPreviewMode').value = String(bgPreviewModeId);
-  zoomControls?.sync();
-  for (const [id, tool] of [
-    ['bgPencilTool', 'pencil'],
-    ['bgRectangleTool', 'rectangle'],
-    ['bgFillTool', 'fill'],
-    ['bgEraserTool', 'eraser'],
-    ['bgPickerTool', 'picker'],
-    ['bgSelectTool', 'select'],
-    ['bgPanTool', 'pan'],
-  ])
-    $(id).classList.toggle('on', bgTool === tool);
-  $('bgCanvas').style.cursor = bgTool === 'pan' ? 'grab' : '';
-  $('bgUndo').disabled = !ProjectHistory.canUndo();
-  $('bgRedo').disabled = !ProjectHistory.canRedo();
-  syncEditActions();
-  renderTilesetAssignment();
-  $('bgPickSlot').value = bgPickAlt ? 'alt' : 'primary';
-  drawTileMap();
-  renderObjectList();
+  editor.renderControls();
   renderOverlayToggle();
-  paintCanvas();
+  editor.paintCanvas();
   layoutViewportOverlay();
   layoutScrollOverlay();
   updateCameraPanel();
-  renderPaletteDock();
-  updateStampBar();
+  editor.renderStamp();
   $('bgStatus').textContent =
     `${a.width} × ${a.height} tiles · ${a.cells.length} cells · primary ${primaryTileset()?.name ?? 'missing'} · alternate ${altTileset()?.name ?? 'missing'}`;
-  // A background opens fitted to the window; returning to one keeps its zoom.
-  // Measured last, once the docks around the stage have their final size.
-  if (a.id !== bgFittedId) {
-    bgFittedId = a.id;
-    bgZoom = fitLevel(a);
-    render();
-  }
+  editor.fitOnOpen();
 }
 
 $('bgCreateTileset').onclick = () => {
@@ -1191,8 +538,7 @@ $('bgNewAction').onclick = () => {
     bgViewportOrigin = { x: 0, y: 0 };
     bgScroll = { x: 0, y: 0 };
     bgActiveSet = 0;
-    bgPrimaryPlane = 0;
-    bgAltPlane = 0;
+    editor.resetPlanes();
   });
   setStatus('Created ' + background().name + '.');
 };
@@ -1226,84 +572,36 @@ const panelToggle = (panel, id, label, icon, group, asset = false) => {
   StudioShell.bindPanel({ panel, button: b, group, closeGroups: [group], asset });
   return b;
 };
-const tool = (id, label, icon, name) => {
-  const b = StudioShell.iconButton(id, label, icon);
-  b.onclick = () => setTool(name);
-  return b;
-};
-const rail = StudioShell.toolRail('bgRail', 'Background tools');
-host.prepend(rail);
-StudioShell.railLayout(
-  rail,
-  [
-    [
-      panelToggle(library, 'bgLibraryToggle', 'Backgrounds', 'background', 'bgLeft'),
-      panelToggle(
-        tileLibrary,
-        'bgTileLibraryToggle',
-        'Tilesets and tile picker',
-        'tilePicker',
-        'bgLeft',
-        true,
-      ),
-    ],
-    [
-      tool(
-        'bgSelectTool',
-        'Select (S) — drag over cells, then flip, set Priority or click a palette bank to edit them in place',
-        'select',
-        'select',
-      ),
-      tool('bgPencilTool', 'Pencil (B)', 'pencil', 'pencil'),
-      tool('bgEraserTool', 'Eraser (E)', 'eraser', 'eraser'),
-      tool('bgFillTool', 'Fill (G)', 'fill', 'fill'),
-      tool('bgRectangleTool', 'Rectangle (R)', 'rectangle', 'rectangle'),
-      tool('bgPickerTool', 'Pick tile (I)', 'picker', 'picker'),
-      tool(
-        'bgPanTool',
-        'Pan (H) — drag the canvas to scroll it; Space or the middle button pan with any other tool active',
-        'pan',
-        'pan',
-      ),
-    ],
-  ],
-  [
-    Object.assign(StudioShell.iconButton('bgCopy', 'Copy selection (Ctrl/Cmd+C)', 'copy'), {
-      onclick: () => selection.copy() && syncEditActions(),
-    }),
-    Object.assign(
-      StudioShell.iconButton('bgPaste', 'Paste (Ctrl/Cmd+V) — click to place it', 'paste'),
-      {
-        onclick: () => {
-          if (selection.startPaste()) {
-            setTool('select');
-            setStatus('Click to place the paste. Escape cancels.');
-          }
-        },
-      },
+editor.buildRails({
+  panels: [
+    panelToggle(library, 'bgLibraryToggle', 'Backgrounds', 'background', 'bgLeft'),
+    panelToggle(
+      tileLibrary,
+      'bgTileLibraryToggle',
+      'Tilesets and tile picker',
+      'tilePicker',
+      'bgLeft',
+      true,
     ),
-    Object.assign(StudioShell.iconButton('bgUndo', 'Undo (Ctrl/Cmd+Z)', 'undo'), {
-      onclick: ProjectHistory.undo,
-    }),
-    Object.assign(StudioShell.iconButton('bgRedo', 'Redo (Ctrl/Cmd+Shift+Z)', 'redo'), {
-      onclick: ProjectHistory.redo,
-    }),
   ],
-);
-const sideRail = StudioShell.toolRail('bgSideRail', 'Selection', 'right');
-host.append(sideRail);
-for (const [id, icon, label] of [
-  ['bgFlipX', 'flipH', 'Flip horizontally (Shift+H) — the selection, or the next stamp'],
-  ['bgFlipY', 'flipV', 'Flip vertically (Shift+V) — the selection, or the next stamp'],
-  [
-    'bgPriority',
-    'priority',
-    'Priority, drawn in front of sprites — the selection, or the next stamp',
+  tools: [
+    editor.toolButton(
+      'Select (S) — drag over cells, then flip, set Priority or click a palette bank to edit them in place',
+      'select',
+      'select',
+    ),
+    editor.toolButton('Pencil (B)', 'pencil', 'pencil'),
+    editor.toolButton('Eraser (E)', 'eraser', 'eraser'),
+    editor.toolButton('Fill (G)', 'fill', 'fill'),
+    editor.toolButton('Rectangle (R)', 'rectangle', 'rectangle'),
+    editor.toolButton('Pick tile (I)', 'picker', 'picker'),
+    editor.toolButton(
+      'Pan (H) — drag the canvas to scroll it; Space or the middle button pan with any other tool active',
+      'pan',
+      'pan',
+    ),
   ],
-])
-  StudioShell.setIcon($(id), icon, label);
-StudioShell.railLayout(sideRail, [
-  [
+  sidePanels: [
     panelToggle(
       statusPanel,
       'bgStatusToggle',
@@ -1313,139 +611,12 @@ StudioShell.railLayout(sideRail, [
       true,
     ),
   ],
-  [$('bgFlipX'), $('bgFlipY'), $('bgPriority')],
-  [
-    Object.assign(
-      StudioShell.iconButton('bgDeleteSelection', 'Clear the selected cells (Delete)', 'delete'),
-      { onclick: () => selection.remove() },
-    ),
-  ],
-]);
-StudioShell.editActions('backgrounds', {
-  copy: () => selection.copy(),
-  cut: () => selection.cut(),
-  paste: () => {
-    if (selection.startPaste()) {
-      setTool('select');
-      setStatus('Click to place the paste. Escape cancels.');
-    }
-  },
-});
-// Copy, Paste and Delete follow the selection and the clipboard.
-function syncEditActions() {
-  $('bgCopy').disabled = $('bgDeleteSelection').disabled = !selection.rect;
-  $('bgPaste').disabled = !StudioShell.clipboard.has('cells');
-}
-document.addEventListener('studioclipboard', () => {
-  if (!host.hidden) syncEditActions();
 });
 library.hidden = true;
 tileLibrary.hidden = true;
 statusPanel.hidden = true;
 for (const id of ['bgLibraryToggle', 'bgTileLibraryToggle', 'bgStatusToggle'])
   $(id).setAttribute('aria-expanded', 'false');
-
-window.addEventListener(
-  'keydown',
-  (e) => {
-    if (currentView !== 'backgrounds' || isField(e.target)) return;
-    // Selection and clipboard keys, the same in every grid editor.
-    const command = selection.key(e);
-    if (command) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      if ((command === 'selectAll' || command === 'paste') && bgTool !== 'select')
-        setTool('select');
-      if (command === 'paste') setStatus('Click to place the paste. Escape cancels.');
-      return;
-    }
-    // No `!bgSpaceHeld` guard here: held keys repeat-fire keydown, and every
-    // one of those must be prevented too, or the un-prevented repeats leave
-    // the browser's native "Space pages the nearest scrollable ancestor down"
-    // behavior free to fire on #bgStage in between them.
-    if (e.code === 'Space') {
-      bgSpaceHeld = true;
-      e.preventDefault();
-      $('bgCanvas').style.cursor = 'grab';
-    }
-    // Single-key tool shortcuts, the same letters as the tileset editor's.
-    if (e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]')) return;
-    if (e.shiftKey && (e.key.toLowerCase() === 'h' || e.key.toLowerCase() === 'v')) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      $(e.key.toLowerCase() === 'h' ? 'bgFlipX' : 'bgFlipY').click();
-      return;
-    }
-    const tool = {
-      b: 'bgPencilTool',
-      r: 'bgRectangleTool',
-      g: 'bgFillTool',
-      e: 'bgEraserTool',
-      i: 'bgPickerTool',
-      s: 'bgSelectTool',
-      h: 'bgPanTool',
-    }[e.key.toLowerCase()];
-    if (tool && !e.shiftKey) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      $(tool).click();
-    }
-  },
-  true,
-);
-window.addEventListener('keyup', (e) => {
-  if (e.code === 'Space') {
-    bgSpaceHeld = false;
-    $('bgCanvas').style.cursor = bgTool === 'pan' ? 'grab' : '';
-  }
-});
-window.addEventListener('blur', () => {
-  bgSpaceHeld = false;
-  bgPanDrag = null;
-  $('bgCanvas').style.cursor = bgTool === 'pan' ? 'grab' : '';
-});
-// Space-drag, the middle button, or the Pan tool all scroll #bgStage instead
-// of painting. Capture phase + stopImmediatePropagation so this runs before
-// the canvas's own paint handlers or the rectangle handles' drag handlers.
-$('bgStage').addEventListener(
-  'pointerdown',
-  (e) => {
-    if (e.button === 2 || (!bgSpaceHeld && e.button !== 1 && bgTool !== 'pan')) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    bgPanDrag = {
-      x: e.clientX,
-      y: e.clientY,
-      left: $('bgStage').scrollLeft,
-      top: $('bgStage').scrollTop,
-    };
-    $('bgStage').setPointerCapture(e.pointerId);
-    $('bgCanvas').style.cursor = 'grabbing';
-  },
-  true,
-);
-$('bgStage').addEventListener(
-  'pointermove',
-  (e) => {
-    if (!bgPanDrag) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    $('bgStage').scrollLeft = bgPanDrag.left + bgPanDrag.x - e.clientX;
-    $('bgStage').scrollTop = bgPanDrag.top + bgPanDrag.y - e.clientY;
-  },
-  true,
-);
-for (const type of ['pointerup', 'pointercancel'])
-  $('bgStage').addEventListener(
-    type,
-    (e) => {
-      if (!bgPanDrag) return;
-      bgPanDrag = null;
-      e.stopImmediatePropagation();
-      $('bgCanvas').style.cursor = bgSpaceHeld || bgTool === 'pan' ? 'grab' : '';
-    },
-    true,
-  );
 
 StudioShell.viewStatus('backgrounds', $('bgStatus'));
 renderBackgrounds.after(render);
