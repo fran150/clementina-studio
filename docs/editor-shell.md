@@ -99,7 +99,8 @@ model mutation, undo and canvas geometry stay in each editor.
   (stamp bar, flips, Priority, bank reset, palette dock), `painting.js`
   (strokes, fills, rectangles, eyedropper, context menu), `rails.js`,
   `keys.js` (shortcuts and panning) and `drag.js` (drag regions and their
-  outline). They share one object of the editor's state and helpers.
+  outline). `grid/background-camera.js` is the background editor's own camera
+  preview: the loaded window, the visible screen and the overlay composite. They share one object of the editor's state and helpers.
 
 - `history.js` is the project's one undo history. An editor calls
   `ProjectHistory.checkpoint(parts, label)` before an edit — `parts` naming what
