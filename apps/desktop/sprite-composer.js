@@ -1,5 +1,7 @@
 // Shape authoring: one arrangement of sprites from a single tileset. Coordinates
 // are pixels relative to the shape's origin; list order is OAM order.
+import { canAdd, copyAsset, newId, removeAt } from './domain/assets.js';
+import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
 import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import {
@@ -849,17 +851,12 @@ host.querySelectorAll('[data-origin]').forEach(
       );
     }),
 );
-function freshName() {
-  let n = 1;
-  while (shapes.some((a) => a.name.toLowerCase() === 'shape_' + n)) n++;
-  return 'shape_' + n;
-}
 $('scNew').onclick = () => {
-  if (shapes.length >= 255) return;
+  if (!canAdd(shapes)) return;
   edit('New shape', () => {
     shapes.push({
-      id: crypto.randomUUID(),
-      name: freshName(),
+      id: newId(),
+      name: freshName(shapes, 'shape'),
       tilesetId: tilesets[0]?.id,
       canvasWidth: 4,
       canvasHeight: 4,
@@ -874,12 +871,9 @@ $('scNew').onclick = () => {
   fit();
 };
 $('scDuplicate').onclick = () => {
-  if (!shape() || shapes.length >= 255) return;
+  if (!shape() || !canAdd(shapes)) return;
   edit('Duplicate ' + shape().name, () => {
-    const copy = structuredClone(shape());
-    copy.id = crypto.randomUUID();
-    copy.name = freshName();
-    shapes.push(copy);
+    shapes.push(copyAsset(shape(), freshName(shapes, 'shape')));
     setShapeIndex(shapes.length - 1);
   });
 };
@@ -887,8 +881,7 @@ $('scDelete').onclick = () => {
   if (!shape()) return;
   const name = shape().name;
   edit('Delete ' + name, () => {
-    shapes.splice(shapeIndex, 1);
-    setShapeIndex(Math.max(0, shapeIndex - 1));
+    setShapeIndex(removeAt(shapes, shapeIndex));
   });
   setStatus(`Deleted ${name}. Ctrl/Cmd+Z brings it back.`);
 };
@@ -1326,10 +1319,7 @@ function renderShapeList() {
   });
 }
 function renameShape(i, name) {
-  if (
-    !/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(name) ||
-    shapes.some((s, j) => j !== i && s.name.toLowerCase() === name.toLowerCase())
-  ) {
+  if (!canRename(shapes, i, name, SYMBOL_NAME)) {
     setStatus('Use a unique shape name: letters, digits and underscores, starting with a letter.');
     return false;
   }

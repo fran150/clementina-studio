@@ -2,6 +2,8 @@
 // names shapes rather than owning sprites, so a shape edit reaches every frame
 // showing it, flipped or not. Loaded before sprite-composer.js, which wraps
 // renderAnimations to keep its own canvas in sync with shape edits.
+import { canAdd, copyAsset, removeAt } from './domain/assets.js';
+import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
 import { $, isField } from './dom.js';
 import { ProjectHistory } from './history.js';
 import { redrawAll, renderAnimations, showView } from './lifecycle.js';
@@ -60,11 +62,6 @@ function usableShapes(a) {
   return shapes.filter((s) => !a || s.tilesetId === pinned);
 }
 
-function freshName() {
-  let n = 1;
-  while (animations.some((a) => a.name.toLowerCase() === 'animation_' + n)) n++;
-  return 'animation_' + n;
-}
 function freshId(name) {
   const stem = 'animation:' + name;
   let id = stem,
@@ -78,7 +75,7 @@ $('anCreateShape').onclick = () => {
   $('scNew').focus();
 };
 $('anNew').onclick = () => {
-  if (animations.length >= 255) {
+  if (!canAdd(animations)) {
     setStatus('A project holds at most 255 animations.');
     return;
   }
@@ -88,7 +85,7 @@ $('anNew').onclick = () => {
     return;
   }
   edit('New animation', () => {
-    const name = freshName();
+    const name = freshName(animations, 'animation');
     animations.push({ id: freshId(name), name, frames: [{ shapeId: shapes[0].id, ticks: 6 }] });
     setAnimationIndex(animations.length - 1);
     setFrameIndex(0);
@@ -98,12 +95,10 @@ $('anNew').onclick = () => {
   setStatus('Created ' + currentAnimation().name + '.');
 };
 $('anDuplicateAnim').onclick = () => {
-  if (!currentAnimation() || animations.length >= 255) return;
+  if (!currentAnimation() || !canAdd(animations)) return;
   edit('Duplicate ' + currentAnimation().name, () => {
-    const copy = structuredClone(currentAnimation());
-    copy.name = freshName();
-    copy.id = freshId(copy.name);
-    animations.push(copy);
+    const name = freshName(animations, 'animation');
+    animations.push(copyAsset(currentAnimation(), name, freshId(name)));
     setAnimationIndex(animations.length - 1);
     setFrameIndex(0);
   });
@@ -113,8 +108,7 @@ $('anDelete').onclick = () => {
   if (!currentAnimation()) return;
   setStatus(`Deleted ${currentAnimation().name}. Ctrl/Cmd+Z brings it back.`);
   edit('Delete ' + currentAnimation().name, () => {
-    animations.splice(animationIndex, 1);
-    setAnimationIndex(Math.max(0, animationIndex - 1));
+    setAnimationIndex(removeAt(animations, animationIndex));
     setFrameIndex(0);
   });
 };
@@ -128,10 +122,7 @@ function chooseAnimation(i) {
   renderAnimations();
 }
 function renameAnimation(i, name) {
-  if (
-    !/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(name) ||
-    animations.some((x, j) => j !== i && x.name.toLowerCase() === name.toLowerCase())
-  ) {
+  if (!canRename(animations, i, name, SYMBOL_NAME)) {
     setStatus('Use a unique name: letters, digits, underscores; start with a letter.');
     return false;
   }
@@ -639,7 +630,7 @@ function render() {
     : 'No animations yet. An animation sequences shapes as frames.';
   $('anCreateShape').hidden = !!shapes.length;
   $('anEmptyNew').hidden = !shapes.length;
-  $('anNew').disabled = animations.length >= 255;
+  $('anNew').disabled = !canAdd(animations);
   $('anPrevious').disabled = !a;
   $('anNext').disabled = !a;
   $('anMoveEarlier').disabled = !a || frameIndex === 0;
