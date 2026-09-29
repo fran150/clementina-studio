@@ -73,7 +73,8 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   (animations), `image-import-ui.js` (artwork import), `sound-editor.js`
   (sounds) and `music-editor.js` (songs and instruments), which share
   `audio-shared.js`. The overlay and background editors share `grid-editor.js`,
-  their tools, tile picker, stamp settings, palette dock, rails and shortcuts.
+  their tools, tile picker, stamp settings, palette dock, rails and shortcuts,
+  whose parts live in `grid/`.
   `domain/` holds the operations on the project's data, with no page code, so
   unit tests cover them directly (`tests/domain-*.test.mjs`): `names.js` (name
   patterns, fresh and unique names), `assets.js` (adding, copying and removing
