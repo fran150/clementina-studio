@@ -60,45 +60,6 @@ $('anCreateShape').onclick = () => {
   if ($('scLibraryToggle').getAttribute('aria-expanded') !== 'true') $('scLibraryToggle').click();
   $('scNew').focus();
 };
-$('anNew').onclick = () => {
-  if (!canAdd(animations)) {
-    setStatus('A project holds at most 255 animations.');
-    return;
-  }
-  if (!shapes.length) {
-    $('anCreateShape').focus();
-    setStatus('Create a shape first. Use Go to Shapes to get started.');
-    return;
-  }
-  edit('New animation', () => {
-    const name = freshName(animations, 'animation');
-    animations.push(newAnimation(freshId(name), name, shapes[0].id));
-    setAnimationIndex(animations.length - 1);
-    setFrameIndex(0);
-    selectedShapeIds.clear();
-    shapeAnchor = null;
-  });
-  setStatus('Created ' + currentAnimation().name + '.');
-};
-$('anDuplicateAnim').onclick = () => {
-  if (!currentAnimation() || !canAdd(animations)) return;
-  edit('Duplicate ' + currentAnimation().name, () => {
-    const name = freshName(animations, 'animation');
-    animations.push(copyAsset(currentAnimation(), name, freshId(name)));
-    setAnimationIndex(animations.length - 1);
-    setFrameIndex(0);
-  });
-};
-$('anEmptyNew').onclick = () => $('anNew').click();
-$('anDelete').onclick = () => {
-  if (!currentAnimation()) return;
-  setStatus(`Deleted ${currentAnimation().name}. Ctrl/Cmd+Z brings it back.`);
-  edit('Delete ' + currentAnimation().name, () => {
-    setAnimationIndex(removeAt(animations, animationIndex));
-    setFrameIndex(0);
-  });
-};
-
 // Opens animation `i` at its first frame, stopped, with no shapes picked.
 function chooseAnimation(i) {
   setAnimationIndex(i);
@@ -116,22 +77,53 @@ function renameAnimation(i, name) {
   edit('Rename an animation', () => (animations[i].name = name));
   return true;
 }
+// The animation list and its New, Duplicate and Delete buttons. New needs a
+// shape to sequence, and points at the Shapes editor without one.
+const library = StudioShell.assetLibrary({
+  noun: 'animation',
+  plural: 'animations',
+  list: $('anAnimList'),
+  items: () => animations,
+  index: () => animationIndex,
+  choose: chooseAnimation,
+  rename: renameAnimation,
+  render,
+  maxLength: 32,
+  buttons: {
+    create: 'anNew',
+    duplicate: 'anDuplicateAnim',
+    remove: 'anDelete',
+    empty: 'anEmptyNew',
+  },
+  ready: () => {
+    if (shapes.length) return null;
+    $('anCreateShape').focus();
+    return 'Create a shape first. Use Go to Shapes to get started.';
+  },
+  create: (label) =>
+    edit(label, () => {
+      const name = freshName(animations, 'animation');
+      animations.push(newAnimation(freshId(name), name, shapes[0].id));
+      setAnimationIndex(animations.length - 1);
+      setFrameIndex(0);
+      selectedShapeIds.clear();
+      shapeAnchor = null;
+    }),
+  copy: (a, label) =>
+    edit(label, () => {
+      const name = freshName(animations, 'animation');
+      animations.push(copyAsset(a, name, freshId(name)));
+      setAnimationIndex(animations.length - 1);
+      setFrameIndex(0);
+    }),
+  remove: (a, label) =>
+    edit(label, () => {
+      setAnimationIndex(removeAt(animations, animationIndex));
+      setFrameIndex(0);
+    }),
+});
 function renderAnimList() {
-  StudioShell.renderList($('anAnimList'), animations, {
-    selected: (a, i) => i === animationIndex,
-    choose: (a, i) => chooseAnimation(i),
-    rename: renameAnimation,
-    render,
-    maxLength: 32,
-    duplicate: (a, i) => {
-      chooseAnimation(i);
-      $('anDuplicateAnim').click();
-    },
-    remove: (a, i) => {
-      chooseAnimation(i);
-      $('anDelete').click();
-    },
-  });
+  library.render();
 }
 
 // ===== the shapes to append =====

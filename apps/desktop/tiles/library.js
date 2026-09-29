@@ -2,7 +2,7 @@
 // and choose; the color mode and page; objects saved from the drawing area;
 // and importing artwork.
 import { $ } from '../dom.js';
-import { copyAsset, newId, removeAt } from '../domain/assets.js';
+import { canAdd, copyAsset, newId, removeAt } from '../domain/assets.js';
 import { canRename, FILE_NAME, freshName, nameTaken, uniqueName } from '../domain/names.js';
 import { freshObjectName, newTileset } from '../domain/tilesets.js';
 import { ProjectHistory } from '../history.js';
@@ -53,19 +53,58 @@ export function selectObject(i) {
   tl.render();
 }
 
+/** The tileset list, made by libraryActions. */
+let tilesetList;
+/** Draws the tileset list. */
+export function renderTilesetList() {
+  tilesetList.render();
+}
+/** Opens the tileset just added at the end of the list, on its first tile. */
+function openNewTileset() {
+  tl.index = tilesets.length - 1;
+  tl.objectIndex = -1;
+  tl.targetTile = 0;
+  tl.palette = 0;
+}
+
 /** Wires the library, color mode, page, history and object buttons. */
 export function libraryActions() {
-  $('addBankFile').onclick = () =>
-    mutate('New tileset', () => {
-      const name = freshName(tilesets, 'Tileset');
-      tilesets.push(newTileset(newId(), name));
-      tl.index = tilesets.length - 1;
-      tl.objectIndex = -1;
-      tl.targetTile = 0;
-      tl.palette = 0;
-    });
+  tilesetList = StudioShell.assetLibrary({
+    noun: 'tileset',
+    plural: 'tilesets',
+    list: $('bankFiles'),
+    items: () => tilesets,
+    index: () => tl.index,
+    choose: selectBank,
+    rename: renameBank,
+    render: () => tl.render(),
+    // The empty editor's New button is made later, by the layout, and clicks
+    // addBankFile.
+    buttons: { create: 'addBankFile', duplicate: 'copyBankFile', remove: 'deleteBankFile' },
+    create: (label) =>
+      mutate(label, () => {
+        tilesets.push(newTileset(newId(), freshName(tilesets, 'Tileset')));
+        openNewTileset();
+      }),
+    copy: (t, label) =>
+      mutate(label, () => {
+        tilesets.push(copyAsset(t, freshName(tilesets, 'Tileset')));
+        openNewTileset();
+      }),
+    deleted: (t) => `Deleted ${t.name} and its objects. Ctrl/Cmd+Z brings it back.`,
+    remove: (t, label) =>
+      mutate(label, () => {
+        tl.index = removeAt(tilesets, tl.index);
+        tl.objectIndex = -1;
+        tl.targetTile = 0;
+      }),
+  });
   $('importBankFile').onclick = () =>
     studioAction(async () => {
+      if (!canAdd(tilesets)) {
+        setStatus('A project holds at most 255 tilesets.');
+        return;
+      }
       const imported = await window.studio.importTileset();
       if (!imported) return;
       let name = imported.name.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40);
@@ -80,31 +119,11 @@ export function libraryActions() {
           tilePaletteBanks: Array(256).fill(0),
           compositions: [],
         });
-        tl.index = tilesets.length - 1;
-        tl.objectIndex = -1;
-        tl.targetTile = 0;
-        tl.palette = 0;
+        openNewTileset();
       });
       setStatus(
         'Imported CHR data as a tileset. Assign it to a CHR bank later, when building the game.',
       );
-    });
-  $('deleteBankFile').onclick = () => {
-    if (!asset()) return;
-    setStatus(`Deleted ${asset().name} and its objects. Ctrl/Cmd+Z brings it back.`);
-    mutate('Delete ' + asset().name, () => {
-      tl.index = removeAt(tilesets, tl.index);
-      tl.objectIndex = -1;
-      tl.targetTile = 0;
-    });
-  };
-  $('copyBankFile').onclick = () =>
-    mutate('Duplicate ' + asset().name, () => {
-      tilesets.push(copyAsset(asset(), freshName(tilesets, 'Tileset')));
-      tl.index = tilesets.length - 1;
-      tl.objectIndex = -1;
-      tl.targetTile = 0;
-      tl.palette = 0;
     });
   $('bankFileMode').onchange = () =>
     mutate('Change the color mode', () => {

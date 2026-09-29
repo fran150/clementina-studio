@@ -404,6 +404,32 @@ app.whenReady().then(async () => {
       'Edit color…',
     ]);
 
+    // ---- Asset libraries: every list stops at 255 and says so ----
+    for (const [view, list, button] of [
+      ['tiles', 'tilesets', 'addBankFile'],
+      ['shapes', 'shapes', 'scNew'],
+      ['backgrounds', 'backgrounds', 'bgNewAction'],
+    ])
+      assert.deepEqual(
+        await run(
+          `showView('${view}');const list=${list},count=list.length;
+           while(list.length<255)list.push(list[0]);
+           $('${button}').disabled=false;$('${button}').click();
+           const result={count:list.length,status:$('status').textContent};
+           list.length=count;redrawAll();return result;`,
+        ),
+        { count: 255, status: `A project holds at most 255 ${list}.` },
+        `New ${list} must stop at the limit with the same message`,
+      );
+    assert.deepEqual(
+      await run(
+        `showView('shapes');$('scNew').click();
+         return {count:shapes.length,status:$('status').textContent};`,
+      ),
+      { count: 2, status: 'Created shape_2.' },
+      'New says what it created',
+    );
+
     assert.deepEqual(errors, []);
     console.log('desktop conventions: ok');
     app.exit(0);

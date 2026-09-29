@@ -1,6 +1,8 @@
 // The shape editor's panels: the shape list, the tileset picker (with the
 // 1bpp page to preview), the palette bank dock, and the origin presets.
-import { SYMBOL_NAME, canRename } from '../domain/names.js';
+import { copyAsset, newId, removeAt } from '../domain/assets.js';
+import { SYMBOL_NAME, canRename, freshName } from '../domain/names.js';
+import { newShape } from '../domain/shapes.js';
 import { $ } from '../dom.js';
 import { renderAnimations } from '../lifecycle.js';
 import {
@@ -8,6 +10,7 @@ import {
   bankColor,
   bankPalette,
   css565,
+  setFrameIndex,
   setShapeIndex,
   shapeIndex,
   shapes,
@@ -30,23 +33,46 @@ function chooseShape(i) {
   renderAnimations();
   fit();
 }
-/** Lists the shapes, with rename, duplicate and delete on each row. */
-export function renderShapeList() {
-  StudioShell.renderList($('scSprites'), shapes, {
-    selected: (s, i) => i === shapeIndex,
-    choose: (s, i) => chooseShape(i),
+/** The shape list, made by shapeLibrary. */
+let library;
+/**
+ * Wires the shape list's New, Duplicate and Delete buttons. A shape is
+ * drawn from a tileset, so a new one takes the first tileset there is.
+ */
+export function shapeLibrary() {
+  library = StudioShell.assetLibrary({
+    noun: 'shape',
+    plural: 'shapes',
+    list: $('scSprites'),
+    items: () => shapes,
+    index: () => shapeIndex,
+    choose: chooseShape,
     rename: renameShape,
     render: () => sc.render(),
     maxLength: 32,
-    duplicate: (s, i) => {
-      chooseShape(i);
-      $('scDuplicate').click();
+    buttons: { create: 'scNew', duplicate: 'scDuplicate', remove: 'scDelete', empty: 'scEmptyNew' },
+    create: (label) => {
+      edit(label, () => {
+        shapes.push(newShape(newId(), freshName(shapes, 'shape'), tilesets[0]?.id));
+        setShapeIndex(shapes.length - 1);
+        setFrameIndex(0);
+      });
+      fit();
     },
-    remove: (s, i) => {
-      chooseShape(i);
-      $('scDelete').click();
-    },
+    copy: (s, label) =>
+      edit(label, () => {
+        shapes.push(copyAsset(s, freshName(shapes, 'shape')));
+        setShapeIndex(shapes.length - 1);
+      }),
+    remove: (s, label) =>
+      edit(label, () => {
+        setShapeIndex(removeAt(shapes, shapeIndex));
+      }),
   });
+}
+/** Lists the shapes, with rename, duplicate and delete on each row. */
+export function renderShapeList() {
+  library.render();
 }
 /** Renames shape `i`; false (with a hint) when the name is taken or not a symbol. */
 function renameShape(i, name) {

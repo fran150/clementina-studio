@@ -24,9 +24,8 @@ import {
 import {
   importImageButton,
   libraryActions,
-  renameBank,
   renameObject,
-  selectBank,
+  renderTilesetList,
   selectObject,
 } from './tiles/library.js';
 import { asset, backgroundRow, mutate, scroll, tl } from './tiles/model.js';
@@ -96,21 +95,8 @@ function render() {
   $('canvasTop').hidden = false;
   $('canvasAssetLabel').textContent =
     a.name + (tl.objectIndex >= 0 ? ' / ' + a.compositions[tl.objectIndex].name : '');
-  StudioShell.renderList($('bankFiles'), list, {
-    selected: (t, i) => i === tl.index,
-    choose: (t, i) => selectBank(i),
-    rename: renameBank,
-    render: tl.render,
-    maxLength: 48,
-    duplicate: (t, i) => {
-      selectBank(i);
-      $('copyBankFile').click();
-    },
-    remove: (t, i) => {
-      selectBank(i);
-      $('deleteBankFile').click();
-    },
-  });
+  renderTilesetList();
+
   $('bankFileMode').value = a.bpp;
   $('bankFilePlane').value = String(tl.plane);
   $('bankFilePlaneLabel').hidden = a.bpp !== 1;

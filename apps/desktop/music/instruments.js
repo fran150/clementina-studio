@@ -2,7 +2,7 @@
 // envelope, heard as they change) and the instrument library's new,
 // duplicate, delete, choose and rename.
 import { StudioAudio } from '../audio-shared.js';
-import { canAdd, clampIndex, copyAsset, newId } from '../domain/assets.js';
+import { clampIndex, copyAsset, newId } from '../domain/assets.js';
 import { SYMBOL_NAME, canRename, freshName } from '../domain/names.js';
 import { $ } from '../dom.js';
 import { instruments, songs } from '../state.js';
@@ -90,22 +90,32 @@ export function renderInstrumentProps() {
   StudioAudio.drawEnvelope($('muEnvelope'), i, 250);
 }
 
-/** Adds the instrument library's buttons and wires them. */
+/** Wires the instrument library's buttons; returns what draws its list. */
 export function instrumentLibrary() {
-  for (const [id, label, icon] of [
-    ['muInstrumentNew', 'New instrument', 'newItem'],
-    ['muInstrumentDuplicate', 'Duplicate instrument', 'duplicate'],
-    ['muInstrumentDelete', 'Delete instrument', 'delete'],
-  ])
-    $('muInstrumentActions').append(StudioShell.iconButton(id, label, icon));
-  $('muInstrumentNew').onclick = () => {
-    if (!canAdd(instruments)) {
-      setStatus('A project holds at most 255 instruments.');
-      return;
-    }
-    edit(
-      'New instrument',
-      () => {
+  return StudioShell.assetLibrary({
+    noun: 'instrument',
+    plural: 'instruments',
+    list: $('muInstrumentList'),
+    items: () => instruments,
+    index: () => mu.instrumentIndex,
+    choose: chooseInstrument,
+    // Choosing an instrument gives it to the selected notes; a row's Duplicate
+    // or Delete should not.
+    select: (k) => (mu.instrumentIndex = k),
+    rename: renameInstrument,
+    render: () => mu.render(),
+    maxLength: 32,
+    content: (row, x) => {
+      row.textContent = `${x.name} · ${['Sine', 'Pulse', 'Saw', 'Triangle', 'Noise'][x.wave]}`;
+    },
+    buttons: {
+      rail: $('muInstrumentActions'),
+      create: 'muInstrumentNew',
+      duplicate: 'muInstrumentDuplicate',
+      remove: 'muInstrumentDelete',
+    },
+    create: (label) =>
+      edit(label, () => {
         instruments.push({
           id: newId(),
           name: freshName(instruments, 'Instrument'),
@@ -118,50 +128,43 @@ export function instrumentLibrary() {
           volume: 200,
         });
         mu.instrumentIndex = instruments.length - 1;
-      },
-      ['instruments'],
-    );
-  };
-  $('muInstrumentDuplicate').onclick = () => {
-    const i = instrument();
-    if (!i || !canAdd(instruments)) return;
-    edit(
-      'Duplicate ' + i.name,
-      () => {
+      }, ['instruments']),
+    copy: (i, label) =>
+      edit(label, () => {
         instruments.push(copyAsset(i, freshName(instruments, i.name.replace(/_\d+$/, ''))));
         mu.instrumentIndex = instruments.length - 1;
-      },
-      ['instruments'],
-    );
-  };
-  // Notes playing a deleted instrument move to the next one, as a deleted
-  // palette's banks move to another; the last one cannot go while notes use it.
-  $('muInstrumentDelete').onclick = () => {
-    const i = instrument();
-    if (!i) return;
-    const users = songs
-      .flatMap((s) => s.voices.flatMap((v) => v.notes))
-      .filter((n) => n.instrumentId === i.id);
-    if (users.length && instruments.length < 2) {
-      setStatus(`${i.name} is the only instrument, and ${users.length} notes play it.`);
-      return;
-    }
-    const heir = instruments[mu.instrumentIndex + 1] ?? instruments[mu.instrumentIndex - 1];
-    edit(
-      'Delete ' + i.name,
-      () => {
-        for (const s of songs)
-          for (const v of s.voices)
-            for (const n of v.notes) if (n.instrumentId === i.id) n.instrumentId = heir.id;
+      }, ['instruments']),
+    // Notes playing a deleted instrument move to the next one, as a deleted
+    // palette's banks move to another; the last one cannot go while notes use it.
+    removable: (i) => {
+      const users = notesPlaying(i);
+      return users.length && instruments.length < 2
+        ? `${i.name} is the only instrument, and ${users.length} notes play it.`
+        : null;
+    },
+    deleted: (i) => {
+      const users = notesPlaying(i);
+      return `Deleted ${i.name}${users.length ? `; its ${users.length} notes play ${heir().name} now` : ''}. Ctrl/Cmd+Z brings it back.`;
+    },
+    remove: (i, label) => {
+      const next = heir();
+      edit(label, () => {
+        for (const n of notesPlaying(i)) n.instrumentId = next.id;
         instruments.splice(mu.instrumentIndex, 1);
         mu.instrumentIndex = clampIndex(instruments, mu.instrumentIndex);
-      },
-      ['instruments', 'songs'],
-    );
-    setStatus(
-      `Deleted ${i.name}${users.length ? `; its ${users.length} notes play ${heir.name} now` : ''}. Ctrl/Cmd+Z brings it back.`,
-    );
-  };
+      }, ['instruments', 'songs']);
+    },
+  });
+}
+/** Every note, in every song, that plays instrument `i`. */
+function notesPlaying(i) {
+  return songs
+    .flatMap((s) => s.voices.flatMap((v) => v.notes))
+    .filter((n) => n.instrumentId === i.id);
+}
+/** The instrument that takes over the open one's notes when it is deleted. */
+function heir() {
+  return instruments[mu.instrumentIndex + 1] ?? instruments[mu.instrumentIndex - 1];
 }
 /**
  * Opens instrument `k`; with notes selected, they play it from now on.

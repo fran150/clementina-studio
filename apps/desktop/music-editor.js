@@ -18,13 +18,7 @@ import { ProjectHistory } from './history.js';
 import { newProject, redrawAll, restoreStudioProject, showView } from './lifecycle.js';
 import { musicKeys, musicZoom } from './music/controls.js';
 import { canvas, center, clampScroll, fitLevel, pitchY, stepX } from './music/geometry.js';
-import {
-  chooseInstrument,
-  instrumentLibrary,
-  instrumentProps,
-  renameInstrument,
-  renderInstrumentProps,
-} from './music/instruments.js';
+import { instrumentLibrary, instrumentProps, renderInstrumentProps } from './music/instruments.js';
 import { A, ROW_H, RULER_H, edit, instrument, mu, notes, song } from './music/model.js';
 import { copyNotes, cutNotes, pasteNotes, selected } from './music/notes.js';
 import { replay, rewind, toggle } from './music/playback.js';
@@ -47,55 +41,59 @@ canvasPointer();
 musicZoom();
 songProps();
 instrumentProps();
-instrumentLibrary();
+const instrumentList = instrumentLibrary();
 
 // ===== the song library =====
-for (const [id, label, icon] of [
-  ['muNew', 'New song', 'newItem'],
-  ['muDuplicate', 'Duplicate song', 'duplicate'],
-  ['muDelete', 'Delete song', 'delete'],
-])
-  $('muActions').append(StudioShell.iconButton(id, label, icon));
-$('muNew').onclick = () => {
-  if (!A() || !canAdd(songs)) {
-    setStatus('A project holds at most 255 songs.');
-    return;
-  }
+// Whether the last New song also added the starting instruments.
+let madeKit = false;
+const songLibrary = StudioShell.assetLibrary({
+  noun: 'song',
+  plural: 'songs',
+  list: $('muList'),
+  items: () => songs,
+  index: () => mu.songIndex,
+  choose: chooseSong,
+  rename: renameSong,
+  render: () => mu.render(),
+  maxLength: 32,
+  buttons: {
+    rail: $('muActions'),
+    create: 'muNew',
+    duplicate: 'muDuplicate',
+    remove: 'muDelete',
+    empty: 'muEmptyNew',
+  },
+  ready: () => (A() ? null : 'The audio engine is still loading. Try again in a moment.'),
   // A first song comes with instruments to draw with.
-  const kit = !instruments.length;
-  edit(
-    'New song',
-    () => {
-      if (kit) setInstruments(A().defaultInstruments(newId));
-      songs.push(A().newSong(newId(), freshName(songs, 'Song')));
+  create: (label) => {
+    madeKit = !instruments.length;
+    edit(
+      label,
+      () => {
+        if (madeKit) setInstruments(A().defaultInstruments(newId));
+        songs.push(A().newSong(newId(), freshName(songs, 'Song')));
+        mu.songIndex = songs.length - 1;
+        mu.selection = new Set();
+        mu.cursor = 0;
+      },
+      madeKit ? ['songs', 'instruments'] : ['songs'],
+    );
+  },
+  created: (s) => `Created ${s.name}${madeKit ? ' and four starting instruments' : ''}.`,
+  copy: (s, label) =>
+    edit(label, () => {
+      songs.push(copyAsset(s, freshName(songs, 'Song')));
       mu.songIndex = songs.length - 1;
       mu.selection = new Set();
-      mu.cursor = 0;
-    },
-    kit ? ['songs', 'instruments'] : ['songs'],
-  );
-  setStatus(`Created ${song().name}${kit ? ' and four starting instruments' : ''}.`);
-};
-$('muEmptyNew').onclick = () => $('muNew').click();
-$('muDuplicate').onclick = () => {
-  const s = song();
-  if (!s || !canAdd(songs)) return;
-  edit('Duplicate ' + s.name, () => {
-    songs.push(copyAsset(s, freshName(songs, 'Song')));
-    mu.songIndex = songs.length - 1;
-    mu.selection = new Set();
-  });
-};
-$('muDelete').onclick = () => {
-  const s = song();
-  if (!s) return;
-  StudioAudio.stop();
-  setStatus(`Deleted ${s.name}. Ctrl/Cmd+Z brings it back.`);
-  edit('Delete ' + s.name, () => {
-    mu.songIndex = removeAt(songs, mu.songIndex);
-    mu.selection = new Set();
-  });
-};
+    }),
+  remove: (s, label) => {
+    StudioAudio.stop();
+    edit(label, () => {
+      mu.songIndex = removeAt(songs, mu.songIndex);
+      mu.selection = new Set();
+    });
+  },
+});
 /** Opens song `i`; another song starts stopped, at its first step. */
 function chooseSong(i) {
   if (i !== mu.songIndex) {
@@ -130,39 +128,8 @@ function render() {
   $('muEmpty').hidden = !!s;
   StudioShell.emptyEditor(host, !s);
   $('muWork').hidden = !s;
-  StudioShell.renderList($('muList'), songs, {
-    selected: (x, i) => i === mu.songIndex,
-    choose: (x, i) => chooseSong(i),
-    rename: renameSong,
-    render: mu.render,
-    maxLength: 32,
-    duplicate: (x, i) => {
-      chooseSong(i);
-      $('muDuplicate').click();
-    },
-    remove: (x, i) => {
-      chooseSong(i);
-      $('muDelete').click();
-    },
-  });
-  StudioShell.renderList($('muInstrumentList'), instruments, {
-    selected: (x, i) => i === mu.instrumentIndex,
-    choose: (x, i) => chooseInstrument(i),
-    rename: renameInstrument,
-    render: mu.render,
-    maxLength: 32,
-    content: (row, x) => {
-      row.textContent = `${x.name} · ${['Sine', 'Pulse', 'Saw', 'Triangle', 'Noise'][x.wave]}`;
-    },
-    duplicate: (x, i) => {
-      mu.instrumentIndex = i;
-      $('muInstrumentDuplicate').click();
-    },
-    remove: (x, i) => {
-      mu.instrumentIndex = i;
-      $('muInstrumentDelete').click();
-    },
-  });
+  songLibrary.render();
+  instrumentList.render();
   $('muDuplicate').disabled = $('muDelete').disabled = !s;
   $('muNew').disabled = !canAdd(songs);
   $('muInstrumentDuplicate').disabled = $('muInstrumentDelete').disabled = !instrument();

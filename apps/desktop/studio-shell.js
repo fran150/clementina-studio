@@ -1,8 +1,9 @@
 // Shared presentation and interaction primitives. Asset data stays in the editors.
 //
 // Each editor reaches them through StudioShell; they live in shell/: icons,
-// layout pieces (rails, panels, status, tabs), tooltips, lists, menus,
-// canvas zoom, the palette bank dock, the clipboard and the shortcut sheet.
+// layout pieces (rails, panels, status, tabs), tooltips, lists and asset
+// libraries, menus, canvas zoom, the palette bank dock, the clipboard and the
+// shortcut sheet.
 // Setting up the page's shared parts runs here, in order, once.
 import { bankDock, hoverBankDock, syncBankDock, TRANSPARENT_ZERO } from './shell/bank-dock.js';
 import { clipboard, editActions, installEditCommands } from './shell/clipboard.js';
@@ -16,6 +17,7 @@ import {
   toolRail,
   viewStatus,
 } from './shell/layout.js';
+import { assetLibrary } from './shell/library.js';
 import { renderList, renderOptions, startRename } from './shell/lists.js';
 import { contextMenu, installMenuDismiss } from './shell/menu.js';
 import { helpButton, installShortcuts, showShortcuts } from './shell/shortcuts.js';
@@ -47,6 +49,7 @@ export const StudioShell = Object.freeze({
   bindPanel,
   emptyEditor,
   selectView,
+  assetLibrary,
   renderList,
   renderOptions,
   startRename,
