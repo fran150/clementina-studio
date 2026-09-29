@@ -11,6 +11,7 @@
 // that picture. A pixel block is {width, height, data, banks}: each pixel's
 // color index and its tile's bank. Nothing here touches the page.
 import { TILES_PER_ROW } from './cells.js';
+import { freshName } from './names.js';
 
 export const GH = 8,
   TILES = 256,
@@ -245,7 +246,5 @@ export function shapePixels(kind, a, b, filled) {
 
 /** The first of Object_1, Object_2, … no Object of the tileset uses (case matters). */
 export function freshObjectName(tileset) {
-  let n = 1;
-  while (tileset.compositions.some((c) => c.name === 'Object_' + n)) n++;
-  return 'Object_' + n;
+  return freshName(tileset.compositions, 'Object');
 }

@@ -1,5 +1,6 @@
 // Artwork import is staged in a modal: decoding, conversion and placement are previews until Apply.
 import { $ } from './dom.js';
+import { nameTaken, uniqueName } from './domain/names.js';
 const dialog = $('bankImageDialog');
 const el = (id) => document.getElementById(id);
 let session = null,
@@ -142,10 +143,7 @@ function update() {
         ? ` · ${result.limitedTiles} tiles matched existing palettes because no free palette slots remain`
         : '');
     const name = el('iiObjectName').value.trim();
-    if (
-      el('iiObject').checked &&
-      (!name || session.tileset.compositions.some((c) => c.name === name))
-    )
+    if (el('iiObject').checked && (!name || nameTaken(session.tileset.compositions, name)))
       throw Error('Choose a nonempty, unique Object name.');
     el('iiApply').textContent = result.overwrittenTiles.length
       ? 'Import and replace tiles'
@@ -305,9 +303,7 @@ export async function openTilesetImageImport({ tileset, selection, protectedPale
       .replace(/\.[^.]+$/, '')
       .trim()
       .slice(0, 56) || 'Imported';
-  let name = stem,
-    n = 2;
-  while (tileset.compositions.some((c) => c.name === name)) name = stem + '_' + n++;
+  const name = uniqueName(tileset.compositions, stem);
   el('iiObjectName').value = name;
   el('iiObject').checked = true;
   el('iiResize').checked = false;

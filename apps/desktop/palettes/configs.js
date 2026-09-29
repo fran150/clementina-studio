@@ -137,6 +137,5 @@ export function configActions() {
       setActiveConfigId(paletteConfigs[0].id);
     });
     pl.render();
-    setStatus('Deleted ' + target.name + '.');
   };
 }
