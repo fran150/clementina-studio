@@ -1,6 +1,5 @@
 // The palette list: new, duplicate, rename and delete. Deleting a palette
 // that banks use asks which palette takes its place in them.
-import { graphicsEdit } from '../bank-editor.js';
 import { $ } from '../dom.js';
 import { nameTaken } from '../domain/names.js';
 import { repointBanks } from '../domain/palettes.js';
@@ -15,7 +14,7 @@ import {
 } from '../state.js';
 import { setStatus } from '../status.js';
 import { StudioShell } from '../studio-shell.js';
-import { pl, usage } from './model.js';
+import { paletteEdit, pl, usage } from './model.js';
 
 const dialog = $('palDeleteDialog');
 /** Repoints every bank of every config from one palette to another. */
@@ -45,7 +44,7 @@ function destroy(target) {
     const choice = inUse ? $('palReplacement').value : null,
       replacement = choice === '__empty' ? null : choice;
     dialog.close();
-    graphicsEdit(
+    paletteEdit(
       'Delete ' + target.name,
       () => {
         const moved = replacement
@@ -76,7 +75,7 @@ export function renamePalette(i, name) {
     setStatus('Use a unique palette name.');
     return false;
   }
-  graphicsEdit('Rename a palette', () => (paletteLibrary[i].name = name));
+  paletteEdit('Rename a palette', () => (paletteLibrary[i].name = name));
   return true;
 }
 /** The palette list, made by libraryActions. */
@@ -137,7 +136,7 @@ export function libraryActions() {
       remove: 'palDelete',
     },
     create: (label) => {
-      graphicsEdit(label, () => {
+      paletteEdit(label, () => {
         createPalette(RAINBOW_565);
         pl.index = paletteLibrary.length - 1;
       });
@@ -145,7 +144,7 @@ export function libraryActions() {
     },
     created: () => 'Added a palette. Bind it from a bank slot to use it.',
     copy: (p, label) => {
-      graphicsEdit(label, () => {
+      paletteEdit(label, () => {
         createPalette(p.colors, uniquePaletteName());
         pl.index = paletteLibrary.length - 1;
       });

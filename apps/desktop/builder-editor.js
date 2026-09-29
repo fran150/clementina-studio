@@ -11,7 +11,6 @@ import { renderProps } from './builder/props.js';
 import { builderRails } from './builder/rails.js';
 import { remove } from './builder/slots.js';
 import { $, isField } from './dom.js';
-import { ProjectHistory } from './history.js';
 import { redrawAll, resetBuilderFolder, setBuilderFolder, showView } from './lifecycle.js';
 import { builderSettings, currentView, studioProject } from './state.js';
 import { StudioShell } from './studio-shell.js';
@@ -36,8 +35,6 @@ function render() {
     bu.timer = setTimeout(() => refresh(), 80);
   }
   for (const id of ['buSave', 'buBuild', 'buRun']) $(id).disabled = bu.busy || !bu.root;
-  $('buUndo').disabled = !ProjectHistory.canUndo();
-  $('buRedo').disabled = !ProjectHistory.canRedo();
 }
 bu.render = render;
 

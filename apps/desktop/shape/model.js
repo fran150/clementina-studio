@@ -5,7 +5,6 @@ import { $ } from '../dom.js';
 import { ProjectHistory } from '../history.js';
 import { renderAnimations } from '../lifecycle.js';
 import { shapeIndex, shapes, tilesets } from '../state.js';
-import { markDirty } from '../status.js';
 
 /**
  * The editor's working state. Everything here is view state; the shape itself
@@ -68,22 +67,17 @@ export const ox = () => shape()?.originX ?? 0,
 /** The box around `list` (the shape's sprites by default). */
 export const bounds = (list = spritesOf()) => spriteBounds(list);
 
-/** Records an undo step for the shapes, labeled `label`. */
-export function checkpoint(label) {
-  ProjectHistory.checkpoint(['shapes'], label);
-}
 /**
- * Makes one undoable edit: edit('Delete X', fn) runs fn, marks the project
- * changed and redraws the animations (which show shapes). This editor listens
- * to renderAnimations too, so that one call redraws it as well.
+ * checkpoint(label) records an undo step for the shapes; edit('Delete X', fn)
+ * is one undoable edit that runs fn, marks the project changed and redraws
+ * the animations (which show shapes). This editor listens to renderAnimations
+ * too, so that one call redraws it as well.
  */
-export function edit(...args) {
-  const label = typeof args[0] === 'string' ? args.shift() : 'Edit the shape';
-  checkpoint(label);
-  args[0]();
-  markDirty();
-  renderAnimations();
-}
+export const { checkpoint, edit } = ProjectHistory.editor({
+  parts: ['shapes'],
+  label: 'Edit the shape',
+  after: () => renderAnimations(),
+});
 
 /** Hides the tiles that follow the pointer while placing. */
 export function hideGhost() {

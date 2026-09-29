@@ -1,7 +1,6 @@
 // Bank configs: which palette each of the sixteen banks holds. Editing a
 // config edits what every other editor previews, so the whole app redraws
 // rather than just this panel.
-import { graphicsEdit } from '../bank-editor.js';
 import { $ } from '../dom.js';
 import { nameTaken } from '../domain/names.js';
 import { redrawAll, renderAnimations, renderBankEditor } from '../lifecycle.js';
@@ -18,10 +17,10 @@ import {
 import { setStatus } from '../status.js';
 import { renderConfigPicker } from '../studio-core.js';
 import { StudioShell } from '../studio-shell.js';
-import { pl } from './model.js';
+import { paletteEdit, pl } from './model.js';
 
 export function configEdit(...args) {
-  graphicsEdit(...args);
+  paletteEdit(...args);
   renderConfigPicker();
   renderBankEditor();
   renderAnimations();

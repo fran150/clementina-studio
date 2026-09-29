@@ -14,47 +14,24 @@ let undo = [],
   redo = [];
 const capture = (names) =>
   JSON.stringify(Object.fromEntries(names.map((name) => [name, parts[name].get()])));
+/**
+ * Gives an Undo or Redo button (data-history="undo" or "redo") the step it
+ * would take, in its tooltip, or disables it when there is none.
+ */
+export function syncHistoryButton(button) {
+  const kind = button.dataset.history,
+    entry = (kind === 'undo' ? undo : redo).at(-1),
+    keys = kind === 'undo' ? 'Ctrl/Cmd+Z' : 'Ctrl/Cmd+Shift+Z';
+  const title = entry
+    ? `${kind === 'undo' ? 'Undo' : 'Redo'} ${entry.label} (${keys})`
+    : `Nothing to ${kind} (${keys})`;
+  button.title = title;
+  button.setAttribute('aria-label', title);
+  button.disabled = !entry;
+}
 // Every Undo and Redo button says which step it would take.
-const BUTTONS = {
-  undo: [
-    'bankUndo',
-    'palUndo',
-    'scUndo',
-    'anUndo',
-    'bgUndo',
-    'ovUndo',
-    'sfUndo',
-    'muUndo',
-    'buUndo',
-  ],
-  redo: [
-    'bankRedo',
-    'palRedo',
-    'scRedo',
-    'anRedo',
-    'bgRedo',
-    'ovRedo',
-    'sfRedo',
-    'muRedo',
-    'buRedo',
-  ],
-};
 function changed() {
-  for (const [kind, ids] of Object.entries(BUTTONS)) {
-    const entry = (kind === 'undo' ? undo : redo).at(-1),
-      keys = kind === 'undo' ? 'Ctrl/Cmd+Z' : 'Ctrl/Cmd+Shift+Z';
-    const title = entry
-      ? `${kind === 'undo' ? 'Undo' : 'Redo'} ${entry.label} (${keys})`
-      : `Nothing to ${kind} (${keys})`;
-    for (const id of ids) {
-      const b = document.getElementById(id);
-      if (b) {
-        b.title = title;
-        b.setAttribute('aria-label', title);
-        b.disabled = !entry;
-      }
-    }
-  }
+  document.querySelectorAll('[data-history]').forEach(syncHistoryButton);
   document.dispatchEvent(new Event('studiohistorychange'));
   publishMenu();
 }
@@ -104,6 +81,29 @@ export const ProjectHistory = Object.freeze({
   canRedo: () => redo.length > 0,
   /** How many steps Undo can take back. */
   depth: () => undo.length,
+  /**
+   * Makes an editor's two history functions. checkpoint(label, parts?)
+   * records an undo step for `parts`; edit(label?, fn, parts?) is one whole
+   * undoable edit: it records the step, runs fn, marks the project changed
+   * and calls `after` to redraw. Without a label the step is `label`.
+   * @param {{ parts: string[], label?: string, after: () => void }} options
+   *   The project parts the editor's edits change, the default step name,
+   *   and what redraws after an edit.
+   */
+  editor({ parts: editorParts, label: editorLabel = 'Edit', after }) {
+    const checkpoint = (label = editorLabel, names = editorParts) =>
+      ProjectHistory.checkpoint(names, label);
+    /** @param {[string | (() => void), ...any[]]} args */
+    const edit = (...args) => {
+      const label = typeof args[0] === 'string' ? args.shift() : editorLabel;
+      const [fn, names] = /** @type {[() => void, string[]?]} */ (args);
+      checkpoint(label, names);
+      fn();
+      markDirty();
+      after();
+    };
+    return { checkpoint, edit };
+  },
   /** A new or opened project starts with an empty history. */
   clear() {
     undo = [];

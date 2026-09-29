@@ -3,7 +3,6 @@
 import { StudioAudio } from '../audio-shared.js';
 import { ProjectHistory } from '../history.js';
 import { instruments, songs } from '../state.js';
-import { markDirty } from '../status.js';
 import { replay } from './playback.js';
 
 /** The MIA audio module (window.MiaAudio), once it has loaded; each voice's color. */
@@ -62,21 +61,18 @@ export const song = () => songs[mu.songIndex],
 /** The instrument with this id, if any. */
 export const instrumentById = (id) => instruments.find((i) => i.id === id);
 
-/** Records an undo step for `parts` of the project, labeled `label`. */
-export function checkpoint(label, parts = ['songs']) {
-  ProjectHistory.checkpoint(parts, label);
-}
 /**
- * Makes one undoable edit: runs fn, marks the project changed, redraws, and
- * carries on playing the edited song if it is playing.
+ * checkpoint(label, parts?) records an undo step for the songs (or `parts`);
+ * edit(label, fn, parts?) is one undoable edit that runs fn, marks the project
+ * changed, redraws, and carries on playing the edited song if it is playing.
  */
-export function edit(label, fn, parts = ['songs']) {
-  checkpoint(label, parts);
-  fn();
-  markDirty();
-  mu.render();
-  replay();
-}
+export const { checkpoint, edit } = ProjectHistory.editor({
+  parts: ['songs'],
+  after: () => {
+    mu.render();
+    replay();
+  },
+});
 // Taking up a painting tool drops the selection, as in the grid editors;
 // the pencil then selects the note it draws or grabs.
 export function setTool(name) {

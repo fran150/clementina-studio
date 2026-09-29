@@ -3,7 +3,6 @@
 // right rail holds the frame properties panel and the selected frame's
 // actions.
 import { $, isField } from '../dom.js';
-import { ProjectHistory } from '../history.js';
 import { currentView } from '../state.js';
 import { StudioShell } from '../studio-shell.js';
 
@@ -106,12 +105,7 @@ export function animationRail(host, { copyFrame, pasteFrames }) {
         StudioShell.iconButton('anPaste', 'Paste frame after this one (Ctrl/Cmd+V)', 'paste'),
         { onclick: pasteFrames },
       ),
-      Object.assign(StudioShell.iconButton('anUndo', 'Undo (Ctrl/Cmd+Z)', 'undo'), {
-        onclick: ProjectHistory.undo,
-      }),
-      Object.assign(StudioShell.iconButton('anRedo', 'Redo (Ctrl/Cmd+Shift+Z)', 'redo'), {
-        onclick: ProjectHistory.redo,
-      }),
+      ...StudioShell.historyButtons('an'),
     ],
   );
 }

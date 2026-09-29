@@ -2,7 +2,6 @@
 // it draws, the sound being edited, the active tool, and undoable edits.
 import { ProjectHistory } from '../history.js';
 import { sounds } from '../state.js';
-import { markDirty } from '../status.js';
 
 /** The MIA audio module (window.MiaAudio), once it has loaded. */
 export const A = () => window.MiaAudio;
@@ -58,20 +57,15 @@ export const sound = () => sounds[sf.soundIndex],
   /** Its frames, one per 60 Hz tick. */
   frames = () => sound()?.frames ?? [];
 
-/** Records an undo step for the sounds, labeled `label`. */
-export function checkpoint(label) {
-  ProjectHistory.checkpoint(['sounds'], label);
-}
 /**
- * Makes one undoable edit: edit('Reverse the frames', fn) runs fn, marks the
- * project changed and redraws.
+ * checkpoint(label) records an undo step for the sounds; edit('Reverse the
+ * frames', fn) is one undoable edit that runs fn, marks the project changed
+ * and redraws.
  */
-export function edit(label, fn) {
-  checkpoint(label);
-  fn();
-  markDirty();
-  sf.render();
-}
+export const { checkpoint, edit } = ProjectHistory.editor({
+  parts: ['sounds'],
+  after: () => sf.render(),
+});
 /** Picks the active tool; any tool but Select and Pan drops the selection. */
 export function setTool(name) {
   if (name !== 'select' && name !== 'pan') sf.selection = null;

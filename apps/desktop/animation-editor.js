@@ -21,7 +21,6 @@ import { DEFAULT_TICKS, MAX_FRAMES, freshAnimationId, newAnimation } from './dom
 import { canAdd, copyAsset, removeAt } from './domain/assets.js';
 import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
 import { $ } from './dom.js';
-import { ProjectHistory } from './history.js';
 import { redrawAll, renderAnimations, showView } from './lifecycle.js';
 import {
   animationIndex,
@@ -247,8 +246,6 @@ function render() {
   $('anRemoveFrame').disabled = !a || a.frames.length < 2;
   $('anCopy').disabled = !currentFrame();
   $('anPaste').disabled = !a || !StudioShell.clipboard.has('frames');
-  $('anUndo').disabled = !ProjectHistory.canUndo();
-  $('anRedo').disabled = !ProjectHistory.canRedo();
   actions.renderFrames(a, usable);
   renderTimeline(a, actions);
   preview.fitPreview();

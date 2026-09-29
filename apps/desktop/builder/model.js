@@ -2,7 +2,6 @@
 // lists, the memory slots, and undoable edits of the build settings.
 import { ProjectHistory } from '../history.js';
 import { builderSettings } from '../state.js';
-import { markDirty } from '../status.js';
 
 /** The builder's working state; the settings themselves are builderSettings in state.js. */
 export const bu = {
@@ -95,14 +94,14 @@ export const slots = () => [
     space: s.mia === undefined ? 'bank' : 'mia',
   })),
 ];
-/** Runs `fn` as one undoable edit of the build settings, then replans and redraws. */
-export function edit(label, fn) {
-  ProjectHistory.checkpoint(['builder'], label);
-  fn();
-  markDirty();
-  bu.lastInput = '';
-  bu.render();
-}
+/** edit(label, fn) runs `fn` as one undoable edit of the build settings, then replans and redraws. */
+export const { edit } = ProjectHistory.editor({
+  parts: ['builder'],
+  after: () => {
+    bu.lastInput = '';
+    bu.render();
+  },
+});
 /** Fills `select` with every slot, `value` chosen; a choice calls change(name). */
 export function chooseSlot(select, value, change) {
   select.replaceChildren(

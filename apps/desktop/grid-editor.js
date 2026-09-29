@@ -23,7 +23,7 @@ import { stampControls } from './grid/stamp.js';
 import { SINGLE_TILE, tilePicker } from './grid/tile-picker.js';
 import { ProjectHistory } from './history.js';
 import { bankColor, css565, tilePixel, tilesets } from './state.js';
-import { markDirty, setStatus } from './status.js';
+import { setStatus } from './status.js';
 import { StudioShell } from './studio-shell.js';
 
 export { dragRegion, outlineDrag } from './grid/drag.js';
@@ -71,6 +71,17 @@ export function gridEditor(options) {
   let zoom = 1,
     fittedId = null;
 
+  // ===== history =====
+  // An asset's own data never changes another asset kind, and nothing else
+  // changes it, so its history is independent rather than shared.
+  // checkpoint(label) records an undo step; edit('Delete X', fn) is one
+  // undoable edit that runs fn, marks the project changed and redraws.
+  const { checkpoint, edit } = ProjectHistory.editor({
+    parts: [historyKey],
+    label: editLabel,
+    after: () => render(),
+  });
+
   // The editor's state and helpers, shared with its parts in grid/. Helpers
   // defined further down are added to it as they are.
   /** @type {any} */
@@ -111,22 +122,6 @@ export function gridEditor(options) {
     isGroup: () => ed.pickRegion.width > 1 || ed.pickRegion.height > 1,
     restCursor: () => (ed.tool === 'pan' ? 'grab' : ''),
   };
-
-  // ===== history =====
-  // An asset's own data never changes another asset kind, and nothing else
-  // changes it, so its history is independent rather than shared.
-  function checkpoint(label = editLabel) {
-    ProjectHistory.checkpoint([historyKey], label);
-  }
-  // Makes one undoable edit: edit('Delete X', fn) runs fn, marks the project
-  // changed and redraws.
-  function edit(...args) {
-    const label = typeof args[0] === 'string' ? args.shift() : editLabel;
-    checkpoint(label);
-    args[0]();
-    markDirty();
-    render();
-  }
 
   // The Select tool (cell-grid.js): with cells selected, the flips, Priority
   // and a palette bank click edit those cells rather than the next stamp.
@@ -285,8 +280,6 @@ export function gridEditor(options) {
     zoomControls.sync();
     for (const name of toolNames) $(toolId(name)).classList.toggle('on', ed.tool === name);
     canvas.style.cursor = ed.restCursor();
-    el('Undo').disabled = !ProjectHistory.canUndo();
-    el('Redo').disabled = !ProjectHistory.canRedo();
     rails.syncEditActions();
     picker.renderTilesetAssignment();
     el('PickSlot').value = ed.pickAlt ? 'alt' : 'primary';

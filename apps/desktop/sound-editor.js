@@ -12,7 +12,6 @@ import { StudioAudio } from './audio-shared.js';
 import { canAdd, copyAsset, newId, removeAt } from './domain/assets.js';
 import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
 import { $ } from './dom.js';
-import { ProjectHistory } from './history.js';
 import { newProject, redrawAll, restoreStudioProject, showView } from './lifecycle.js';
 import { play, soundKeys, soundZoom } from './sound/controls.js';
 import { copyFrames, cutFrames, pasteFrames } from './sound/editing.js';
@@ -107,8 +106,6 @@ function render() {
   library.render();
   $('sfDuplicate').disabled = $('sfDelete').disabled = !s;
   $('sfNew').disabled = !canAdd(sounds);
-  $('sfUndo').disabled = !ProjectHistory.canUndo();
-  $('sfRedo').disabled = !ProjectHistory.canRedo();
   if (!s) {
     $('sfStatus').textContent = '';
     return;

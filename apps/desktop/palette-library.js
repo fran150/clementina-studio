@@ -5,7 +5,6 @@
 // shared model, copy and paste, the rail, the palette list, bank configs and
 // the color swatches.
 import { $, isField } from './dom.js';
-import { ProjectHistory } from './history.js';
 import { renderPaletteLibrary, showView } from './lifecycle.js';
 import { copyPalette, pastePalette } from './palettes/clipboard.js';
 import { colorInput, renderColors } from './palettes/colors.js';
@@ -28,8 +27,6 @@ function render() {
   renderConfigs();
   if (pl.index >= paletteLibrary.length) pl.index = Math.max(0, paletteLibrary.length - 1);
   const entry = palette();
-  $('palUndo').disabled = !ProjectHistory.canUndo();
-  $('palRedo').disabled = !ProjectHistory.canRedo();
   $('palCopy').disabled = !entry;
   $('palPaste').disabled =
     !entry || !(StudioShell.clipboard.has('palette') || StudioShell.clipboard.has('color'));

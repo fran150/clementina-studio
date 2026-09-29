@@ -14,7 +14,6 @@ import { canAdd, copyAsset, newId, removeAt } from './domain/assets.js';
 import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
 import { NOTES } from './domain/songs.js';
 import { $ } from './dom.js';
-import { ProjectHistory } from './history.js';
 import { newProject, redrawAll, restoreStudioProject, showView } from './lifecycle.js';
 import { musicKeys, musicZoom } from './music/controls.js';
 import { canvas, center, clampScroll, fitLevel, pitchY, stepX } from './music/geometry.js';
@@ -133,8 +132,6 @@ function render() {
   $('muDuplicate').disabled = $('muDelete').disabled = !s;
   $('muNew').disabled = !canAdd(songs);
   $('muInstrumentDuplicate').disabled = $('muInstrumentDelete').disabled = !instrument();
-  $('muUndo').disabled = !ProjectHistory.canUndo();
-  $('muRedo').disabled = !ProjectHistory.canRedo();
   renderInstrumentProps();
   if (!s) {
     $('muStatus').textContent = '';

@@ -1,10 +1,9 @@
 // The palette library's rail: the Palettes and Bank configs panel toggles,
 // and copy, paste, undo and redo.
 import { $ } from '../dom.js';
-import { ProjectHistory } from '../history.js';
 import { StudioShell } from '../studio-shell.js';
 import { copyPalette, pastePalette } from './clipboard.js';
-import { palette, pl } from './model.js';
+import { palette } from './model.js';
 
 const host = $('paletteWorkspace');
 const iconButton = (id, label, icon) => StudioShell.iconButton(id, label, icon);
@@ -20,15 +19,6 @@ export function paletteRails() {
   const configsToggle = iconButton('palConfigsToggle', 'Bank configs', 'bankConfig');
   StudioShell.bindPanel({ panel: configsPanel, button: configsToggle, closeId: 'palConfigsClose' });
   StudioShell.editActions('palettes', { copy: copyPalette, paste: pastePalette });
-  // Palettes and bank configs are part of the project's one history.
-  const historyButton = (id, label, icon, fn) => {
-    const b = iconButton(id, label, icon);
-    b.onclick = () => {
-      fn();
-      pl.render();
-    };
-    return b;
-  };
   StudioShell.railLayout(
     $('palRail'),
     [[toggle, configsToggle]],
@@ -40,8 +30,7 @@ export function paletteRails() {
       Object.assign(iconButton('palPaste', 'Paste palette or color (Ctrl/Cmd+V)', 'paste'), {
         onclick: pastePalette,
       }),
-      historyButton('palUndo', 'Undo (Ctrl/Cmd+Z)', 'undo', ProjectHistory.undo),
-      historyButton('palRedo', 'Redo (Ctrl/Cmd+Shift+Z)', 'redo', ProjectHistory.redo),
+      ...StudioShell.historyButtons('pal'),
     ],
   );
   document.addEventListener('studioclipboard', () => {

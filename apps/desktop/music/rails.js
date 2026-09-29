@@ -2,7 +2,6 @@
 // lists and holds the tools, clipboard and history; the right one opens the
 // song and instrument properties and holds the note actions.
 import { $ } from '../dom.js';
-import { ProjectHistory } from '../history.js';
 import { StudioShell } from '../studio-shell.js';
 import { setTool } from './model.js';
 import {
@@ -78,8 +77,7 @@ export function musicRails() {
     [
       action('muCopy', 'Copy notes (Ctrl/Cmd+C)', 'copy', copyNotes),
       action('muPaste', 'Paste notes at the cursor (Ctrl/Cmd+V)', 'paste', pasteNotes),
-      action('muUndo', 'Undo (Ctrl/Cmd+Z)', 'undo', ProjectHistory.undo),
-      action('muRedo', 'Redo (Ctrl/Cmd+Shift+Z)', 'redo', ProjectHistory.redo),
+      ...StudioShell.historyButtons('mu'),
     ],
   );
   const sideRail = StudioShell.toolRail('muSideRail', 'Notes', 'right');
