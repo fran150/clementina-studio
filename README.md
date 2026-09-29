@@ -84,8 +84,10 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   rails, `music/` for the music editor's piano roll, note edits,
   playback, voices, song and instrument panels, and rails, `tiles/` for
   the tileset editor (`bank-editor.js`): its drawing, palette dock, pixel
-  selections, libraries, zoom and keys, and layout, and `builder/` for the
-  Builder's asset list and memory map, properties, slots, rails and SDK calls.
+  selections, libraries, zoom and keys, and layout, `builder/` for the
+  Builder's asset list and memory map, properties, slots, rails and SDK calls,
+  and `palettes/` for the palette library's list, bank configs, colors, copy
+  and paste, and rail.
   `domain/` holds the operations on the project's data, with no page code, so
   unit tests cover them directly (`tests/domain-*.test.mjs`): `names.js` (name
   patterns, fresh and unique names), `assets.js` (adding, copying and removing
