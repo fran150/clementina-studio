@@ -27,6 +27,16 @@ export function railLayout(rail, groups, actions = []) {
   rail.replaceChildren(...children, spacer, ...actions);
 }
 const panels = new Map();
+/**
+ * An icon button that opens `panel` beside the rail, closing any other open
+ * panel of the same `group`: the usual way a rail toggles a side panel.
+ * `asset` marks an asset library, which docks over the canvas.
+ */
+export function panelToggle(panel, id, label, icon, group, asset = false) {
+  const button = iconButton(id, label, icon);
+  bindPanel({ panel, button, group, closeGroups: [group], asset });
+  return button;
+}
 // asset: the dock shows a part of the open asset (its map, the tiles it
 // draws from, its properties) rather than the list of assets, so it steps
 // aside while the editor has nothing open (see emptyEditor).

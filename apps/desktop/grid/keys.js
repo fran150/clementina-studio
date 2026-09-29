@@ -33,15 +33,6 @@ export function gridKeys(ed) {
       if (command === 'paste') setStatus('Click to place the paste. Escape cancels.');
       return;
     }
-    // No `!spaceHeld` guard here: held keys repeat-fire keydown, and every
-    // one of those must be prevented too, or the un-prevented repeats leave
-    // the browser's native "Space pages the nearest scrollable ancestor
-    // down" behavior free to fire on the stage in between them.
-    if (e.code === 'Space') {
-      ed.spaceHeld = true;
-      e.preventDefault();
-      canvas.style.cursor = 'grab';
-    }
     if (mod || e.altKey) return;
     if (e.shiftKey && (key === 'h' || key === 'v')) {
       handled();
@@ -53,53 +44,13 @@ export function gridKeys(ed) {
       $(ed.toolId(TOOL_KEYS[key])).click();
     }
   });
-  window.addEventListener('keyup', (e) => {
-    if (e.code === 'Space') {
-      ed.spaceHeld = false;
-      canvas.style.cursor = ed.restCursor();
-    }
-  });
-  window.addEventListener('blur', () => {
-    ed.spaceHeld = false;
-    ed.panDrag = null;
-    canvas.style.cursor = ed.restCursor();
-  });
   // Space-drag, the middle button, or the Pan tool all scroll the stage
-  // instead of painting. Capture phase and stopImmediatePropagation so this
-  // runs before the canvas's own paint handlers or any handle's drag.
-  stage.addEventListener(
-    'pointerdown',
-    (e) => {
-      if (e.button === 2 || (!ed.spaceHeld && e.button !== 1 && ed.tool !== 'pan')) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      ed.panDrag = { x: e.clientX, y: e.clientY, left: stage.scrollLeft, top: stage.scrollTop };
-      stage.setPointerCapture(e.pointerId);
-      canvas.style.cursor = 'grabbing';
-    },
-    true,
-  );
-  stage.addEventListener(
-    'pointermove',
-    (e) => {
-      const drag = ed.panDrag;
-      if (!drag) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      stage.scrollLeft = drag.left + drag.x - e.clientX;
-      stage.scrollTop = drag.top + drag.y - e.clientY;
-    },
-    true,
-  );
-  for (const type of ['pointerup', 'pointercancel'])
-    stage.addEventListener(
-      type,
-      (e) => {
-        if (!ed.panDrag) return;
-        ed.panDrag = null;
-        e.stopImmediatePropagation();
-        canvas.style.cursor = ed.spaceHeld || ed.tool === 'pan' ? 'grab' : '';
-      },
-      true,
-    );
+  // instead of painting.
+  StudioShell.stagePan({
+    view,
+    stage,
+    cursor: canvas,
+    panTool: () => ed.tool === 'pan',
+    state: ed,
+  });
 }

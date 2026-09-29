@@ -26,13 +26,7 @@ export function shapeZoom() {
   };
   sc.zoomControls = StudioShell.canvasZoom({
     view: 'shapes',
-    ids: {
-      fit: 'scFit',
-      actual: 'scActualSize',
-      zoomOut: 'scZoomOut',
-      label: 'scZoomLabel',
-      zoomIn: 'scZoomIn',
-    },
+    prefix: 'sc',
     min: 0.25,
     max: 32,
     get: () => sc.zoom,

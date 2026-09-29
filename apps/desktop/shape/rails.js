@@ -24,11 +24,6 @@ export function shapeRails() {
   const library = host.querySelector('.scLibrary'),
     tileLibrary = host.querySelector('.scTileLibrary'),
     inspector = host.querySelector('.scInspector');
-  const panelToggle = (panel, id, label, icon, group, asset = false) => {
-    const b = iconButton(id, label, icon);
-    StudioShell.bindPanel({ panel, button: b, group, closeGroups: [group], asset });
-    return b;
-  };
   const tool = (id, label, icon, mode) => {
     const b = $(id) ?? iconButton(id, label, icon);
     StudioShell.setIcon(b, icon, label);
@@ -41,8 +36,8 @@ export function shapeRails() {
     rail,
     [
       [
-        panelToggle(library, 'scLibraryToggle', 'Shapes', 'shape', 'shapeLeft'),
-        panelToggle(
+        StudioShell.panelToggle(library, 'scLibraryToggle', 'Shapes', 'shape', 'shapeLeft'),
+        StudioShell.panelToggle(
           tileLibrary,
           'scTileLibraryToggle',
           'Tileset and tile picker',
@@ -103,7 +98,16 @@ export function shapeRails() {
     old.replaceWith(action('scRemove', 'Remove selected sprites (Delete)', 'delete', old.onclick));
   }
   StudioShell.railLayout(orderRail, [
-    [panelToggle(inspector, 'scInspectorToggle', 'Draw order', 'drawOrder', 'shapeRight', true)],
+    [
+      StudioShell.panelToggle(
+        inspector,
+        'scInspectorToggle',
+        'Draw order',
+        'drawOrder',
+        'shapeRight',
+        true,
+      ),
+    ],
     [
       action('scFlipX', 'Flip horizontally (Shift+H)', 'flipH', () => flip('x')),
       action('scFlipY', 'Flip vertically (Shift+V)', 'flipV', () => flip('y')),

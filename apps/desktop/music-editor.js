@@ -10,7 +10,8 @@
 // playback, pointer input, the voice strip, the song and instrument panels,
 // the top bar and keys, and the rails.
 import { StudioAudio } from './audio-shared.js';
-import { canAdd, copyAsset, newId, removeAt } from './domain/assets.js';
+import { canAdd, clampIndex, copyAsset, newId, removeAt } from './domain/assets.js';
+import { clamp } from './domain/geometry.js';
 import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
 import { NOTES } from './domain/songs.js';
 import { $ } from './dom.js';
@@ -130,8 +131,8 @@ function renameSong(i, name) {
 /** Redraws the whole editor: lists, bars, tools, voices, panels and the roll. */
 function render() {
   if (!workspace.shown()) return;
-  mu.songIndex = Math.max(0, Math.min(mu.songIndex, songs.length - 1));
-  mu.instrumentIndex = Math.max(0, Math.min(mu.instrumentIndex, instruments.length - 1));
+  mu.songIndex = clampIndex(songs, mu.songIndex);
+  mu.instrumentIndex = clampIndex(instruments, mu.instrumentIndex);
   const s = song();
   $('muEmpty').hidden = !!s;
   StudioShell.emptyEditor(host, !s);
@@ -147,7 +148,7 @@ function render() {
     return;
   }
   mu.selection = new Set(notes().filter((n) => mu.selection.has(n)));
-  mu.cursor = Math.max(0, Math.min(mu.cursor, s.length - 1));
+  mu.cursor = clamp(mu.cursor, 0, s.length - 1);
   $('muTitle').textContent = s.name;
   for (const [id, name] of [
     ['muSelectTool', 'select'],
@@ -199,8 +200,8 @@ document.addEventListener('studioclipboard', () => {
   if (!host.hidden) $('muPaste').disabled = !StudioShell.clipboard.has('notes');
 });
 document.addEventListener('studiohistory', () => {
-  mu.songIndex = Math.max(0, Math.min(mu.songIndex, songs.length - 1));
-  mu.instrumentIndex = Math.max(0, Math.min(mu.instrumentIndex, instruments.length - 1));
+  mu.songIndex = clampIndex(songs, mu.songIndex);
+  mu.instrumentIndex = clampIndex(instruments, mu.instrumentIndex);
   mu.selection = new Set();
   mu.drag = null;
   if (currentView === 'music') setTimeout(replay);

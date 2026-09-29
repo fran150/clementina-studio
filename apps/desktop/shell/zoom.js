@@ -6,6 +6,7 @@
 // Whole-number steps above 100% keep every art pixel the same size on
 // screen; below it the steps halve, for art bigger than the window.
 import { $ } from '../dom.js';
+import { clamp } from '../domain/geometry.js';
 
 const ZOOM_STEPS = [0.25, 0.5, 1, 2, 3, 4, 6, 8, 12, 16, 24, 32];
 const zoomSteps = (min, max) => ZOOM_STEPS.filter((z) => z >= min && z <= max);
@@ -107,27 +108,46 @@ function canvasWheel(element, { get, steps, zoomTo, pan, busy }) {
 const canvasCommands = new Map();
 // One editor's zoom: the Fit, 100%, −, level, + cluster every canvas editor
 // shows in the middle of its top bar, the wheel, and the View menu's zoom
-// commands. `ids` names the cluster's elements; missing ones are created.
+// commands. The cluster's elements are `prefix` + Fit, ActualSize, ZoomOut,
+// ZoomLabel and ZoomIn, or as `ids` names them; missing ones are created.
 // `set(zoom, clientX, clientY)` applies a level, keeping that point — the
 // view's center when omitted — in place; `fit()` applies the fitting one.
+// A canvas that sits in a scrolled stage passes `scrolled` in place of `set`:
+// its `apply(zoom)` stores the level and redraws, the stage scrolls to keep
+// the point in place, and Fit scrolls back to the top-left corner.
 // Returns the cluster and a `sync()` for the editor's render.
 /**
- * @param {{ view: string, ids: Record<string, string>, min?: number, max?: number,
- *   get: () => number, set: (zoom: number, clientX?: number, clientY?: number) => void,
+ * @param {{ view: string, prefix?: string, ids?: Record<string, string>, min?: number,
+ *   max?: number, get: () => number,
+ *   set?: (zoom: number, clientX?: number, clientY?: number) => void,
+ *   scrolled?: { stage: HTMLElement, content: HTMLElement, apply: (zoom: number) => void },
  *   fit: () => void, wheel: HTMLElement, pan?: any, busy?: () => boolean }} options
  */
 export function canvasZoom({
   view,
-  ids,
+  prefix,
+  ids = {
+    fit: prefix + 'Fit',
+    actual: prefix + 'ActualSize',
+    zoomOut: prefix + 'ZoomOut',
+    label: prefix + 'ZoomLabel',
+    zoomIn: prefix + 'ZoomIn',
+  },
   min = ZOOM_STEPS[0],
   max = ZOOM_STEPS.at(-1),
   get,
-  set,
-  fit,
+  scrolled,
+  set = (next, x, y) =>
+    zoomScrolled(scrolled.stage, scrolled.content, get(), next, scrolled.apply, x, y),
+  fit: fitLevel,
   wheel,
   pan,
   busy = () => false,
 }) {
+  const fit = () => {
+    fitLevel();
+    if (scrolled) scrolled.stage.scrollLeft = scrolled.stage.scrollTop = 0;
+  };
   const group = document.createElement('div');
   group.className = 'studioZoom';
   const make = (key, tag, text, label) => {
@@ -151,7 +171,7 @@ export function canvasZoom({
     if (next !== get()) set(next, clientX, clientY);
   };
   const actualSize = () => {
-    const next = Math.max(min, Math.min(max, 1));
+    const next = clamp(1, min, max);
     if (next !== get()) set(next);
   };
   fitButton.onclick = () => fit();

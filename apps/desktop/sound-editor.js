@@ -9,7 +9,7 @@
 // pointer input, the properties panel, playback with the top bar and keys,
 // and the rails.
 import { StudioAudio } from './audio-shared.js';
-import { canAdd, copyAsset, newId, removeAt } from './domain/assets.js';
+import { canAdd, clampIndex, copyAsset, newId, removeAt } from './domain/assets.js';
 import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
 import { $ } from './dom.js';
 import { play, soundKeys, soundZoom } from './sound/controls.js';
@@ -105,7 +105,7 @@ soundProps();
 /** Redraws the whole editor: the list, bars, tools, properties and canvas. */
 function render() {
   if (!workspace.shown()) return;
-  sf.soundIndex = Math.max(0, Math.min(sf.soundIndex, sounds.length - 1));
+  sf.soundIndex = clampIndex(sounds, sf.soundIndex);
   const s = sound();
   $('sfEmpty').hidden = !!s;
   StudioShell.emptyEditor(host, !s);
@@ -163,7 +163,7 @@ document.addEventListener('studioclipboard', () => {
   if (!host.hidden) $('sfPaste').disabled = !StudioShell.clipboard.has('soundFrames');
 });
 document.addEventListener('studiohistory', () => {
-  sf.soundIndex = Math.max(0, Math.min(sf.soundIndex, sounds.length - 1));
+  sf.soundIndex = clampIndex(sounds, sf.soundIndex);
   sf.selection = null;
 });
 

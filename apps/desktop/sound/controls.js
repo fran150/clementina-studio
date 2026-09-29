@@ -56,13 +56,7 @@ function tick() {
 export function soundZoom() {
   sf.zoomControls = StudioShell.canvasZoom({
     view: 'sounds',
-    ids: {
-      fit: 'sfFit',
-      actual: 'sfActualSize',
-      zoomOut: 'sfZoomOut',
-      label: 'sfZoomLabel',
-      zoomIn: 'sfZoomIn',
-    },
+    prefix: 'sf',
     min: 0.5,
     max: 4,
     get: () => sf.zoom,

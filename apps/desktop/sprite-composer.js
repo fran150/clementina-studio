@@ -6,6 +6,7 @@
 // pointer input, the placement ghost, the panels, the top bar and keys, and
 // the rails.
 
+import { clampIndex } from './domain/assets.js';
 import { MAX_CANVAS_HEIGHT, MAX_CANVAS_WIDTH } from './domain/shapes.js';
 import { $ } from './dom.js';
 import { renderAnimations, showView } from './lifecycle.js';
@@ -209,7 +210,7 @@ for (const id of ['scWidth', 'scHeight'])
 $('scRemove').onclick = removeSprites;
 StudioShell.editActions('shapes', { copy: copySprites, cut: cutSprites, paste: pasteSprites });
 document.addEventListener('studiohistory', () => {
-  setShapeIndex(Math.max(0, Math.min(shapeIndex, shapes.length - 1)));
+  setShapeIndex(clampIndex(shapes, shapeIndex));
 });
 shapeZoom();
 topBarControls();

@@ -86,6 +86,20 @@ export function tileKeys() {
     }
   });
 }
+/**
+ * The zoom that fits the drawing area in the window, with a 24-pixel margin
+ * on every side, from 1× to 32×.
+ */
+export function fitLevel() {
+  return StudioShell.fitZoom(
+    scroll.clientWidth - 48,
+    scroll.clientHeight - 48,
+    tl.selection.width * 8,
+    tl.selection.height * 8,
+    1,
+    32,
+  );
+}
 /** Builds the zoom buttons into the top bar. */
 export function tileZoom() {
   // Tilesets draw at physical resolution, so they never zoom below 100%.
@@ -101,30 +115,17 @@ export function tileZoom() {
     min: 1,
     max: 32,
     get: () => tl.zoom,
-    set: (next, x, y) =>
-      StudioShell.zoomScrolled(
-        scroll,
-        $('bankSelection'),
-        tl.zoom,
-        next,
-        (z) => {
-          tl.zoom = z;
-          tl.render();
-        },
-        x,
-        y,
-      ),
+    scrolled: {
+      stage: scroll,
+      content: $('bankSelection'),
+      apply: (z) => {
+        tl.zoom = z;
+        tl.render();
+      },
+    },
     fit: () => {
-      tl.zoom = StudioShell.fitZoom(
-        scroll.clientWidth - 48,
-        scroll.clientHeight - 48,
-        tl.selection.width * 8,
-        tl.selection.height * 8,
-        1,
-        32,
-      );
+      tl.zoom = fitLevel();
       tl.render();
-      scroll.scrollLeft = scroll.scrollTop = 0;
     },
     wheel: scroll,
     busy: () =>
@@ -134,55 +135,11 @@ export function tileZoom() {
 }
 /** Pans the canvas while Space is held, with the middle button, or with the Pan tool. */
 export function spacePan() {
-  StudioShell.viewKeys('tiles', (e) => {
-    if (e.code !== 'Space') return;
-    tl.spaceHeld = true;
-    e.preventDefault();
-    scroll.style.cursor = 'grab';
+  StudioShell.stagePan({
+    view: 'tiles',
+    stage: scroll,
+    cursor: scroll,
+    panTool: () => tl.panToolActive,
+    state: tl,
   });
-  window.addEventListener('keyup', (e) => {
-    if (e.code === 'Space') {
-      tl.spaceHeld = false;
-      scroll.style.cursor = tl.panToolActive ? 'grab' : '';
-    }
-  });
-  window.addEventListener('blur', () => {
-    tl.spaceHeld = false;
-    tl.panDrag = null;
-    scroll.style.cursor = tl.panToolActive ? 'grab' : '';
-  });
-  scroll.addEventListener(
-    'pointerdown',
-    (e) => {
-      if (e.button === 2 || (!tl.spaceHeld && e.button !== 1 && !tl.panToolActive)) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      tl.panDrag = { x: e.clientX, y: e.clientY, left: scroll.scrollLeft, top: scroll.scrollTop };
-      scroll.setPointerCapture(e.pointerId);
-      scroll.style.cursor = 'grabbing';
-    },
-    true,
-  );
-  scroll.addEventListener(
-    'pointermove',
-    (e) => {
-      if (!tl.panDrag) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      scroll.scrollLeft = tl.panDrag.left + tl.panDrag.x - e.clientX;
-      scroll.scrollTop = tl.panDrag.top + tl.panDrag.y - e.clientY;
-    },
-    true,
-  );
-  for (const type of ['pointerup', 'pointercancel'])
-    scroll.addEventListener(
-      type,
-      (e) => {
-        if (!tl.panDrag) return;
-        tl.panDrag = null;
-        e.stopImmediatePropagation();
-        scroll.style.cursor = tl.spaceHeld || tl.panToolActive ? 'grab' : '';
-      },
-      true,
-    );
 }

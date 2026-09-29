@@ -1,5 +1,6 @@
 // The sound canvas's geometry: where each lane and frame sits, which lane,
 // frame and value a pointer is over, and the horizontal scroll and fit.
+import { clamp } from '../domain/geometry.js';
 import { interpolate, semitoneFreq as freqForSemitone } from '../domain/sounds.js';
 import { $ } from '../dom.js';
 import {
@@ -33,11 +34,11 @@ export function lanes() {
 }
 /** A frame's left edge on the canvas. */
 export const frameX = (f) => LABEL_W + f * frameW() - sf.scrollX;
-/** The frame under a pointer; clamped to the sound unless `clamp` is false. */
-export function frameAt(clientX, clamp = true) {
+/** The frame under a pointer; kept within the sound unless `inside` is false. */
+export function frameAt(clientX, inside = true) {
   const r = canvas.getBoundingClientRect(),
     f = Math.floor((clientX - r.left - LABEL_W + sf.scrollX) / frameW());
-  return clamp ? Math.max(0, Math.min(frames().length - 1, f)) : f;
+  return inside ? clamp(f, 0, frames().length - 1) : f;
 }
 /** The lane under a pointer, or null. */
 export function laneAt(clientY) {
@@ -50,7 +51,7 @@ const semitoneFreq = (s) => freqForSemitone(A(), s);
 // A lane's position, 0 at the top and 1 at the bottom, for a pointer.
 function laneT(lane, clientY) {
   const r = canvas.getBoundingClientRect();
-  return Math.max(0, Math.min(1, (clientY - r.top - lane.top) / lane.height));
+  return clamp((clientY - r.top - lane.top) / lane.height, 0, 1);
 }
 /** The value a pointer at `clientY` draws in `lane`. */
 export function valueAt(lane, clientY) {
@@ -73,8 +74,8 @@ export const between = (key, a, b, t) => interpolate(A(), key, a, b, t, sf.snap)
 /** Keeps the scroll within the frames, with a little room past the end. */
 export function clampScroll(x) {
   const max = Math.max(0, frames().length * frameW() - (canvas.clientWidth - LABEL_W) + 40);
-  return Math.max(0, Math.min(max, x));
+  return clamp(x, 0, max);
 }
 // Frames are a time axis, not pixel art, so they fit the width exactly.
 export const fitLevel = () =>
-  Math.max(0.5, Math.min(4, (canvas.clientWidth - LABEL_W - 32) / (frames().length * FRAME_W)));
+  clamp((canvas.clientWidth - LABEL_W - 32) / (frames().length * FRAME_W), 0.5, 4);

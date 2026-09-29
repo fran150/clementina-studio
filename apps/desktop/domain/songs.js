@@ -2,13 +2,14 @@
 // instrumentId, legato?}: it starts at `step`, lasts `length` steps and
 // sounds `pitch` semitones above C0. A voice plays one note at a time, so
 // notes never overlap within a voice. Nothing here touches the page.
+import { clamp } from './geometry.js';
 
 /** Pitches run from C0 (0) to B7 (NOTES - 1). */
 export const NOTES = 96;
 
 /** A pitch kept within the playable range. */
 export function clampPitch(p) {
-  return Math.max(0, Math.min(NOTES - 1, p));
+  return clamp(p, 0, NOTES - 1);
 }
 
 /** The note in `notes` sounding `pitch` at (fractional) `step`, or null. */

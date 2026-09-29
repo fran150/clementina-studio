@@ -53,29 +53,25 @@ export function animationKeys({ copyFrame, cutFrame, pasteFrames, flipFrame, rem
  */
 export function animationRail(host, { copyFrame, pasteFrames }) {
   host.querySelector('.anTop .studioBarEnd').append(StudioShell.helpButton());
-  const panelToggle = (panel, id, label, icon, asset = false) => {
-    const b = StudioShell.iconButton(id, label, icon);
-    StudioShell.bindPanel({
-      panel,
-      button: b,
-      group: 'animation',
-      closeGroups: ['animation'],
-      asset,
-    });
-    return b;
-  };
   const rail = StudioShell.toolRail('anRail', 'Animation tools');
   host.prepend(rail);
   StudioShell.railLayout(
     rail,
     [
       [
-        panelToggle(host.querySelector('.anLibrary'), 'anLibraryToggle', 'Animations', 'animation'),
-        panelToggle(
+        StudioShell.panelToggle(
+          host.querySelector('.anLibrary'),
+          'anLibraryToggle',
+          'Animations',
+          'animation',
+          'animation',
+        ),
+        StudioShell.panelToggle(
           host.querySelector('.anShapeLibrary'),
           'anShapeLibraryToggle',
           'Shapes to append',
           'shape',
+          'animation',
           true,
         ),
       ],

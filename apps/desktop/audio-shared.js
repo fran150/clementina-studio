@@ -2,6 +2,7 @@
 // packages/assets/audio.ts, loaded by editor.html as window.MiaAudio — and the
 // envelope and pan fields both edit. See docs/audio.md.
 import { $ } from './dom.js';
+import { clamp } from './domain/geometry.js';
 
 // Streams count MIA ticks (RATE per second); each tick renders PER_TICK
 // samples at the chip's output rate.
@@ -79,7 +80,7 @@ function stop() {
 /** How far the playing stream has been heard, in samples from its origin; null when nothing plays. */
 function position() {
   return job && context
-    ? job.origin + Math.max(0, Math.min(job.scheduled, (context.currentTime - job.start) * RATE))
+    ? job.origin + clamp((context.currentTime - job.start) * RATE, 0, job.scheduled)
     : null;
 }
 

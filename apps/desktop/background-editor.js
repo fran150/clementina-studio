@@ -137,7 +137,7 @@ $('bgResize').onclick = () =>
 
 function render() {
   if (!workspace.shown()) return;
-  backgroundIndex = Math.min(backgroundIndex, Math.max(0, backgrounds.length - 1));
+  backgroundIndex = clampIndex(backgrounds, backgroundIndex);
   const a = background();
   $('bgEmpty').hidden = !!a;
   StudioShell.emptyEditor(host, !a);
@@ -175,15 +175,10 @@ $('bgCreateTileset').onclick = () => {
 const library = host.querySelector('.bgLibrary'),
   tileLibrary = host.querySelector('.bgTileLibrary'),
   statusPanel = host.querySelector('.bgStatusPanel');
-const panelToggle = (panel, id, label, icon, group, asset = false) => {
-  const b = StudioShell.iconButton(id, label, icon);
-  StudioShell.bindPanel({ panel, button: b, group, closeGroups: [group], asset });
-  return b;
-};
 editor.buildRails({
   panels: [
-    panelToggle(library, 'bgLibraryToggle', 'Backgrounds', 'background', 'bgLeft'),
-    panelToggle(
+    StudioShell.panelToggle(library, 'bgLibraryToggle', 'Backgrounds', 'background', 'bgLeft'),
+    StudioShell.panelToggle(
       tileLibrary,
       'bgTileLibraryToggle',
       'Tilesets and tile picker',
@@ -210,7 +205,7 @@ editor.buildRails({
     ),
   ],
   sidePanels: [
-    panelToggle(
+    StudioShell.panelToggle(
       statusPanel,
       'bgStatusToggle',
       'Status — loaded window and screen position',

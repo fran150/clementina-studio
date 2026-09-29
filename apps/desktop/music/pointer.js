@@ -3,6 +3,7 @@
 // them, the eraser (or right button) removes them, Pan (or Space, or the
 // middle button) scrolls, and right-click opens the menus.
 import { StudioAudio } from '../audio-shared.js';
+import { clamp } from '../domain/geometry.js';
 import { NOTES, clampPitch, noteSpan as span, settle } from '../domain/songs.js';
 import { markDirty, setStatus } from '../status.js';
 import { StudioShell } from '../studio-shell.js';
@@ -88,7 +89,7 @@ function endDrag() {
 /** Moves the cursor to the step nearest canvas x, playing from there if playing. */
 function moveCursor(x) {
   const s = song();
-  mu.cursor = Math.max(0, Math.min(s.length - 1, Math.round(stepAt(x))));
+  mu.cursor = clamp(Math.round(stepAt(x)), 0, s.length - 1);
   if (StudioAudio.playing() && !mu.audition) play(mu.cursor);
   else {
     draw();
@@ -321,7 +322,7 @@ export function canvasPointer() {
     if (!s) return;
     const at = point(e);
     if (at.y < RULER_H) {
-      const step = Math.max(0, Math.min(s.length - 1, Math.round(stepAt(at.x))));
+      const step = clamp(Math.round(stepAt(at.x)), 0, s.length - 1);
       StudioShell.contextMenu(e.clientX, e.clientY, [
         {
           label: 'Play from here',

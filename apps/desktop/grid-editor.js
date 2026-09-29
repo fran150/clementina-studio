@@ -16,13 +16,14 @@
 import { cellSelection } from './cell-grid.js';
 import { blankCell } from './domain/cells.js';
 import { $ } from './dom.js';
+import { placedPixel } from './domain/tilesets.js';
 import { gridKeys } from './grid/keys.js';
 import { canvasPainting } from './grid/painting.js';
 import { gridRails } from './grid/rails.js';
 import { stampControls } from './grid/stamp.js';
 import { SINGLE_TILE, tilePicker } from './grid/tile-picker.js';
 import { ProjectHistory } from './history.js';
-import { bankColor, css565, tilePixel, tilesets } from './state.js';
+import { bankColor, css565, tilesets } from './state.js';
 import { setStatus } from './status.js';
 import { StudioShell } from './studio-shell.js';
 
@@ -149,9 +150,7 @@ export function gridEditor(options) {
   ed.cellInk = (cell, x, y) => {
     const source = ed.cellTileset(cell);
     if (!source) return 0;
-    const px = cell.flipX ? 7 - x : x,
-      py = cell.flipY ? 7 - y : y;
-    return tilePixel(source, cell.tile, px, py, cell.chrAlt ? ed.altPlane : ed.primaryPlane);
+    return placedPixel(source, cell, x, y, cell.chrAlt ? ed.altPlane : ed.primaryPlane);
   };
   const picker = tilePicker(ed);
 
@@ -235,32 +234,20 @@ export function gridEditor(options) {
   }
   const zoomControls = StudioShell.canvasZoom({
     view,
-    ids: {
-      fit: prefix + 'Fit',
-      actual: prefix + 'ActualSize',
-      zoomOut: prefix + 'ZoomOut',
-      label: prefix + 'ZoomLabel',
-      zoomIn: prefix + 'ZoomIn',
-    },
+    prefix,
     get: () => zoom,
-    set: (next, x, y) =>
-      StudioShell.zoomScrolled(
-        stage,
-        canvas,
-        zoom,
-        next,
-        (z) => {
-          zoom = z;
-          render();
-        },
-        x,
-        y,
-      ),
+    scrolled: {
+      stage,
+      content: canvas,
+      apply: (z) => {
+        zoom = z;
+        render();
+      },
+    },
     fit: () => {
       if (!asset()) return;
       zoom = fitLevel();
       render();
-      stage.scrollLeft = stage.scrollTop = 0;
     },
     wheel: stage,
     busy: () => !!(painting.busy() || selection.busy || ed.panDrag || busy()),

@@ -11,6 +11,7 @@
 // that picture. A pixel block is {width, height, data, banks}: each pixel's
 // color index and its tile's bank. Nothing here touches the page.
 import { TILES_PER_ROW } from './cells.js';
+import { floodFill, lineBetween } from './geometry.js';
 import { freshName } from './names.js';
 
 export const GH = 8,
@@ -37,6 +38,14 @@ export function newTileset(id, name) {
 export function tilePixel(tileset, tile, x, y, plane = 0) {
   const bit = (p) => (tileset.chr[p * PLANE + tile * GH + y] >> x) & 1;
   return tileset.bpp === 1 ? bit(plane) : bit(0) | (bit(1) << 1) | (bit(2) << 2);
+}
+
+/**
+ * The color index at (x, y) of a placed tile: a background cell or a sprite,
+ * {tile, flipX, flipY}, with its flips applied.
+ */
+export function placedPixel(tileset, placed, x, y, plane = 0) {
+  return tilePixel(tileset, placed.tile, placed.flipX ? 7 - x : x, placed.flipY ? 7 - y : y, plane);
 }
 
 /** Sets one pixel of a tile; on a 1bpp tileset any value but 0 sets the bit. */
@@ -138,23 +147,9 @@ export function transformPixels(block, kind) {
 
 /** The 4-connected pixels of an area around `start` [x, y] with its color. */
 export function floodPixels(tileset, area, start, plane) {
-  const [sx, sy] = start,
-    w = area.width * 8,
-    h = area.height * 8;
-  if (!inArea(area, sx, sy)) return [];
-  const get = (x, y) => areaPixel(tileset, area, x, y, plane);
-  const old = get(sx, sy),
-    seen = new Uint8Array(w * h),
-    stack = [[sx, sy]],
-    points = [];
-  while (stack.length) {
-    const [x, y] = stack.pop();
-    if (x < 0 || y < 0 || x >= w || y >= h || seen[y * w + x] || get(x, y) !== old) continue;
-    seen[y * w + x] = 1;
-    points.push([x, y]);
-    stack.push([x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]);
-  }
-  return points;
+  return floodFill(area.width * 8, area.height * 8, start, (x, y) =>
+    areaPixel(tileset, area, x, y, plane),
+  );
 }
 
 // ===== drawing =====
@@ -169,15 +164,7 @@ export function patternAt(pattern, x, y) {
  * every pixel on the straight line, so a fast drag leaves no gaps.
  */
 export function strokePixels(from, to) {
-  const [x, y] = to,
-    steps = Math.max(Math.abs(x - from[0]), Math.abs(y - from[1])),
-    points = [];
-  for (let i = 0; i <= steps; i++)
-    points.push([
-      Math.round(from[0] + ((x - from[0]) * i) / (steps || 1)),
-      Math.round(from[1] + ((y - from[1]) * i) / (steps || 1)),
-    ]);
-  return points;
+  return lineBetween(from, to);
 }
 
 /**

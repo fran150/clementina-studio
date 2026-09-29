@@ -3,6 +3,7 @@
 // shape rather than owning sprites, so a shape edit reaches every frame
 // showing it. Every frame's shape shares one tileset. Nothing here touches
 // the page.
+import { clamp } from './geometry.js';
 
 /** An animation holds at most this many frames. */
 export const MAX_FRAMES = 255;
@@ -74,7 +75,7 @@ export function moveItem(list, from, to) {
 
 /** A frame offset kept within OAM's range. */
 export function clampOffset(v) {
-  return Math.max(MIN_OFFSET, Math.min(MAX_OFFSET, v));
+  return clamp(v, MIN_OFFSET, MAX_OFFSET);
 }
 
 /** Which frame shows `tick` ticks into a looping playback. */

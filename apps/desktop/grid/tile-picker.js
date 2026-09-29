@@ -3,6 +3,7 @@
 // and its saved Objects. Picking a tile, or dragging out a group, sets what
 // the next paint lays down.
 import { TILES_PER_ROW } from '../domain/cells.js';
+import { rectBetween } from '../domain/geometry.js';
 import { bankColor, css565, tilePixel, tilesets } from '../state.js';
 import { StudioShell } from '../studio-shell.js';
 
@@ -99,11 +100,7 @@ export function tilePicker(ed) {
   }
   // The tile under the pointer on the picker, clamped to its 16×16 grid.
   function tileMapCell(e) {
-    const r = tileMap.getBoundingClientRect();
-    return {
-      x: Math.max(0, Math.min(15, Math.floor(((e.clientX - r.left) / r.width) * 16))),
-      y: Math.max(0, Math.min(15, Math.floor(((e.clientY - r.top) / r.height) * 16))),
-    };
+    return StudioShell.pointerCell(e, tileMap, 16, 16);
   }
   // Makes a region of the picked tileset the stamp: its top-left tile, in
   // that tile's authored bank.
@@ -124,12 +121,8 @@ export function tilePicker(ed) {
   // tileset editor's own tile map does; a plain click is a 1×1 drag.
   function selectPickRegion(x, y) {
     if (!ed.pickingTileset() || !pickAnchor) return;
-    pick({
-      col: Math.min(pickAnchor.x, x),
-      row: Math.min(pickAnchor.y, y),
-      width: Math.abs(x - pickAnchor.x) + 1,
-      height: Math.abs(y - pickAnchor.y) + 1,
-    });
+    const r = rectBetween(pickAnchor.x, pickAnchor.y, x, y);
+    pick({ col: r.x, row: r.y, width: r.width, height: r.height });
   }
   tileMap.onpointerdown = (e) => {
     if (!ed.pickingTileset()) return;

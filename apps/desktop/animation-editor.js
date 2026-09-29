@@ -18,7 +18,7 @@ import {
 import { animationPreview } from './animation/preview.js';
 import { renderTimeline } from './animation/timeline.js';
 import { DEFAULT_TICKS, MAX_FRAMES, freshAnimationId, newAnimation } from './domain/animations.js';
-import { canAdd, copyAsset, removeAt } from './domain/assets.js';
+import { canAdd, clampIndex, copyAsset, removeAt } from './domain/assets.js';
 import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
 import { $ } from './dom.js';
 import { renderAnimations, showView } from './lifecycle.js';
@@ -198,7 +198,7 @@ const preview = animationPreview({ host, render: () => render(), actions });
 function render() {
   if (!workspace.shown()) return;
   const a = currentAnimation();
-  setFrameIndex(Math.max(0, Math.min(frameIndex, (a?.frames.length ?? 1) - 1)));
+  setFrameIndex(clampIndex(a?.frames ?? [], frameIndex));
   $('anEmpty').hidden = !!a;
   StudioShell.emptyEditor(host, !a);
   for (const el of [host.querySelector('.anTop'), $('anBody'), $('anTransport'), $('anTimeline')])
@@ -260,8 +260,8 @@ function render() {
 animationKeys(actions);
 animationRail(host, actions);
 document.addEventListener('studiohistory', () => {
-  setAnimationIndex(Math.max(0, Math.min(animationIndex, animations.length - 1)));
-  setFrameIndex(Math.max(0, Math.min(frameIndex, (currentAnimation()?.frames.length ?? 1) - 1)));
+  setAnimationIndex(clampIndex(animations, animationIndex));
+  setFrameIndex(clampIndex(currentAnimation()?.frames ?? [], frameIndex));
   setPlaying(false);
 });
 preview.mountZoom();
