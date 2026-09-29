@@ -1,4 +1,10 @@
 import type { Tileset } from './index.js';
+
+// The page loads this module on its own, so it can't import index.js's values
+// (which pull in the SDK); this matches PLANE_BYTES there.
+/** One bit plane of a tileset: 256 tiles of 8 bytes. */
+const PLANE_BYTES = 2048;
+
 /**
  * Import works on flattened palette RAM: the caller resolves the active config
  * to 128 words first and reconciles any palette the importer invents back into
@@ -175,7 +181,9 @@ export function convertTilesetImage(
         hist = new Map<number, number>();
       if (
         planes.some((p) =>
-          tileset.chr.slice(p * 2048 + t * 8, p * 2048 + t * 8 + 8).some((v) => v !== 0),
+          tileset.chr
+            .slice(p * PLANE_BYTES + t * 8, p * PLANE_BYTES + t * 8 + 8)
+            .some((v) => v !== 0),
         )
       )
         result.overwrittenTiles.push(t);
@@ -225,7 +233,8 @@ export function convertTilesetImage(
         reserved.add(palette);
         tileset.tilePaletteBanks[t] = palette;
       }
-      for (const p of planes) for (let y = 0; y < 8; y++) tileset.chr[p * 2048 + t * 8 + y] = 0;
+      for (const p of planes)
+        for (let y = 0; y < 8; y++) tileset.chr[p * PLANE_BYTES + t * 8 + y] = 0;
       words.forEach((word, i) => {
         let value = 0;
         if (word !== null) {
@@ -235,7 +244,7 @@ export function convertTilesetImage(
         }
         for (const p of planes) {
           const bit = tileset.bpp === 1 ? (value ? 1 : 0) : (value >> p) & 1;
-          tileset.chr[p * 2048 + t * 8 + Math.floor(i / 8)] |= bit << (i % 8);
+          tileset.chr[p * PLANE_BYTES + t * 8 + Math.floor(i / 8)] |= bit << (i % 8);
         }
       });
     }

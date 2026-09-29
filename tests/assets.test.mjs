@@ -1,9 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spriteAttr, spriteExt, cellAttr } from '@clementina/assets';
 import {
-  spriteAttr,
-  spriteExt,
-  cellAttr,
   validateTilesets,
   validateBackgrounds,
   validateOverlays,
