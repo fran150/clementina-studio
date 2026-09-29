@@ -20,6 +20,7 @@
     "sound/*.js",
     "music/*.js",
     "tiles/*.js",
+    "shell/*.js",
     "types/*.d.ts",
     "preload.cts"
   ]
