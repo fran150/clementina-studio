@@ -74,8 +74,8 @@ So Studio has a **Sounds** editor, which edits registers per frame on lanes,
 and a **Music** editor, which edits notes on a piano roll. What they share
 is real:
 
-- **One engine.** Both preview on `MiaEngine` in `packages/assets/audio.ts`,
-  a port of `audio.c`.
+- **One engine.** Both preview on `MiaEngine` in
+  `packages/assets/audio/engine.ts`, a port of `audio.c`.
 - **One envelope.** Both editors show the envelope as the engine runs it.
 - **One vocabulary.** Voice, frame, wave, pulse, volume and pan mean the same
   in both, and the register names in this document.
