@@ -2,39 +2,22 @@
 // Covers the model in docs/model.md end to end: palettes and bank configs,
 // tilesets with their own bpp, shapes bound to one tileset, and animations
 // that sequence those shapes.
-const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('node:path');
 const assert = require('node:assert/strict');
-app.whenReady().then(async () => {
-  ipcMain.handle('image:import', () => null);
-  ipcMain.handle('project:new', () => {});
-  ipcMain.handle('tileset:import', () => ({ name: 'Imported', bpp: 3, chr: Array(6144).fill(42) }));
-  const window = new BrowserWindow({
-    show: false,
-    enableLargerThanScreen: true,
-    width: 1440,
-    height: 1000,
-    webPreferences: {
-      preload: path.resolve(__dirname, '../dist/apps/desktop/preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
-  // A window is created no larger than the screen, and the CI Mac's is
-  // small. Resize it to the size the test's layout and pointer positions
-  // assume; enableLargerThanScreen lets macOS keep it.
-  window.setSize(1440, 1000);
-  const errors = [];
-  window.webContents.on('console-message', (event) => {
-    if (event.level === 'error') errors.push(event.message);
-  });
-  // Page code runs against the studio's modules, found through window.__studio.
-  const run = (source) =>
-    window.webContents.executeJavaScript(`with (__studio) (()=>{${source}})()`);
-  try {
-    await window.loadFile(path.resolve(__dirname, '../apps/desktop/editor.html'));
+const { suite } = require('./harness/electron.cjs');
 
+suite(
+  'smoke',
+  {
+    handlers: {
+      'image:import': () => null,
+      'tileset:import': () => ({ name: 'Imported', bpp: 3, chr: Array(6144).fill(42) }),
+    },
+    onFailure: (error, errors) => {
+      console.error(error);
+      if (errors.length) console.error('renderer errors:\n' + errors.join('\n'));
+    },
+  },
+  async ({ run, drag }) => {
     // A new project opens on a palette library and one config placing it.
     const start = await run(`
    return {title:document.title,bridge:typeof window.studio.save,
@@ -267,27 +250,7 @@ app.whenReady().then(async () => {
       `const r=$('bankSelection').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2,panOn:$('panTool').classList.contains('on')};`,
     );
     assert.equal(canvasRect.panOn, true, 'the Pan tool button must show as active once selected');
-    window.webContents.sendInputEvent({
-      type: 'mouseDown',
-      x: canvasRect.x,
-      y: canvasRect.y,
-      button: 'left',
-      clickCount: 1,
-    });
-    window.webContents.sendInputEvent({
-      type: 'mouseMove',
-      x: canvasRect.x - 20,
-      y: canvasRect.y - 15,
-      button: 'left',
-    });
-    window.webContents.sendInputEvent({
-      type: 'mouseUp',
-      x: canvasRect.x - 20,
-      y: canvasRect.y - 15,
-      button: 'left',
-      clickCount: 1,
-    });
-    await new Promise((r) => setTimeout(r, 60));
+    await drag([canvasRect, { x: canvasRect.x - 20, y: canvasRect.y - 15 }]);
     assert.equal(
       await run(`return tilesets[0].chr.slice(0,8).join(',');`),
       beforePixels,
@@ -301,13 +264,5 @@ app.whenReady().then(async () => {
    restoreStudioProject(snapshot);
    return JSON.stringify(snapshot)===JSON.stringify(studioProject());`);
     assert.ok(roundTrip, 'a project round trips through save and restore');
-
-    assert.deepEqual(errors, [], 'the renderer logged errors');
-    console.log('desktop smoke: ok');
-    app.exit(0);
-  } catch (error) {
-    console.error(error);
-    if (errors.length) console.error('renderer errors:\n' + errors.join('\n'));
-    app.exit(1);
-  }
-});
+  },
+);

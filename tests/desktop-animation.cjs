@@ -1,43 +1,16 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
 const assert = require('node:assert/strict');
-const path = require('node:path');
-const fs = require('node:fs');
-app.whenReady().then(async () => {
-  ipcMain.handle('project:new', () => {});
-  const window = new BrowserWindow({
-    show: false,
-    enableLargerThanScreen: true,
-    width: 1440,
-    height: 1000,
-    webPreferences: {
-      preload: path.resolve(__dirname, '../dist/apps/desktop/preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
-  // A window is created no larger than the screen, and the CI Mac's is
-  // small. Resize it to the size the test's layout and pointer positions
-  // assume; enableLargerThanScreen lets macOS keep it.
-  window.setSize(1440, 1000);
-  const errors = [];
-  window.webContents.on('console-message', (event) => {
+const { suite } = require('./harness/electron.cjs');
+
+suite(
+  'animation',
+  {
     // Chromium reports a ResizeObserver loop when refitting the preview
     // toggles its column's scrollbars. The spec treats it as a notice, and
     // the refit still completes on the next frame.
-    if (event.level === 'error' && !event.message.startsWith('ResizeObserver loop'))
-      errors.push(event.message);
-  });
-  // Page code runs against the studio's modules, found through window.__studio.
-  const run = (source) =>
-    window.webContents.executeJavaScript(`with (__studio) (()=>{${source}})()`);
-  const key = async (keyCode, modifiers = []) => {
-    window.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers });
-    window.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers });
-    await new Promise((r) => setTimeout(r, 60));
-  };
-  try {
-    await window.loadFile(path.resolve(__dirname, '../apps/desktop/editor.html'));
+    ignoreErrors: /^ResizeObserver loop/,
+    input: { settle: { key: 60 } },
+  },
+  async ({ run, key, drag, poll, resize, wait, shot, expectValidProject }) => {
     await run(
       `showView('tiles');$('addBankFile').click();const t=tilesets[0];t.name='Characters';for(let y=0;y<8;y++)for(let x=0;x<8;x++)setTilePixel(t,0,x,y,x===0||y===0?2:4);shapes=['Idle','Walk_A','Walk_B'].map((name,i)=>({id:'shape:'+i,name,tilesetId:t.id,sprites:[{tile:0,x:-8+i,y:-8,paletteBank:0,flipX:false,flipY:false},{tile:0,x:i,y:-8,paletteBank:0,flipX:false,flipY:false},{tile:0,x:-8+i,y:0,paletteBank:0,flipX:false,flipY:false},{tile:0,x:i,y:0,paletteBank:0,flipX:false,flipY:false}]}));tilesets.push({...structuredClone(t),id:'other-bank',name:'OtherBank'});shapes.push({id:'other',name:'Other',tilesetId:'other-bank',sprites:[]});showView('animations');$('anNew').click();`,
     );
@@ -89,7 +62,7 @@ app.whenReady().then(async () => {
     await run(`$('anRedo').click();$('anTimeline').children[0].click();$('anNext').click();`);
     assert.equal(await run(`return frameIndex;`), 1);
     await run(`$('anPlay').click();`);
-    await new Promise((r) => setTimeout(r, 160));
+    await wait(160);
     assert.equal(await run(`return playing;`), true);
     await run(`$('anPlay').click();`);
     assert.equal(await run(`return playing;`), false);
@@ -103,27 +76,7 @@ app.whenReady().then(async () => {
     const pointer = await run(
       `const r=$('anCanvas').getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2),width:r.width,history:ProjectHistory.depth(),dx:animations[0].frames[0].dx};`,
     );
-    window.webContents.sendInputEvent({
-      type: 'mouseDown',
-      x: pointer.x,
-      y: pointer.y,
-      button: 'left',
-      clickCount: 1,
-    });
-    window.webContents.sendInputEvent({
-      type: 'mouseMove',
-      x: pointer.x + 32,
-      y: pointer.y + 16,
-      button: 'left',
-    });
-    window.webContents.sendInputEvent({
-      type: 'mouseUp',
-      x: pointer.x + 32,
-      y: pointer.y + 16,
-      button: 'left',
-      clickCount: 1,
-    });
-    await new Promise((r) => setTimeout(r, 80));
+    await drag([pointer, { x: pointer.x + 32, y: pointer.y + 16 }], { settle: 80 });
     assert.equal(await run(`return ProjectHistory.depth();`), pointer.history + 1);
     assert.ok(await run(`return animations[0].frames[0].dx>12;`));
     await run(`$('anUndo').click();`);
@@ -189,8 +142,7 @@ app.whenReady().then(async () => {
       { flipY: true, on: true, x: false },
     );
     for (const width of [1440, 1024]) {
-      window.setSize(width, 900);
-      await new Promise((r) => setTimeout(r, 150));
+      await resize(width, 900, 150);
       for (const toggle of ['anLibraryToggle', 'anShapeLibraryToggle']) {
         await run(
           `if($('${toggle}').getAttribute('aria-expanded')!=='true')$('${toggle}').click();`,
@@ -201,35 +153,15 @@ app.whenReady().then(async () => {
           run(
             `const panel=$($('${toggle}').getAttribute('aria-controls')).getBoundingClientRect(),main=document.querySelector('#animationEditor main').getBoundingClientRect(),canvas=$('anCanvas').getBoundingClientRect(),timeline=$('anTimeline').getBoundingClientRect();return {clear:panel.right<=main.left,canvas:canvas.left>=main.left&&canvas.right<=main.right,timeline:timeline.left>=main.left&&timeline.right<=main.right,stretch:Math.abs(timeline.width-main.width)<2,large:canvas.width};`,
           );
-        let bounds = await measure();
-        for (
-          let deadline = Date.now() + 2000;
-          Date.now() < deadline &&
-          !(bounds.clear && bounds.canvas && bounds.timeline && bounds.stretch);
-        ) {
-          await new Promise((r) => setTimeout(r, 40));
-          bounds = await measure();
-        }
+        const bounds = await poll(measure, (b) => b.clear && b.canvas && b.timeline && b.stretch);
         assert.equal(bounds.clear, true);
         assert.equal(bounds.canvas, true);
         assert.equal(bounds.timeline, true);
         assert.equal(bounds.stretch, true);
         assert.ok(bounds.large >= 320);
       }
-      if (process.env.STUDIO_CAPTURE_DIR)
-        fs.writeFileSync(
-          path.join(process.env.STUDIO_CAPTURE_DIR, `animation-${width}.png`),
-          (await window.webContents.capturePage()).toPNG(),
-        );
+      await shot(`animation-${width}`);
     }
-    const data = await run(`return studioProject();`);
-    const { validateProject } = await import('../dist/packages/assets/index.js');
-    validateProject(data);
-    assert.deepEqual(errors, []);
-    console.log('desktop animation: ok');
-    app.exit(0);
-  } catch (e) {
-    console.error(e, errors);
-    app.exit(1);
-  }
-});
+    await expectValidProject();
+  },
+);

@@ -2,66 +2,23 @@
 // copy, cut, paste, delete, move and select-all on background and overlay
 // cells, tileset pixels, shape sprites, animation frames and palettes.
 // Run with `npm run test:desktop:editing`.
-const { app, BrowserWindow, ipcMain } = require('electron');
 const assert = require('node:assert/strict');
-const path = require('node:path');
-app.whenReady().then(async () => {
-  ipcMain.handle('project:new', () => {});
-  const window = new BrowserWindow({
-    show: false,
-    enableLargerThanScreen: true,
-    width: 1440,
-    height: 1000,
-    webPreferences: {
-      preload: path.resolve(__dirname, '../dist/apps/desktop/preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
+const { suite } = require('./harness/electron.cjs');
+
+suite(
+  'editing',
+  {
+    input: {
+      round: true,
+      clickCountOnMove: true,
+      settle: { key: 50, mouseDown: 50, mouseMove: 30, mouseUp: 50, gesture: 0 },
     },
-  });
-  // A window is created no larger than the screen, and the CI Mac's is
-  // small. Resize it to the size the test's layout and pointer positions
-  // assume; enableLargerThanScreen lets macOS keep it.
-  window.setSize(1440, 1000);
-  const errors = [];
-  window.webContents.on('console-message', (event) => {
-    if (event.level === 'error') errors.push(event.message);
-  });
-  // Page code runs against the studio's modules, found through window.__studio.
-  const run = (source) =>
-    window.webContents.executeJavaScript(`with (__studio) (()=>{${source}})()`);
-  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  const key = async (keyCode, modifiers = []) => {
-    window.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers });
-    window.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers });
-    await wait(50);
-  };
-  const mouse = async (type, x, y) => {
-    window.webContents.sendInputEvent({
-      type,
-      x: Math.round(x),
-      y: Math.round(y),
-      button: 'left',
-      clickCount: 1,
-    });
-    await wait(type === 'mouseMove' ? 30 : 50);
-  };
-  const drag = async (from, to) => {
-    await mouse('mouseDown', from.x, from.y);
-    await mouse('mouseMove', to.x, to.y);
-    await mouse('mouseUp', to.x, to.y);
-  };
-  // Cell (col,row) of a 100%-zoom cell canvas, at the cell's center.
-  const cellsOf = async (canvas) => {
-    const r = await run(
-      `const r=$('${canvas}').getBoundingClientRect();return {left:r.left,top:r.top};`,
-    );
-    return (col, row) => ({ x: r.left + col * 8 + 4, y: r.top + row * 8 + 4 });
-  };
-  const cell = (list, col, row, width = 40) =>
-    run(`const c=${list}.cells[${row * width + col}];return {tile:c.tile,flipX:c.flipX};`);
-  try {
-    await window.loadFile(path.resolve(__dirname, '../apps/desktop/editor.html'));
+  },
+  async ({ window, run, wait, key, mouse, drag, click, cells, command }) => {
+    // The tile and flip of cell (col,row) of a background or overlay.
+    const cell = (list, col, row, width = 40) =>
+      run(`const c=${list}.cells[${row * width + col}];return {tile:c.tile,flipX:c.flipX};`);
+
     // Four tiles that look different, so a mirrored block is visibly mirrored.
     await run(
       `showView('tiles');$('addBankFile').click();const t=tilesets[0];for(let tile=1;tile<=4;tile++)for(let y=0;y<8;y++)for(let x=0;x<8;x++)setTilePixel(t,tile,x,y,(x+tile)%8);redrawAll();`,
@@ -71,9 +28,9 @@ app.whenReady().then(async () => {
     await run(
       `showView('backgrounds');$('bgNewAction').click();$('bgActualSize').click();const a=backgrounds[0];a.cells[2*40+2]={...a.cells[0],tile:1};a.cells[2*40+3]={...a.cells[0],tile:2};renderBackgrounds();`,
     );
-    let at = await cellsOf('bgCanvas');
+    let at = await cells('bgCanvas');
     await key('S');
-    await drag(at(2, 2), at(3, 2));
+    await drag([at(2, 2), at(3, 2)]);
     assert.equal(
       await run(`return $('bgSelectionLabel').textContent.slice(0,14);`),
       'Selected 2 × 1',
@@ -91,10 +48,9 @@ app.whenReady().then(async () => {
     await run(`$('bgUndo').click();`);
     // Copy, then paste where the pointer is; a click places it and selects it.
     await key('C', ['control']);
-    await mouse('mouseMove', at(5, 5).x, at(5, 5).y);
+    await mouse('mouseMove', at(5, 5));
     await key('V', ['control']);
-    await mouse('mouseDown', at(5, 5).x, at(5, 5).y);
-    await mouse('mouseUp', at(5, 5).x, at(5, 5).y);
+    await click(at(5, 5));
     assert.deepEqual(
       [(await cell('backgrounds[0]', 5, 5)).tile, (await cell('backgrounds[0]', 6, 5)).tile],
       [1, 2],
@@ -113,8 +69,8 @@ app.whenReady().then(async () => {
       'Delete must clear the selected cells',
     );
     // Dragging inside a selection moves it, as one undo step.
-    await drag(at(2, 2), at(3, 2));
-    await drag(at(2, 2), at(2, 4));
+    await drag([at(2, 2), at(3, 2)]);
+    await drag([at(2, 2), at(2, 4)]);
     assert.deepEqual(
       [
         (await cell('backgrounds[0]', 2, 4)).tile,
@@ -131,7 +87,7 @@ app.whenReady().then(async () => {
       'one undo must put a moved selection back',
     );
     // Arrows nudge the selection; Ctrl/Cmd+A selects everything; Escape deselects.
-    await drag(at(2, 2), at(3, 2));
+    await drag([at(2, 2), at(3, 2)]);
     await key('Right');
     assert.deepEqual(
       [
@@ -154,8 +110,7 @@ app.whenReady().then(async () => {
     const bgMap = await run(
       `const r=$('bgTileMap').getBoundingClientRect();return {x:r.left+r.width*(1.5/16),y:r.top+r.height*(0.5/16)};`,
     );
-    await mouse('mouseDown', bgMap.x, bgMap.y);
-    await mouse('mouseUp', bgMap.x, bgMap.y);
+    await click(bgMap);
     assert.ok(
       await run(`return $('bgPencilTool').classList.contains('on');`),
       'picking a tile must switch to the pencil',
@@ -200,16 +155,15 @@ app.whenReady().then(async () => {
 
     // ---- Overlays: the same Select tool, and cells paste across editors ----
     await run(`showView('overlays');$('ovNewAction').click();$('ovActualSize').click();`);
-    at = await cellsOf('ovCanvas');
+    at = await cells('ovCanvas');
     await key('S');
     assert.ok(
       await run(`return $('ovSelectTool').classList.contains('on');`),
       'S must pick the overlay Select tool',
     );
-    await mouse('mouseMove', at(10, 10).x, at(10, 10).y);
+    await mouse('mouseMove', at(10, 10));
     await key('V', ['control']);
-    await mouse('mouseDown', at(10, 10).x, at(10, 10).y);
-    await mouse('mouseUp', at(10, 10).x, at(10, 10).y);
+    await click(at(10, 10));
     assert.deepEqual(
       [(await cell('overlays[0]', 10, 10)).tile, (await cell('overlays[0]', 11, 10)).tile],
       [1, 2],
@@ -229,7 +183,7 @@ app.whenReady().then(async () => {
     const ovMap = await run(
       `const r=$('ovTileMap').getBoundingClientRect(),c=r.width/16;return {from:{x:r.left+c*1.5,y:r.top+c*0.5},to:{x:r.left+c*2.5,y:r.top+c*0.5}};`,
     );
-    await drag(ovMap.from, ovMap.to);
+    await drag([ovMap.from, ovMap.to]);
     assert.deepEqual(
       await run(
         `return {pencil:$('ovPencilTool').classList.contains('on'),group:$('ovGroupLabel').textContent.slice(0,11)};`,
@@ -237,9 +191,8 @@ app.whenReady().then(async () => {
       { pencil: true, group: 'Group 2 × 1' },
     );
     await run(`$('ovTileLibraryToggle').click();$('ovFlipX').click();`);
-    at = await cellsOf('ovCanvas');
-    await mouse('mouseDown', at(20, 20).x, at(20, 20).y);
-    await mouse('mouseUp', at(20, 20).x, at(20, 20).y);
+    at = await cells('ovCanvas');
+    await click(at(20, 20));
     assert.deepEqual(
       [await cell('overlays[0]', 20, 20), await cell('overlays[0]', 21, 20)],
       [
@@ -307,8 +260,7 @@ app.whenReady().then(async () => {
     const scMap = await run(
       `const r=$('scBankMap').getBoundingClientRect();return {x:r.left+r.width*(1.5/16),y:r.top+r.height*(0.5/16)};`,
     );
-    await mouse('mouseDown', scMap.x, scMap.y);
-    await mouse('mouseUp', scMap.x, scMap.y);
+    await click(scMap);
     assert.ok(
       await run(`return $('scPlace').classList.contains('on');`),
       'picking tiles must switch to Place tiles',
@@ -365,8 +317,7 @@ app.whenReady().then(async () => {
       'a palette paste must copy every color',
     );
     // Edit ▸ Undo, through the menu's command.
-    window.webContents.send('studio:command', 'undo');
-    await wait(80);
+    await command('undo', { settle: 80 });
     assert.equal(
       await run(
         `return JSON.stringify(paletteLibrary[1].colors)===JSON.stringify(paletteLibrary[0].colors);`,
@@ -383,12 +334,5 @@ app.whenReady().then(async () => {
       frames + 1,
       'undo must reach edits made in other editors',
     );
-
-    assert.deepEqual(errors, []);
-    console.log('desktop editing: ok');
-    app.exit(0);
-  } catch (e) {
-    console.error(e, errors);
-    app.exit(1);
-  }
-});
+  },
+);

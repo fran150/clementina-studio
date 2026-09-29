@@ -4,69 +4,23 @@
 // flips (animation frames too), docked properties, labeled undo steps — in
 // the Edit menu too — and the background layer's opaque color 0. Run with
 // `npm run test:desktop:conventions`.
-const { app, BrowserWindow, ipcMain } = require('electron');
 const assert = require('node:assert/strict');
-const path = require('node:path');
-app.whenReady().then(async () => {
-  ipcMain.handle('project:new', () => {});
-  const menus = [];
-  ipcMain.on('menu:history', (_event, menu) => menus.push(menu));
-  const window = new BrowserWindow({
-    show: false,
-    enableLargerThanScreen: true,
-    width: 1440,
-    height: 1000,
-    webPreferences: {
-      preload: path.resolve(__dirname, '../dist/apps/desktop/preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
-  // A window is created no larger than the screen, and the CI Mac's is
-  // small. Resize it to the size the test's layout and pointer positions
-  // assume; enableLargerThanScreen lets macOS keep it.
-  window.setSize(1440, 1000);
-  const errors = [];
-  window.webContents.on('console-message', (event) => {
-    if (event.level === 'error') errors.push(event.message);
-  });
-  // Page code runs against the studio's modules, found through window.__studio.
-  const run = (source) =>
-    window.webContents.executeJavaScript(`with (__studio) (()=>{${source}})()`);
-  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  const command = async (name) => {
-    window.webContents.send('studio:command', name);
-    await wait(80);
-  };
-  const key = async (keyCode, modifiers = []) => {
-    window.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers });
-    window.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers });
-    await wait(50);
-  };
-  const mouse = async (type, x, y, button = 'left') => {
-    window.webContents.sendInputEvent({
-      type,
-      x: Math.round(x),
-      y: Math.round(y),
-      button,
-      clickCount: 1,
-    });
-    await wait(50);
-  };
-  const drag = async (from, to) => {
-    await mouse('mouseDown', from.x, from.y);
-    await mouse('mouseMove', to.x, to.y);
-    await mouse('mouseUp', to.x, to.y);
-  };
-  // Right-clicks an element and returns the labels of the menu that opens, if any.
-  const menuOn = async (selector) =>
-    run(
-      `document.querySelector('.studioMenu')?.remove();const el=document.querySelector(${JSON.stringify(selector)}),r=el.getBoundingClientRect();el.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.left+r.width/2,clientY:r.top+r.height/2}));const m=document.querySelector('.studioMenu');const labels=m?[...m.querySelectorAll('button span')].map(s=>s.textContent):null;m?.remove();return labels;`,
-    );
-  try {
-    await window.loadFile(path.resolve(__dirname, '../apps/desktop/editor.html'));
+const { suite } = require('./harness/electron.cjs');
 
+// The Edit menu's Undo and Redo labels, as the renderer last sent them.
+const menus = [];
+
+suite(
+  'conventions',
+  {
+    listeners: { 'menu:history': (_event, menu) => menus.push(menu) },
+    input: {
+      round: true,
+      clickCountOnMove: true,
+      settle: { key: 50, command: 80, mouseDown: 50, mouseMove: 50, mouseUp: 50, gesture: 0 },
+    },
+  },
+  async ({ window, run, wait, key, command, click, drag, cells, contextMenuLabels }) => {
     // ---- Empty editors: one centered message on the same stage, and no docks for an asset that isn't there ----
     const empty = `const e=[...document.querySelectorAll('.studioEmpty')].find(x=>x.offsetParent);if(!e)return null;const p=getComputedStyle(e.querySelector('p')),s=getComputedStyle(e),r=e.getBoundingClientRect(),m=e.closest('.studioMain').getBoundingClientRect();
    return {font:p.fontSize+' '+p.color,stage:s.backgroundColor+' '+s.backgroundImage,centered:s.alignItems+' '+s.justifyContent,fills:Math.abs(r.width-m.width)<1&&Math.abs(r.height-m.height)<1,docks:[...document.querySelectorAll('.studioAssetDock')].filter(d=>d.offsetParent).length};`;
@@ -181,12 +135,12 @@ app.whenReady().then(async () => {
       'Shift+V must flip the selection vertically',
     );
     assert.ok(
-      (await menuOn('#bankSelection')).includes('Flip horizontally'),
+      (await contextMenuLabels('#bankSelection')).includes('Flip horizontally'),
       'right-click with the Select tool must open the edit menu',
     );
     await run(`$('pencilTool').click();`);
     assert.equal(
-      await menuOn('#bankSelection'),
+      await contextMenuLabels('#bankSelection'),
       null,
       'right-click with a painting tool must not open a menu',
     );
@@ -220,24 +174,20 @@ app.whenReady().then(async () => {
       zero.bank,
       "a background's color 0 must be drawn in its bank's color 0, as the hardware does",
     );
-    const canvas = await run(
-      `const r=$('bgCanvas').getBoundingClientRect();return {left:r.left,top:r.top};`,
-    );
-    const at = (col, row) => ({ x: canvas.left + col * 8 + 4, y: canvas.top + row * 8 + 4 });
+    const at = await cells('bgCanvas');
     await run(
       `const a=backgrounds[0];a.cells[5*40+5]={...a.cells[0],tile:1};a.cells[2*40+2]={...a.cells[0],tile:1};a.cells[2*40+3]={...a.cells[0],tile:2};renderBackgrounds();`,
     );
     await key('B');
-    await mouse('mouseDown', at(5, 5).x, at(5, 5).y, 'right');
-    await mouse('mouseUp', at(5, 5).x, at(5, 5).y, 'right');
+    await click(at(5, 5), { button: 'right' });
     assert.equal(
       await run(`return backgrounds[0].cells[5*40+5].tile;`),
       0,
       'right-click with a painting tool must erase',
     );
     await key('S');
-    await drag(at(2, 2), at(3, 2));
-    assert.deepEqual(await menuOn('#bgCanvas'), [
+    await drag([at(2, 2), at(3, 2)]);
+    assert.deepEqual(await contextMenuLabels('#bgCanvas'), [
       'Cut',
       'Copy',
       'Paste',
@@ -314,7 +264,7 @@ app.whenReady().then(async () => {
       `showView('shapes');$('scNew').click();shapes[0].sprites=[{tile:1,x:0,y:0,paletteBank:0,flipX:false,flipY:false}];renderAnimations();`,
     );
     assert.ok(
-      (await menuOn('#scCanvas')).includes('Duplicate'),
+      (await contextMenuLabels('#scCanvas')).includes('Duplicate'),
       'right-click on a shape must open the edit menu',
     );
     assert.equal(
@@ -331,8 +281,7 @@ app.whenReady().then(async () => {
     const map = await run(
       `const r=$('scBankMap').getBoundingClientRect();return {x:r.left+r.width*(2.5/16),y:r.top+r.height*(0.5/16)};`,
     );
-    await mouse('mouseDown', map.x, map.y, 'right');
-    await mouse('mouseUp', map.x, map.y, 'right');
+    await click(map, { button: 'right' });
     assert.equal(
       await run(`return $('scPlace').classList.contains('on');`),
       false,
@@ -361,7 +310,7 @@ app.whenReady().then(async () => {
       ),
       { play: true, inTransport: true, dock: true, ticks: true },
     );
-    assert.deepEqual(await menuOn('.anFrameCard'), [
+    assert.deepEqual(await contextMenuLabels('.anFrameCard'), [
       'Copy',
       'Paste after',
       'Duplicate',
@@ -386,19 +335,19 @@ app.whenReady().then(async () => {
       assert.equal(await stage(id), looks[0].stage, `${id} must sit on the shared stage`);
     await run(`showView('sounds');$('sfSelectTool').click();`);
     assert.ok(
-      (await menuOn('#sfCanvas')).includes('Select all'),
+      (await contextMenuLabels('#sfCanvas')).includes('Select all'),
       'right-click with the Select tool must open the edit menu',
     );
     await run(`$('sfPencilTool').click();`);
     assert.equal(
-      await menuOn('#sfCanvas'),
+      await contextMenuLabels('#sfCanvas'),
       null,
       'right-click with a painting tool must not open a menu',
     );
 
     // ---- Palettes: right-click a color ----
     await run(`showView('palettes');`);
-    assert.deepEqual(await menuOn('#palColors button'), [
+    assert.deepEqual(await contextMenuLabels('#palColors button'), [
       'Copy color',
       'Paste color',
       'Edit color…',
@@ -429,12 +378,5 @@ app.whenReady().then(async () => {
       { count: 2, status: 'Created shape_2.' },
       'New says what it created',
     );
-
-    assert.deepEqual(errors, []);
-    console.log('desktop conventions: ok');
-    app.exit(0);
-  } catch (e) {
-    console.error(e, errors);
-    app.exit(1);
-  }
-});
+  },
+);

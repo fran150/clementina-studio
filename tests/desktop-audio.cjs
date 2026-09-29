@@ -3,70 +3,41 @@
 // transforms, undo, presets, the envelope, song settings, instruments, one
 // note per voice, legato, playback, and docked layouts at two window widths.
 // Run with `npm run test:desktop:audio`.
-const { app, BrowserWindow, ipcMain } = require('electron');
 const assert = require('node:assert/strict');
-const path = require('node:path');
-const fs = require('node:fs');
-app.whenReady().then(async () => {
-  ipcMain.handle('project:new', () => {});
-  ipcMain.on('menu:history', () => {});
-  const window = new BrowserWindow({
-    show: false,
-    enableLargerThanScreen: true,
-    width: 1440,
-    height: 1000,
-    webPreferences: {
-      preload: path.resolve(__dirname, '../dist/apps/desktop/preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
+const { suite } = require('./harness/electron.cjs');
+
+suite(
+  'audio',
+  {
+    listeners: { 'menu:history': () => {} },
+    focus: true,
+    input: {
+      round: true,
+      clickCountOnMove: true,
+      settle: { key: 50, mouseDown: 30, mouseMove: 30, mouseUp: 30, gesture: 40 },
     },
-  });
-  // A window is created no larger than the screen, and the CI Mac's is
-  // small. Resize it to the size the test's layout and pointer positions
-  // assume; enableLargerThanScreen lets macOS keep it.
-  window.setSize(1440, 1000);
-  const errors = [];
-  window.webContents.on('console-message', (event) => {
-    if (event.level === 'error') errors.push(event.message);
-  });
-  // Page code runs against the studio's modules, found through window.__studio.
-  const run = (source) =>
-    window.webContents.executeJavaScript(`with (__studio) (()=>{${source}})()`);
-  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  const key = async (keyCode, modifiers = []) => {
-    window.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers });
-    window.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers });
-    await wait(50);
-  };
-  const mouse = async (type, p, button = 'left') => {
-    window.webContents.sendInputEvent({
-      type,
-      x: Math.round(p.x),
-      y: Math.round(p.y),
-      button,
-      clickCount: 1,
-    });
-    await wait(30);
-  };
-  const drag = async (points, button = 'left') => {
-    await mouse('mouseDown', points[0], button);
-    for (const p of points.slice(1)) await mouse('mouseMove', p, button);
-    await mouse('mouseUp', points.at(-1), button);
-    await wait(40);
-  };
-  const click = async (p, button = 'left') => drag([p], button);
-  const soundAt = (frame, lane, t) =>
-    run(`return $('soundEditor').pointAt(${frame},'${lane}',${t});`);
-  const noteAt = (step, pitch) => run(`return $('musicEditor').pointAt(${step},${pitch});`);
-  const menuOn = async (p) =>
-    run(
-      `document.querySelector('.studioMenu')?.remove();const el=document.elementFromPoint(${p.x},${p.y});el.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:${p.x},clientY:${p.y}}));const m=document.querySelector('.studioMenu');const labels=m?[...m.querySelectorAll('button span')].map(s=>s.textContent):null;m?.remove();return labels;`,
-    );
-  const depth = () => run(`return ProjectHistory.depth();`);
-  try {
-    await window.loadFile(path.resolve(__dirname, '../apps/desktop/editor.html'));
-    window.webContents.focus();
+  },
+  async (studio) => {
+    const {
+      run,
+      wait,
+      key,
+      keyDown,
+      keyUp,
+      drag,
+      click,
+      contextMenuLabels,
+      resize,
+      shot,
+      assets,
+      expectValidProject,
+    } = studio;
+    // Where a sound's lane value, or a song's note, is drawn on its canvas.
+    const soundAt = (frame, lane, t) =>
+      run(`return $('soundEditor').pointAt(${frame},'${lane}',${t});`);
+    const noteAt = (step, pitch) => run(`return $('musicEditor').pointAt(${step},${pitch});`);
+    const depth = () => run(`return ProjectHistory.depth();`);
+
     assert.equal(
       await run(`return !!window.MiaAudio&&typeof MiaAudio.compileSong;`),
       'function',
@@ -113,7 +84,7 @@ app.whenReady().then(async () => {
     );
     assert.equal(drawnPitch, true, 'a drawn pitch must land on a semitone while Snap is on');
     // Right-drag with a painting tool writes 0.
-    await drag([await soundAt(4, 'gate', 0.5), await soundAt(8, 'gate', 0.5)], 'right');
+    await drag([await soundAt(4, 'gate', 0.5), await soundAt(8, 'gate', 0.5)], { button: 'right' });
     assert.deepEqual(await run(`return sounds[0].frames.map(f=>f.gate);`), [
       ...Array(4).fill(true),
       ...Array(5).fill(false),
@@ -172,7 +143,7 @@ app.whenReady().then(async () => {
       volumes.slice().reverse(),
       'Shift+H with no selection must reverse the whole sound',
     );
-    assert.deepEqual(await menuOn(await soundAt(3, 'volume', 0.5)), [
+    assert.deepEqual(await contextMenuLabels(await soundAt(3, 'volume', 0.5)), [
       'Cut',
       'Copy',
       'Paste',
@@ -187,7 +158,7 @@ app.whenReady().then(async () => {
     ]);
     await key('B');
     assert.equal(
-      await menuOn(await soundAt(3, 'volume', 0.5)),
+      await contextMenuLabels(await soundAt(3, 'volume', 0.5)),
       null,
       'right-click with a painting tool must not open a menu',
     );
@@ -296,7 +267,7 @@ app.whenReady().then(async () => {
       { v0: 2, v1: [36], strip: ['false', 'true', 'false', 'false'] },
     );
     // Right-click with the pencil erases; the eraser does too.
-    await click(await noteAt(1, 36), 'right');
+    await click(await noteAt(1, 36), { button: 'right' });
     assert.equal(
       await run(`return songs[0].voices[1].notes.length;`),
       0,
@@ -356,7 +327,7 @@ app.whenReady().then(async () => {
       ],
       'Shift+H must reverse the selected notes in time',
     );
-    const menu = await menuOn(await noteAt(33, 77));
+    const menu = await contextMenuLabels(await noteAt(33, 77));
     assert.deepEqual(menu, [
       'Cut',
       'Copy',
@@ -454,11 +425,9 @@ app.whenReady().then(async () => {
     await key('Space');
     assert.equal(await run(`return StudioAudio.playing();`), false, 'a second tap must pause');
     const scrolled = await run(`const p=$('musicEditor').pointAt(0,60);return p;`);
-    window.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Space' });
-    await wait(30);
+    await keyDown('Space', { settle: 30 });
     await drag([scrolled, { x: scrolled.x, y: scrolled.y + 120 }]);
-    window.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Space' });
-    await wait(50);
+    await keyUp('Space', { settle: 50 });
     assert.deepEqual(
       await run(
         `return {playing:StudioAudio.playing(),moved:$('musicEditor').pointAt(0,60).y!==${scrolled.y}};`,
@@ -469,8 +438,7 @@ app.whenReady().then(async () => {
 
     // Docked panels sit beside the roll at both window widths.
     for (const width of [1440, 1024]) {
-      window.setSize(width, 900);
-      await wait(200);
+      await resize(width, 900, 200);
       // Eight tabs, the config picker and the file actions fit one row.
       assert.deepEqual(
         await run(
@@ -491,30 +459,18 @@ app.whenReady().then(async () => {
           `const main=document.querySelector('#${view === 'music' ? 'musicEditor' : 'soundEditor'} main').getBoundingClientRect(),left=$($('${toggle}').getAttribute('aria-controls')).getBoundingClientRect(),c=$('${canvas}').getBoundingClientRect();return {clear:left.right<=main.left+1,inside:c.left>=main.left-1&&c.right<=main.right+1,wide:c.width>300};`,
         );
         assert.deepEqual(bounds, { clear: true, inside: true, wide: true }, `${view} at ${width}`);
-        if (process.env.STUDIO_CAPTURE_DIR)
-          fs.writeFileSync(
-            path.join(process.env.STUDIO_CAPTURE_DIR, `${view}-${width}.png`),
-            (await window.webContents.capturePage()).toPNG(),
-          );
+        await shot(`${view}-${width}`);
       }
     }
 
     // The project keeps it all, and it validates.
-    const project = await run(`return studioProject();`);
-    const { validateProject, encodeProject, decodeProject } =
-      await import('../dist/packages/assets/index.js');
-    validateProject(project);
+    const project = await expectValidProject();
+    const { encodeProject, decodeProject } = await assets();
     assert.deepEqual(decodeProject(encodeProject(project)), project);
     await run(`restoreStudioProject(${JSON.stringify(project)},'Audio.cstudio');`);
     assert.deepEqual(
       await run(`return {sounds:sounds.length,songs:songs.length,instruments:instruments.length};`),
       { sounds: 1, songs: 1, instruments: 4 },
     );
-    assert.deepEqual(errors, []);
-    console.log('desktop audio: ok');
-    app.exit(0);
-  } catch (e) {
-    console.error(e, errors);
-    app.exit(1);
-  }
-});
+  },
+);
