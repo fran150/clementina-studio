@@ -5,9 +5,8 @@
 // its parts live in shape/: the shared model, the canvas view, the edits,
 // pointer input, the placement ghost, the panels, the top bar and keys, and
 // the rails.
-import { canAdd, copyAsset, newId, removeAt } from './domain/assets.js';
-import { freshName } from './domain/names.js';
-import { MAX_CANVAS_HEIGHT, MAX_CANVAS_WIDTH, newShape } from './domain/shapes.js';
+
+import { MAX_CANVAS_HEIGHT, MAX_CANVAS_WIDTH } from './domain/shapes.js';
 import { $ } from './dom.js';
 import { ProjectHistory } from './history.js';
 import {
@@ -27,7 +26,6 @@ import {
 } from './shape/editing.js';
 import { mountGhost } from './shape/ghost.js';
 import {
-  edit,
   height,
   hideGhost,
   sc,
@@ -43,20 +41,14 @@ import {
   planePicker,
   renderPaletteDock,
   renderShapeList,
+  shapeLibrary,
   renderTilesetPicker,
 } from './shape/panels.js';
 import { canvasPointer, tilePickerPointer } from './shape/pointer.js';
 import { shapeRails } from './shape/rails.js';
 import { draw, drawBank, fit } from './shape/view.js';
-import {
-  currentView,
-  setFrameIndex,
-  setShapeIndex,
-  shapeIndex,
-  shapes,
-  tilesets,
-} from './state.js';
-import { setStatus } from './status.js';
+import { currentView, setShapeIndex, shapeIndex, shapes, tilesets } from './state.js';
+
 import { StudioShell } from './studio-shell.js';
 
 const host = $('spriteComposer');
@@ -195,31 +187,7 @@ $('scBoxSelect').onclick = () => setMode(sc.boxSelect ? 'move' : 'box');
 originPresets();
 
 // ===== the shape library =====
-$('scNew').onclick = () => {
-  if (!canAdd(shapes)) return;
-  edit('New shape', () => {
-    shapes.push(newShape(newId(), freshName(shapes, 'shape'), tilesets[0]?.id));
-    setShapeIndex(shapes.length - 1);
-    setFrameIndex(0);
-  });
-  fit();
-};
-$('scDuplicate').onclick = () => {
-  if (!shape() || !canAdd(shapes)) return;
-  edit('Duplicate ' + shape().name, () => {
-    shapes.push(copyAsset(shape(), freshName(shapes, 'shape')));
-    setShapeIndex(shapes.length - 1);
-  });
-};
-$('scDelete').onclick = () => {
-  if (!shape()) return;
-  const name = shape().name;
-  edit('Delete ' + name, () => {
-    setShapeIndex(removeAt(shapes, shapeIndex));
-  });
-  setStatus(`Deleted ${name}. Ctrl/Cmd+Z brings it back.`);
-};
-$('scEmptyNew').onclick = () => $('scNew').click();
+shapeLibrary();
 $('scEmptyTileset').onclick = () => showView('tiles');
 
 // ===== the canvas size =====

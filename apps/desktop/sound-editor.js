@@ -35,41 +35,43 @@ soundZoom();
 $('sfPlay').onclick = play;
 
 // ===== the sound library =====
-for (const [id, label, icon] of [
-  ['sfNew', 'New sound', 'newItem'],
-  ['sfDuplicate', 'Duplicate sound', 'duplicate'],
-  ['sfDelete', 'Delete sound', 'delete'],
-])
-  $('sfActions').append(StudioShell.iconButton(id, label, icon));
-$('sfNew').onclick = () => {
-  if (!A() || !canAdd(sounds)) {
-    setStatus('A project holds at most 255 sounds.');
-    return;
-  }
-  edit('New sound', () => {
-    sounds.push(A().newSound(newId(), freshName(sounds, 'Sound')));
-    sf.soundIndex = sounds.length - 1;
-    sf.selection = null;
-  });
-  setStatus('Created ' + sound().name + '.');
-};
-$('sfEmptyNew').onclick = () => $('sfNew').click();
-$('sfDuplicate').onclick = () => {
-  if (!sound() || !canAdd(sounds)) return;
-  edit('Duplicate ' + sound().name, () => {
-    sounds.push(copyAsset(sound(), freshName(sounds, 'Sound')));
-    sf.soundIndex = sounds.length - 1;
-  });
-};
-$('sfDelete').onclick = () => {
-  if (!sound()) return;
-  StudioAudio.stop();
-  setStatus(`Deleted ${sound().name}. Ctrl/Cmd+Z brings it back.`);
-  edit('Delete ' + sound().name, () => {
-    sf.soundIndex = removeAt(sounds, sf.soundIndex);
-    sf.selection = null;
-  });
-};
+const library = StudioShell.assetLibrary({
+  noun: 'sound',
+  plural: 'sounds',
+  list: $('sfList'),
+  items: () => sounds,
+  index: () => sf.soundIndex,
+  choose: chooseSound,
+  rename: renameSound,
+  render,
+  maxLength: 32,
+  buttons: {
+    rail: $('sfActions'),
+    create: 'sfNew',
+    duplicate: 'sfDuplicate',
+    remove: 'sfDelete',
+    empty: 'sfEmptyNew',
+  },
+  ready: () => (A() ? null : 'The audio engine is still loading. Try again in a moment.'),
+  create: (label) =>
+    edit(label, () => {
+      sounds.push(A().newSound(newId(), freshName(sounds, 'Sound')));
+      sf.soundIndex = sounds.length - 1;
+      sf.selection = null;
+    }),
+  copy: (s, label) =>
+    edit(label, () => {
+      sounds.push(copyAsset(s, freshName(sounds, 'Sound')));
+      sf.soundIndex = sounds.length - 1;
+    }),
+  remove: (s, label) => {
+    StudioAudio.stop();
+    edit(label, () => {
+      sf.soundIndex = removeAt(sounds, sf.soundIndex);
+      sf.selection = null;
+    });
+  },
+});
 /** Opens sound `i`, stopping playback if it is another sound. */
 function chooseSound(i) {
   if (i !== sf.soundIndex) StudioAudio.stop();
@@ -102,21 +104,7 @@ function render() {
   $('sfEmpty').hidden = !!s;
   StudioShell.emptyEditor(host, !s);
   $('sfWork').hidden = !s;
-  StudioShell.renderList($('sfList'), sounds, {
-    selected: (x, i) => i === sf.soundIndex,
-    choose: (x, i) => chooseSound(i),
-    rename: renameSound,
-    render,
-    maxLength: 32,
-    duplicate: (x, i) => {
-      chooseSound(i);
-      $('sfDuplicate').click();
-    },
-    remove: (x, i) => {
-      chooseSound(i);
-      $('sfDelete').click();
-    },
-  });
+  library.render();
   $('sfDuplicate').disabled = $('sfDelete').disabled = !s;
   $('sfNew').disabled = !canAdd(sounds);
   $('sfUndo').disabled = !ProjectHistory.canUndo();

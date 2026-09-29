@@ -5,7 +5,7 @@
 //
 // The camera preview, the loaded window and visible screen over the canvas,
 // lives in grid/background-camera.js.
-import { canAdd, clampIndex, copyAsset, newId, removeAt } from './domain/assets.js';
+import { clampIndex, copyAsset, newId, removeAt } from './domain/assets.js';
 import { MAX_CELLS, clampDimension, newBackground, sizeFits } from './domain/backgrounds.js';
 import { cropsContent, resizedCells } from './domain/cells.js';
 import { FILE_NAME, canRename, freshName } from './domain/names.js';
@@ -59,22 +59,46 @@ function renameBackground(i, name) {
   bgEdit('Rename a background', () => (backgrounds[i].name = name));
   return true;
 }
+// The background list and its New, Duplicate and Delete buttons. New needs a
+// tileset to draw from.
+const backgroundLibrary = StudioShell.assetLibrary({
+  noun: 'background',
+  plural: 'backgrounds',
+  list: $('bgList'),
+  items: () => backgrounds,
+  index: () => backgroundIndex,
+  choose: chooseBackground,
+  rename: renameBackground,
+  render,
+  buttons: {
+    rail: $('bgActions'),
+    create: 'bgNewAction',
+    duplicate: 'bgDuplicateAction',
+    remove: 'bgDeleteAction',
+    empty: 'bgEmptyNew',
+  },
+  ready: () => (tilesets.length ? null : 'Create a tileset first.'),
+  create: (label) =>
+    bgEdit(label, () => {
+      backgrounds.push(
+        newBackground(newId(), freshName(backgrounds, 'Background'), tilesets[0].id),
+      );
+      backgroundIndex = backgrounds.length - 1;
+      camera.reset();
+      editor.resetPlanes();
+    }),
+  copy: (item, label) =>
+    bgEdit(label, () => {
+      backgrounds.push(copyAsset(item, freshName(backgrounds, 'Background')));
+      backgroundIndex = backgrounds.length - 1;
+    }),
+  remove: (item, label) =>
+    bgEdit(label, () => {
+      backgroundIndex = removeAt(backgrounds, backgroundIndex);
+    }),
+});
 function renderBackgroundList() {
-  StudioShell.renderList($('bgList'), backgrounds, {
-    selected: (b, i) => i === backgroundIndex,
-    choose: (b, i) => chooseBackground(i),
-    rename: renameBackground,
-    render,
-    maxLength: 48,
-    duplicate: (b, i) => {
-      chooseBackground(i);
-      $('bgDuplicateAction').click();
-    },
-    remove: (b, i) => {
-      chooseBackground(i);
-      $('bgDeleteAction').click();
-    },
-  });
+  backgroundLibrary.render();
 }
 
 function resizeBackground(newWidth, newHeight) {
@@ -143,45 +167,6 @@ function render() {
 $('bgCreateTileset').onclick = () => {
   showView('tiles');
 };
-$('bgEmptyNew').onclick = () => $('bgNewAction').click();
-for (const [id, label, icon] of [
-  ['bgNewAction', 'New background', 'newItem'],
-  ['bgDuplicateAction', 'Duplicate background', 'duplicate'],
-  ['bgDeleteAction', 'Delete background', 'delete'],
-])
-  $('bgActions').append(StudioShell.iconButton(id, label, icon));
-$('bgNewAction').onclick = () => {
-  if (!canAdd(backgrounds)) {
-    setStatus('A project holds at most 255 backgrounds.');
-    return;
-  }
-  if (!tilesets.length) {
-    setStatus('Create a tileset first.');
-    return;
-  }
-  bgEdit('New background', () => {
-    backgrounds.push(newBackground(newId(), freshName(backgrounds, 'Background'), tilesets[0].id));
-    backgroundIndex = backgrounds.length - 1;
-    camera.reset();
-    editor.resetPlanes();
-  });
-  setStatus('Created ' + background().name + '.');
-};
-$('bgDuplicateAction').onclick = () => {
-  if (!background() || !canAdd(backgrounds)) return;
-  bgEdit('Duplicate ' + background().name, () => {
-    backgrounds.push(copyAsset(background(), freshName(backgrounds, 'Background')));
-    backgroundIndex = backgrounds.length - 1;
-  });
-};
-$('bgDeleteAction').onclick = () => {
-  if (!background()) return;
-  setStatus(`Deleted ${background().name}. Ctrl/Cmd+Z brings it back.`);
-  bgEdit('Delete ' + background().name, () => {
-    backgroundIndex = removeAt(backgrounds, backgroundIndex);
-  });
-};
-
 // Left rail: the panels to pick from, then the tools. Right rail: the
 // selection's panel, then the flips and priority that the next stamp — or
 // an active selection — takes.

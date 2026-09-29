@@ -9,7 +9,7 @@
 // A build step can later generate a primitive that overwrites just the
 // tile-ID bytes in that region, left-to-right/top-to-bottom; mapping a value
 // (a score, a string) to tile IDs is the programmer's job, not Studio's.
-import { canAdd, clampIndex, copyAsset, newId, removeAt } from './domain/assets.js';
+import { clampIndex, copyAsset, newId, removeAt } from './domain/assets.js';
 import { FILE_NAME, canRename, freshName } from './domain/names.js';
 import {
   COLUMNS as OVERLAY_COLUMNS,
@@ -70,22 +70,46 @@ function renameOverlay(i, name) {
   ovEdit('Rename an overlay', () => (overlays[i].name = name));
   return true;
 }
+// The overlay list and its New, Duplicate and Delete buttons. New needs a
+// tileset to draw from.
+const overlayLibrary = StudioShell.assetLibrary({
+  noun: 'overlay',
+  plural: 'overlays',
+  list: $('ovList'),
+  items: () => overlays,
+  index: () => overlayIndex,
+  choose: chooseOverlay,
+  rename: renameOverlay,
+  render,
+  buttons: {
+    rail: $('ovActions'),
+    create: 'ovNewAction',
+    duplicate: 'ovDuplicateAction',
+    remove: 'ovDeleteAction',
+    empty: 'ovEmptyNew',
+  },
+  ready: () => (tilesets.length ? null : 'Create a tileset first.'),
+  create: (label) =>
+    ovEdit(label, () => {
+      overlays.push(newOverlay(newId(), freshName(overlays, 'Overlay'), tilesets[0].id));
+      overlayIndex = overlays.length - 1;
+      placeholderIndex = -1;
+      editor.resetPlanes();
+    }),
+  copy: (item, label) =>
+    ovEdit(label, () => {
+      overlays.push(copyAsset(item, freshName(overlays, 'Overlay')));
+      overlayIndex = overlays.length - 1;
+      placeholderIndex = -1;
+    }),
+  remove: (item, label) =>
+    ovEdit(label, () => {
+      overlayIndex = removeAt(overlays, overlayIndex);
+      placeholderIndex = -1;
+    }),
+});
 function renderOverlayList() {
-  StudioShell.renderList($('ovList'), overlays, {
-    selected: (o, i) => i === overlayIndex,
-    choose: (o, i) => chooseOverlay(i),
-    rename: renameOverlay,
-    render,
-    maxLength: 48,
-    duplicate: (o, i) => {
-      chooseOverlay(i);
-      $('ovDuplicateAction').click();
-    },
-    remove: (o, i) => {
-      chooseOverlay(i);
-      $('ovDeleteAction').click();
-    },
-  });
+  overlayLibrary.render();
 }
 
 // While the Placeholder tool drags out a region, outlines it in yellow.
@@ -243,48 +267,6 @@ function render() {
 $('ovCreateTileset').onclick = () => {
   showView('tiles');
 };
-$('ovEmptyNew').onclick = () => $('ovNewAction').click();
-
-for (const [id, label, icon] of [
-  ['ovNewAction', 'New overlay', 'newItem'],
-  ['ovDuplicateAction', 'Duplicate overlay', 'duplicate'],
-  ['ovDeleteAction', 'Delete overlay', 'delete'],
-])
-  $('ovActions').append(StudioShell.iconButton(id, label, icon));
-$('ovNewAction').onclick = () => {
-  if (!canAdd(overlays)) {
-    setStatus('A project holds at most 255 overlays.');
-    return;
-  }
-  if (!tilesets.length) {
-    setStatus('Create a tileset first.');
-    return;
-  }
-  ovEdit('New overlay', () => {
-    overlays.push(newOverlay(newId(), freshName(overlays, 'Overlay'), tilesets[0].id));
-    overlayIndex = overlays.length - 1;
-    placeholderIndex = -1;
-    editor.resetPlanes();
-  });
-  setStatus('Created ' + overlay().name + '.');
-};
-$('ovDuplicateAction').onclick = () => {
-  if (!overlay() || !canAdd(overlays)) return;
-  ovEdit('Duplicate ' + overlay().name, () => {
-    overlays.push(copyAsset(overlay(), freshName(overlays, 'Overlay')));
-    overlayIndex = overlays.length - 1;
-    placeholderIndex = -1;
-  });
-};
-$('ovDeleteAction').onclick = () => {
-  if (!overlay()) return;
-  setStatus(`Deleted ${overlay().name}. Ctrl/Cmd+Z brings it back.`);
-  ovEdit('Delete ' + overlay().name, () => {
-    overlayIndex = removeAt(overlays, overlayIndex);
-    placeholderIndex = -1;
-  });
-};
-
 for (const [id, label, icon] of [
   ['ovPlaceholderNew', 'New placeholder', 'newItem'],
   ['ovPlaceholderDuplicate', 'Duplicate placeholder', 'duplicate'],

@@ -3,6 +3,7 @@
 // rather than just this panel.
 import { graphicsEdit } from '../bank-editor.js';
 import { $ } from '../dom.js';
+import { nameTaken } from '../domain/names.js';
 import { redrawAll, renderAnimations, renderBankEditor } from '../lifecycle.js';
 import {
   activeConfig,
@@ -29,42 +30,19 @@ export function configEdit(...args) {
 // renaming uses the same inline-input pattern as every other renameable list.
 export function renameConfig(i, name) {
   if (!name) return false;
-  if (paletteConfigs.some((c, j) => j !== i && c.name.toLowerCase() === name.toLowerCase())) {
+  if (nameTaken(paletteConfigs, name, i)) {
     setStatus('Use a unique config name.');
     return false;
   }
   configEdit('Rename a config', () => (paletteConfigs[i].name = name));
   return true;
 }
+/** The config list, made by configActions. */
+let configList;
 /** Draws the config list and the open config's sixteen banks. */
 export function renderConfigs() {
-  StudioShell.renderList($('palConfigList'), paletteConfigs, {
-    selected: (c) => c.id === activeConfigId,
-    choose: (c) => {
-      setActiveConfigId(c.id);
-      redrawAll();
-      pl.render();
-    },
-    rename: renameConfig,
-    render: pl.render,
-    maxLength: 48,
-    duplicate: (c) => {
-      setActiveConfigId(c.id);
-      $('palConfigCopy').click();
-    },
-    remove: (c) => {
-      setActiveConfigId(c.id);
-      $('palConfigDelete').click();
-    },
-    content: (row, config) => {
-      let name = row.firstElementChild;
-      if (!name) {
-        name = document.createElement('span');
-        row.replaceChildren(name);
-      }
-      name.textContent = config.name;
-    },
-  });
+  configList.render();
+
   $('palConfigDelete').disabled = paletteConfigs.length < 2;
   const config = activeConfig();
   $('palBankGrid').replaceChildren(
@@ -99,43 +77,62 @@ export function renderConfigs() {
   );
 }
 
-/** Adds the config list's New, Duplicate and Delete buttons. */
+/**
+ * Wires the config list's New, Duplicate and Delete buttons. Configs have no
+ * count limit, and the last one stays. The open config is the active one.
+ */
 export function configActions() {
-  const iconButton = (id, label, icon) => StudioShell.iconButton(id, label, icon);
-  for (const [id, label, path] of [
-    ['palConfigNew', 'New config', 'newItem'],
-    ['palConfigCopy', 'Duplicate config', 'duplicate'],
-    ['palConfigDelete', 'Delete config', 'delete'],
-  ]) {
-    $('palConfigListActions').append(iconButton(id, label, path));
-  }
-  $('palConfigNew').onclick = () => {
-    configEdit('New config', () => {
-      setActiveConfigId(createConfig().id);
-    });
-    pl.render();
-    setStatus('Added a bank config. Fill its banks, then switch to it while drawing.');
-  };
-  $('palConfigCopy').onclick = () => {
-    const from = activeConfig();
-    if (!from) return;
-    configEdit('Duplicate ' + from.name, () => {
-      setActiveConfigId(createConfig(undefined, from.banks).id);
-    });
-    pl.render();
-    setStatus('Duplicated ' + from.name + '.');
-  };
-  $('palConfigDelete').onclick = () => {
-    const target = activeConfig();
-    if (!target || paletteConfigs.length < 2) {
-      setStatus('A project keeps at least one bank config.');
-      return;
-    }
-    setStatus(`Deleted ${target.name}. Ctrl/Cmd+Z brings it back.`);
-    configEdit('Delete ' + target.name, () => {
-      paletteConfigs.splice(paletteConfigs.indexOf(target), 1);
-      setActiveConfigId(paletteConfigs[0].id);
-    });
-    pl.render();
-  };
+  configList = StudioShell.assetLibrary({
+    noun: 'config',
+    plural: 'configs',
+    limited: false,
+    list: $('palConfigList'),
+    items: () => paletteConfigs,
+    index: () => paletteConfigs.findIndex((c) => c.id === activeConfigId),
+    choose: (i) => {
+      setActiveConfigId(paletteConfigs[i].id);
+      redrawAll();
+      pl.render();
+    },
+    select: (i) => setActiveConfigId(paletteConfigs[i].id),
+    rename: renameConfig,
+    render: () => pl.render(),
+    content: (row, config) => {
+      let name = row.firstElementChild;
+      if (!name) {
+        name = document.createElement('span');
+        row.replaceChildren(name);
+      }
+      name.textContent = config.name;
+    },
+    buttons: {
+      rail: $('palConfigListActions'),
+      create: 'palConfigNew',
+      duplicate: 'palConfigCopy',
+      remove: 'palConfigDelete',
+    },
+    create: (label) => {
+      configEdit(label, () => {
+        setActiveConfigId(createConfig().id);
+      });
+      pl.render();
+    },
+    created: () => 'Added a bank config. Fill its banks, then switch to it while drawing.',
+    copy: (from, label) => {
+      configEdit(label, () => {
+        setActiveConfigId(createConfig(undefined, from.banks).id);
+      });
+      pl.render();
+    },
+    copied: (from) => 'Duplicated ' + from.name + '.',
+    removable: () =>
+      paletteConfigs.length < 2 ? 'A project keeps at least one bank config.' : null,
+    remove: (target, label) => {
+      configEdit(label, () => {
+        paletteConfigs.splice(paletteConfigs.indexOf(target), 1);
+        setActiveConfigId(paletteConfigs[0].id);
+      });
+      pl.render();
+    },
+  });
 }

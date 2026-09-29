@@ -2,6 +2,7 @@
 // that banks use asks which palette takes its place in them.
 import { graphicsEdit } from '../bank-editor.js';
 import { $ } from '../dom.js';
+import { nameTaken } from '../domain/names.js';
 import { repointBanks } from '../domain/palettes.js';
 import {
   createPalette,
@@ -14,9 +15,8 @@ import {
 } from '../state.js';
 import { setStatus } from '../status.js';
 import { StudioShell } from '../studio-shell.js';
-import { palette, pl, usage } from './model.js';
+import { pl, usage } from './model.js';
 
-const iconButton = (id, label, icon) => StudioShell.iconButton(id, label, icon);
 const dialog = $('palDeleteDialog');
 /** Repoints every bank of every config from one palette to another. */
 function repoint(fromId, toId) {
@@ -26,14 +26,8 @@ function repoint(fromId, toId) {
 function unbind(id) {
   return repointBanks(paletteConfigs, id, null);
 }
-/** Asks how to delete the open palette, then deletes it. */
-export function destroy() {
-  const target = palette();
-  if (!target) return;
-  if (paletteLibrary.length === 1) {
-    setStatus('A project keeps at least one palette.');
-    return;
-  }
+/** Asks how to delete palette `target`, then deletes it. */
+function destroy(target) {
   const used = usage(target.id),
     inUse = used.length > 0;
   $('palDeleteSummary').hidden = inUse;
@@ -78,92 +72,90 @@ export function destroy() {
 /** Renames palette `i`; false (with a hint) when the name is empty or taken. */
 export function renamePalette(i, name) {
   if (!name) return false;
-  if (paletteLibrary.some((p, j) => j !== i && p.name.toLowerCase() === name.toLowerCase())) {
+  if (nameTaken(paletteLibrary, name, i)) {
     setStatus('Use a unique palette name.');
     return false;
   }
   graphicsEdit('Rename a palette', () => (paletteLibrary[i].name = name));
   return true;
 }
+/** The palette list, made by libraryActions. */
+let paletteList;
 /** Draws the palette list, each row with its colors. */
 export function renderPaletteList() {
-  StudioShell.renderList($('palList'), paletteLibrary, {
-    selected: (entry, i) => i === pl.index,
-    choose: (entry, i) => {
-      pl.index = i;
-      pl.render();
-    },
-    rename: renamePalette,
-    render: pl.render,
-    maxLength: 48,
-    duplicate: (entry, i) => {
-      pl.index = i;
-      $('palDuplicate').click();
-    },
-    remove: (entry, i) => {
-      pl.index = i;
-      $('palDelete').click();
-    },
-    content: (row, entry) => {
-      row.classList.toggle('unusedPalette', !usage(entry.id).length);
-      // Reused in place, not recreated, so a click-triggered render happening
-      // between the two clicks of a double-click does not swap out the node
-      // under the pointer — swapping it resets the browser's dblclick count.
-      let [name, chips] = row.children;
-      if (!name || !chips) {
-        name = document.createElement('span');
-        chips = document.createElement('span');
-        chips.className = 'rowChips';
-        row.replaceChildren(name, chips);
-      }
-      name.textContent = entry.name;
-      while (chips.children.length > entry.colors.length) chips.lastElementChild.remove();
-      entry.colors.forEach((color, ci) => {
-        let chip = chips.children[ci];
-        if (!chip) {
-          chip = document.createElement('i');
-          chips.append(chip);
-        }
-        chip.style.background = css565(color);
-      });
-    },
+  paletteList.render();
+}
+/** Draws one palette's row: its name, then a chip per color. */
+function paletteRow(row, entry) {
+  row.classList.toggle('unusedPalette', !usage(entry.id).length);
+  // Reused in place, not recreated, so a click-triggered render happening
+  // between the two clicks of a double-click does not swap out the node
+  // under the pointer — swapping it resets the browser's dblclick count.
+  let [name, chips] = row.children;
+  if (!name || !chips) {
+    name = document.createElement('span');
+    chips = document.createElement('span');
+    chips.className = 'rowChips';
+    row.replaceChildren(name, chips);
+  }
+  name.textContent = entry.name;
+  while (chips.children.length > entry.colors.length) chips.lastElementChild.remove();
+  entry.colors.forEach((color, ci) => {
+    let chip = chips.children[ci];
+    if (!chip) {
+      chip = document.createElement('i');
+      chips.append(chip);
+    }
+    chip.style.background = css565(color);
   });
 }
 
-/** Adds the list's New, Duplicate and Delete buttons and the delete dialog's Cancel. */
+/**
+ * Wires the palette list's New, Duplicate and Delete buttons and the delete
+ * dialog's Cancel. Palettes have no count limit, and the last one stays.
+ */
 export function libraryActions() {
-  for (const [id, label, path, fn] of [
-    [
-      'palNew',
-      'New palette',
-      'newItem',
-      () => {
-        graphicsEdit('New palette', () => {
-          createPalette(RAINBOW_565);
-          pl.index = paletteLibrary.length - 1;
-        });
-        setStatus('Added a palette. Bind it from a bank slot to use it.');
-        pl.render();
-      },
-    ],
-    [
-      'palDuplicate',
-      'Duplicate palette',
-      'duplicate',
-      () => {
-        graphicsEdit('Duplicate ' + palette().name, () => {
-          createPalette(palette().colors, uniquePaletteName());
-          pl.index = paletteLibrary.length - 1;
-        });
-        setStatus('Duplicated the palette.');
-        pl.render();
-      },
-    ],
-    ['palDelete', 'Delete palette', 'delete', () => destroy()],
-  ]) {
-    const button = iconButton(id, label, path);
-    button.onclick = fn;
-    $('palListActions').append(button);
-  }
+  paletteList = StudioShell.assetLibrary({
+    noun: 'palette',
+    plural: 'palettes',
+    limited: false,
+    list: $('palList'),
+    items: () => paletteLibrary,
+    index: () => pl.index,
+    choose: (i) => {
+      pl.index = i;
+      pl.render();
+    },
+    select: (i) => (pl.index = i),
+    rename: renamePalette,
+    render: () => pl.render(),
+    content: paletteRow,
+    buttons: {
+      rail: $('palListActions'),
+      create: 'palNew',
+      duplicate: 'palDuplicate',
+      remove: 'palDelete',
+    },
+    create: (label) => {
+      graphicsEdit(label, () => {
+        createPalette(RAINBOW_565);
+        pl.index = paletteLibrary.length - 1;
+      });
+      pl.render();
+    },
+    created: () => 'Added a palette. Bind it from a bank slot to use it.',
+    copy: (p, label) => {
+      graphicsEdit(label, () => {
+        createPalette(p.colors, uniquePaletteName());
+        pl.index = paletteLibrary.length - 1;
+      });
+      pl.render();
+    },
+    copied: () => 'Duplicated the palette.',
+    removable: () => (paletteLibrary.length === 1 ? 'A project keeps at least one palette.' : null),
+    // The dialog says what happened once it closes.
+    deleted: () => null,
+    remove: destroy,
+  });
   $('palDeleteCancel').onclick = () => dialog.close();
 }
