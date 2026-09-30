@@ -216,36 +216,21 @@ export function canvasPainting(ed) {
     e.preventDefault();
     if (!asset() || ed.isPainting()) return;
     const sel = !!selection.rect;
-    StudioShell.contextMenu(e.clientX, e.clientY, [
-      { label: 'Cut', hint: 'Mod+X', disabled: !sel, run: () => selection.cut() },
-      { label: 'Copy', hint: 'Mod+C', disabled: !sel, run: () => selection.copy() },
-      {
-        label: 'Paste',
-        hint: 'Mod+V',
-        disabled: !StudioShell.clipboard.has('cells'),
-        run: ed.startPaste,
+    StudioShell.editMenu(e, {
+      selected: sel,
+      kind: 'cells',
+      cut: () => selection.cut(),
+      copy: () => selection.copy(),
+      paste: ed.startPaste,
+      remove: () => selection.remove(),
+      flip: (axis) => selection.flip(axis),
+      transform: [{ label: 'Priority', disabled: !sel, run: () => el('Priority').click() }],
+      selectAll: () => {
+        ed.setTool('select');
+        selection.selectAll();
       },
-      { label: 'Delete', hint: 'Delete', disabled: !sel, run: () => selection.remove() },
-      '-',
-      {
-        label: 'Flip horizontally',
-        hint: 'Shift+H',
-        disabled: !sel,
-        run: () => selection.flip('x'),
-      },
-      { label: 'Flip vertically', hint: 'Shift+V', disabled: !sel, run: () => selection.flip('y') },
-      { label: 'Priority', disabled: !sel, run: () => el('Priority').click() },
-      '-',
-      {
-        label: 'Select all',
-        hint: 'Mod+A',
-        run: () => {
-          ed.setTool('select');
-          selection.selectAll();
-        },
-      },
-      { label: 'Deselect', hint: 'Esc', disabled: !sel, run: () => selection.deselect() },
-    ]);
+      deselect: () => selection.deselect(),
+    });
   };
 
   return {

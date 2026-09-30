@@ -22,12 +22,19 @@ import {
 } from './domain/overlays.js';
 import { $ } from './dom.js';
 import { dragRegion, gridEditor, outlineDrag } from './grid-editor.js';
-import { redrawAll, showView } from './lifecycle.js';
-import { currentView, overlays, tilesets } from './state.js';
+import { showView } from './lifecycle.js';
+import { overlays, tilesets } from './state.js';
 import { setStatus } from './status.js';
 import { StudioShell } from './studio-shell.js';
 
 const host = $('overlayEditor');
+const workspace = StudioShell.defineEditor({
+  view: 'overlays',
+  host,
+  render,
+  status: $('ovStatus'),
+  onHide: () => editor.clearHover(),
+});
 
 let overlayIndex = 0;
 // The placeholder chosen in the list, or -1 for none.
@@ -230,11 +237,7 @@ $('ovPhWidth').onchange = () => applyPlaceholderField($('ovPhWidth'), 'width', 1
 $('ovPhHeight').onchange = () => applyPlaceholderField($('ovPhHeight'), 'height', 1, OVERLAY_ROWS);
 
 function render() {
-  host.hidden = currentView !== 'overlays';
-  if (host.hidden) {
-    editor.clearHover();
-    return;
-  }
+  if (!workspace.shown()) return;
   overlayIndex = Math.min(overlayIndex, Math.max(0, overlays.length - 1));
   const a = overlay();
   $('ovEmpty').hidden = !!a;
@@ -365,12 +368,5 @@ placeholderLibrary.hidden = true;
 for (const id of ['ovLibraryToggle', 'ovTileLibraryToggle', 'ovPlaceholderLibraryToggle'])
   $(id).setAttribute('aria-expanded', 'false');
 
-StudioShell.viewStatus('overlays', $('ovStatus'));
 export { render as renderOverlays };
-redrawAll.after(() => {
-  render();
-});
-showView.after(() => {
-  render();
-});
 render();

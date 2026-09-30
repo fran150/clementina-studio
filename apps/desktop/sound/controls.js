@@ -99,69 +99,57 @@ export function soundZoom() {
 // ===== keys =====
 /** Wires the shortcuts. Space plays and stops: on its own, a tap; held, it pans. */
 export function soundKeys() {
-  window.addEventListener(
-    'keydown',
-    (e) => {
-      if (currentView !== 'sounds' || isField(e.target) || document.querySelector('dialog[open]'))
-        return;
-      const key = e.key.toLowerCase(),
-        mod = e.ctrlKey || e.metaKey,
-        handled = () => {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-        };
-      // Keys a focused button or list row already answers are left to it.
-      if (
-        /** @type {HTMLElement} */ (e.target).closest?.('button,[role="option"]') &&
-        (e.code === 'Space' || e.key === 'Enter')
-      )
-        return;
-      if (e.code === 'Space') {
-        handled();
-        if (!e.repeat && !sf.drag) sf.space = true;
-        return;
-      }
-      if (!sound()) return;
-      if (mod && key === 'a') {
-        handled();
-        selectAll();
-        return;
-      }
-      if (mod && ['c', 'x', 'v', 'd'].includes(key)) {
-        const done = { c: copyFrames, x: cutFrames, v: pasteFrames, d: duplicateFrames }[key]();
-        if (done || key === 'd') handled();
-        return;
-      }
-      if (mod || e.altKey) return;
-      if (/** @type {HTMLElement} */ (e.target).closest?.('[role="option"]')) return;
-      if (key === 'escape') {
-        sf.selection = null;
-        sf.drag = null;
-        sf.render();
-        return;
-      }
-      if (key === 'delete' || key === 'backspace') {
-        if (removeFrames()) handled();
-        return;
-      }
-      if (key === 'arrowup' || key === 'arrowdown') {
-        handled();
-        transpose((key === 'arrowup' ? 1 : -1) * (e.shiftKey ? 12 : 1));
-        return;
-      }
-      if (e.shiftKey && (key === 'h' || key === 'v')) {
-        handled();
-        (key === 'h' ? reverse : invert)();
-        return;
-      }
-      const name = { s: 'select', b: 'pencil', l: 'line', e: 'eraser', h: 'pan' }[key];
-      if (name && !e.shiftKey) {
-        handled();
-        setTool(name);
-      }
-    },
-    true,
-  );
+  StudioShell.viewKeys('sounds', (e, { key, mod, handled }) => {
+    // Keys a focused button or list row already answers are left to it.
+    if (
+      /** @type {HTMLElement} */ (e.target).closest?.('button,[role="option"]') &&
+      (e.code === 'Space' || e.key === 'Enter')
+    )
+      return;
+    if (e.code === 'Space') {
+      handled();
+      if (!e.repeat && !sf.drag) sf.space = true;
+      return;
+    }
+    if (!sound()) return;
+    if (mod && key === 'a') {
+      handled();
+      selectAll();
+      return;
+    }
+    if (mod && ['c', 'x', 'v', 'd'].includes(key)) {
+      const done = { c: copyFrames, x: cutFrames, v: pasteFrames, d: duplicateFrames }[key]();
+      if (done || key === 'd') handled();
+      return;
+    }
+    if (mod || e.altKey) return;
+    if (/** @type {HTMLElement} */ (e.target).closest?.('[role="option"]')) return;
+    if (key === 'escape') {
+      sf.selection = null;
+      sf.drag = null;
+      sf.render();
+      return;
+    }
+    if (key === 'delete' || key === 'backspace') {
+      if (removeFrames()) handled();
+      return;
+    }
+    if (key === 'arrowup' || key === 'arrowdown') {
+      handled();
+      transpose((key === 'arrowup' ? 1 : -1) * (e.shiftKey ? 12 : 1));
+      return;
+    }
+    if (e.shiftKey && (key === 'h' || key === 'v')) {
+      handled();
+      (key === 'h' ? reverse : invert)();
+      return;
+    }
+    const name = { s: 'select', b: 'pencil', l: 'line', e: 'eraser', h: 'pan' }[key];
+    if (name && !e.shiftKey) {
+      handled();
+      setTool(name);
+    }
+  });
   let spacePanned = false;
   window.addEventListener('keyup', (e) => {
     if (e.code !== 'Space' || currentView !== 'sounds' || !sf.space) return;

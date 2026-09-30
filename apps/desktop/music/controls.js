@@ -67,80 +67,68 @@ export function musicZoom() {
 
 /** Wires the shortcuts. Space plays and pauses when tapped, and pans while held. */
 export function musicKeys() {
-  window.addEventListener(
-    'keydown',
-    (e) => {
-      if (currentView !== 'music' || isField(e.target) || document.querySelector('dialog[open]'))
-        return;
-      const key = e.key.toLowerCase(),
-        mod = e.ctrlKey || e.metaKey,
-        handled = () => {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-        };
-      if (
-        /** @type {HTMLElement} */ (e.target).closest?.('button,[role="option"]') &&
-        (e.code === 'Space' || e.key === 'Enter')
-      )
-        return;
-      if (e.code === 'Space') {
-        handled();
-        if (!e.repeat && !mu.drag) mu.space = true;
-        return;
-      }
-      if (!song()) return;
-      if (mod && key === 'a') {
-        handled();
-        selectAll();
-        return;
-      }
-      if (mod && ['c', 'x', 'v', 'd'].includes(key)) {
-        const done = { c: copyNotes, x: cutNotes, v: pasteNotes, d: duplicateNotes }[key]();
-        if (done || key === 'd') handled();
-        return;
-      }
-      if (mod || e.altKey) return;
-      if (/** @type {HTMLElement} */ (e.target).closest?.('[role="option"]')) return;
-      if (key === 'escape') {
-        mu.selection = new Set();
-        mu.drag = null;
-        mu.render();
-        return;
-      }
-      if (key === 'delete' || key === 'backspace') {
-        if (removeNotes()) handled();
-        return;
-      }
-      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key) && mu.selection.size) {
-        handled();
-        if (key === 'arrowup' || key === 'arrowdown')
-          shift(0, (key === 'arrowup' ? 1 : -1) * (e.shiftKey ? 12 : 1));
-        else shift(key === 'arrowleft' ? -1 : 1, 0);
-        return;
-      }
-      if (e.shiftKey && (key === 'h' || key === 'v')) {
-        handled();
-        (key === 'h' ? reverseNotes : invertNotes)();
-        return;
-      }
-      if (!e.shiftKey && /^[1-4]$/.test(key)) {
-        handled();
-        chooseVoice(Number(key) - 1);
-        return;
-      }
-      if (key === 'l' && !e.shiftKey) {
-        handled();
-        toggleLegato();
-        return;
-      }
-      const name = { s: 'select', b: 'pencil', e: 'eraser', h: 'pan' }[key];
-      if (name && !e.shiftKey) {
-        handled();
-        setTool(name);
-      }
-    },
-    true,
-  );
+  StudioShell.viewKeys('music', (e, { key, mod, handled }) => {
+    if (
+      /** @type {HTMLElement} */ (e.target).closest?.('button,[role="option"]') &&
+      (e.code === 'Space' || e.key === 'Enter')
+    )
+      return;
+    if (e.code === 'Space') {
+      handled();
+      if (!e.repeat && !mu.drag) mu.space = true;
+      return;
+    }
+    if (!song()) return;
+    if (mod && key === 'a') {
+      handled();
+      selectAll();
+      return;
+    }
+    if (mod && ['c', 'x', 'v', 'd'].includes(key)) {
+      const done = { c: copyNotes, x: cutNotes, v: pasteNotes, d: duplicateNotes }[key]();
+      if (done || key === 'd') handled();
+      return;
+    }
+    if (mod || e.altKey) return;
+    if (/** @type {HTMLElement} */ (e.target).closest?.('[role="option"]')) return;
+    if (key === 'escape') {
+      mu.selection = new Set();
+      mu.drag = null;
+      mu.render();
+      return;
+    }
+    if (key === 'delete' || key === 'backspace') {
+      if (removeNotes()) handled();
+      return;
+    }
+    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key) && mu.selection.size) {
+      handled();
+      if (key === 'arrowup' || key === 'arrowdown')
+        shift(0, (key === 'arrowup' ? 1 : -1) * (e.shiftKey ? 12 : 1));
+      else shift(key === 'arrowleft' ? -1 : 1, 0);
+      return;
+    }
+    if (e.shiftKey && (key === 'h' || key === 'v')) {
+      handled();
+      (key === 'h' ? reverseNotes : invertNotes)();
+      return;
+    }
+    if (!e.shiftKey && /^[1-4]$/.test(key)) {
+      handled();
+      chooseVoice(Number(key) - 1);
+      return;
+    }
+    if (key === 'l' && !e.shiftKey) {
+      handled();
+      toggleLegato();
+      return;
+    }
+    const name = { s: 'select', b: 'pencil', e: 'eraser', h: 'pan' }[key];
+    if (name && !e.shiftKey) {
+      handled();
+      setTool(name);
+    }
+  });
   // Space plays and pauses when tapped, and pans while held, as elsewhere.
   let spacePanned = false;
   window.addEventListener('keyup', (e) => {

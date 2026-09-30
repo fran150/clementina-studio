@@ -2,8 +2,7 @@
 // the Animations and Shapes panels, then copy, paste, undo and redo; the
 // right rail holds the frame properties panel and the selected frame's
 // actions.
-import { $, isField } from '../dom.js';
-import { currentView } from '../state.js';
+import { $ } from '../dom.js';
 import { StudioShell } from '../studio-shell.js';
 
 /**
@@ -12,54 +11,38 @@ import { StudioShell } from '../studio-shell.js';
  * @param {any} actions The frame actions (see frames.js).
  */
 export function animationKeys({ copyFrame, cutFrame, pasteFrames, flipFrame, removeFrame }) {
-  window.addEventListener(
-    'keydown',
-    (e) => {
-      if (
-        currentView !== 'animations' ||
-        isField(e.target) ||
-        document.querySelector('dialog[open]')
-      )
-        return;
-      const key = e.key.toLowerCase(),
-        mod = e.ctrlKey || e.metaKey,
-        handled = () => {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-        };
-      if (mod && ['c', 'x', 'v', 'd'].includes(key)) {
-        const done =
-          key === 'd'
-            ? ($('anDuplicateFrame').click(), true)
-            : { c: copyFrame, x: cutFrame, v: pasteFrames }[key]();
-        if (done || key === 'd') handled();
-        return;
-      }
-      if (mod || e.altKey) return;
-      if (e.shiftKey && (key === 'h' || key === 'v')) {
-        handled();
-        flipFrame(key === 'h' ? 'x' : 'y');
-        return;
-      }
-      // Keys a focused button or frame card already answers are left to it.
-      if (/** @type {HTMLElement} */ (e.target).closest?.('button,[role="option"]')) return;
-      if (e.code === 'Space') {
-        handled();
-        $('anPlay').click();
-        return;
-      }
-      if (key === 'arrowleft' || key === 'arrowright') {
-        handled();
-        (key === 'arrowleft' ? $('anPrevious') : $('anNext')).click();
-        return;
-      }
-      if (key === 'delete' || key === 'backspace') {
-        handled();
-        removeFrame();
-      }
-    },
-    true,
-  );
+  StudioShell.viewKeys('animations', (e, { key, mod, handled }) => {
+    if (mod && ['c', 'x', 'v', 'd'].includes(key)) {
+      const done =
+        key === 'd'
+          ? ($('anDuplicateFrame').click(), true)
+          : { c: copyFrame, x: cutFrame, v: pasteFrames }[key]();
+      if (done || key === 'd') handled();
+      return;
+    }
+    if (mod || e.altKey) return;
+    if (e.shiftKey && (key === 'h' || key === 'v')) {
+      handled();
+      flipFrame(key === 'h' ? 'x' : 'y');
+      return;
+    }
+    // Keys a focused button or frame card already answers are left to it.
+    if (/** @type {HTMLElement} */ (e.target).closest?.('button,[role="option"]')) return;
+    if (e.code === 'Space') {
+      handled();
+      $('anPlay').click();
+      return;
+    }
+    if (key === 'arrowleft' || key === 'arrowright') {
+      handled();
+      (key === 'arrowleft' ? $('anPrevious') : $('anNext')).click();
+      return;
+    }
+    if (key === 'delete' || key === 'backspace') {
+      handled();
+      removeFrame();
+    }
+  });
 }
 
 /**

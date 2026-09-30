@@ -12,7 +12,6 @@ import { StudioAudio } from './audio-shared.js';
 import { canAdd, copyAsset, newId, removeAt } from './domain/assets.js';
 import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
 import { $ } from './dom.js';
-import { newProject, redrawAll, restoreStudioProject, showView } from './lifecycle.js';
 import { play, soundKeys, soundZoom } from './sound/controls.js';
 import { copyFrames, cutFrames, pasteFrames } from './sound/editing.js';
 import { canvas, clampScroll, fitLevel, frameX, lanes } from './sound/geometry.js';
@@ -21,11 +20,23 @@ import { canvasPointer } from './sound/pointer.js';
 import { buildPresets, soundProps, syncProps } from './sound/props.js';
 import { soundRails } from './sound/rails.js';
 import { draw, sync } from './sound/view.js';
-import { currentView, sounds } from './state.js';
+import { sounds } from './state.js';
 import { setStatus } from './status.js';
 import { StudioShell } from './studio-shell.js';
 
 const host = $('soundEditor');
+const workspace = StudioShell.defineEditor({
+  view: 'sounds',
+  host,
+  render,
+  status: $('sfStatus'),
+  onHide: () => (sf.hover = null),
+  onLeave: StudioAudio.stop,
+  onReset: () => {
+    StudioAudio.stop();
+    sf.selection = null;
+  },
+});
 
 // ===== the parts =====
 StudioShell.editActions('sounds', { copy: copyFrames, cut: cutFrames, paste: pasteFrames });
@@ -93,11 +104,7 @@ soundProps();
 // ===== rendering =====
 /** Redraws the whole editor: the list, bars, tools, properties and canvas. */
 function render() {
-  host.hidden = currentView !== 'sounds';
-  if (host.hidden) {
-    sf.hover = null;
-    return;
-  }
+  if (!workspace.shown()) return;
   sf.soundIndex = Math.max(0, Math.min(sf.soundIndex, sounds.length - 1));
   const s = sound();
   $('sfEmpty').hidden = !!s;
@@ -166,7 +173,6 @@ new ResizeObserver(() => {
   if (!host.hidden) render();
 }).observe($('sfStage'));
 document.addEventListener('miaaudioready', () => render());
-StudioShell.viewStatus('sounds', $('sfStatus'));
 // Where a frame's column crosses a lane, `t` of the way down it: for driving
 // the lanes with real pointer input in tests/desktop-audio.cjs.
 /** @type {any} */ (host).pointAt = (frame, key, t = 0.5) => {
@@ -175,21 +181,4 @@ StudioShell.viewStatus('sounds', $('sfStatus'));
   return { x: r.left + frameX(frame + 0.5), y: r.top + lane.top + t * lane.height };
 };
 export { render as renderSounds };
-redrawAll.after(() => {
-  render();
-});
-showView.before((v) => {
-  if (v !== 'sounds' && currentView === 'sounds') StudioAudio.stop();
-});
-showView.after(() => {
-  render();
-});
-newProject.before(() => {
-  StudioAudio.stop();
-  sf.selection = null;
-});
-restoreStudioProject.before(() => {
-  StudioAudio.stop();
-  sf.selection = null;
-});
 render();

@@ -213,35 +213,26 @@ export function canvasPointer() {
     e.preventDefault();
     if (!shape()) return;
     const sel = sc.selected.size > 0;
-    StudioShell.contextMenu(e.clientX, e.clientY, [
-      { label: 'Cut', hint: 'Mod+X', disabled: !sel, run: cutSprites },
-      { label: 'Copy', hint: 'Mod+C', disabled: !sel, run: copySprites },
-      {
-        label: 'Paste',
-        hint: 'Mod+V',
-        disabled: !StudioShell.clipboard.has('sprites'),
-        run: pasteSprites,
+    StudioShell.editMenu(e, {
+      selected: sel,
+      kind: 'sprites',
+      cut: cutSprites,
+      copy: copySprites,
+      paste: pasteSprites,
+      duplicate: duplicateSprites,
+      remove: () => $('scRemove').click(),
+      flip,
+      arrange: [
+        { label: 'Bring to front', disabled: !sel, run: () => moveToEnd(true) },
+        { label: 'Move up', disabled: !sel, run: () => moveSelection(1) },
+        { label: 'Move down', disabled: !sel, run: () => moveSelection(-1) },
+        { label: 'Send to back', disabled: !sel, run: () => moveToEnd(false) },
+      ],
+      selectAll: () => {
+        sc.selected = new Set(spritesOf().map((_, i) => i));
+        sc.render();
       },
-      { label: 'Duplicate', hint: 'Mod+D', disabled: !sel, run: duplicateSprites },
-      { label: 'Delete', hint: 'Delete', disabled: !sel, run: () => $('scRemove').click() },
-      '-',
-      { label: 'Flip horizontally', hint: 'Shift+H', disabled: !sel, run: () => flip('x') },
-      { label: 'Flip vertically', hint: 'Shift+V', disabled: !sel, run: () => flip('y') },
-      '-',
-      { label: 'Bring to front', disabled: !sel, run: () => moveToEnd(true) },
-      { label: 'Move up', disabled: !sel, run: () => moveSelection(1) },
-      { label: 'Move down', disabled: !sel, run: () => moveSelection(-1) },
-      { label: 'Send to back', disabled: !sel, run: () => moveToEnd(false) },
-      '-',
-      {
-        label: 'Select all',
-        hint: 'Mod+A',
-        run: () => {
-          sc.selected = new Set(spritesOf().map((_, i) => i));
-          sc.render();
-        },
-      },
-    ]);
+    });
   };
   canvas.onpointercancel = () => {
     sc.drag = null;

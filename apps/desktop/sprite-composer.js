@@ -8,13 +8,7 @@
 
 import { MAX_CANVAS_HEIGHT, MAX_CANVAS_WIDTH } from './domain/shapes.js';
 import { $ } from './dom.js';
-import {
-  newProject,
-  redrawAll,
-  renderAnimations,
-  restoreStudioProject,
-  showView,
-} from './lifecycle.js';
+import { renderAnimations, showView } from './lifecycle.js';
 import { topBarControls, shapeKeys, shapeZoom } from './shape/controls.js';
 import {
   copySprites,
@@ -46,11 +40,26 @@ import {
 import { canvasPointer, tilePickerPointer } from './shape/pointer.js';
 import { shapeRails } from './shape/rails.js';
 import { draw, drawBank, fit } from './shape/view.js';
-import { currentView, setShapeIndex, shapeIndex, shapes, tilesets } from './state.js';
+import { setShapeIndex, shapeIndex, shapes, tilesets } from './state.js';
 
 import { StudioShell } from './studio-shell.js';
 
 const host = $('spriteComposer');
+const workspace = StudioShell.defineEditor({
+  view: 'shapes',
+  host,
+  render,
+  status: $('scStatus'),
+  onHide: hideGhost,
+  onShow: (view) => {
+    if (view === 'shapes') fit();
+  },
+  onReset: () => {
+    sc.selected.clear();
+    sc.placing = false;
+    sc.originTool = false;
+  },
+});
 // Built this early, before anything below wires up onclick handlers by id,
 // since these buttons don't exist in the static template above.
 const iconButton = (id, label, icon) => StudioShell.iconButton(id, label, icon);
@@ -75,11 +84,7 @@ host.append(
 // ===== rendering =====
 /** Redraws the whole editor: the bars, panels, sprite list and canvas. */
 function render() {
-  host.hidden = currentView !== 'shapes';
-  if (host.hidden) {
-    hideGhost();
-    return;
-  }
+  if (!workspace.shown()) return;
   const a = shape();
   $('scGroupTitle').textContent = a?.name ?? 'No shapes';
   $('scEmpty').hidden = !!a;
@@ -212,28 +217,10 @@ shapeKeys();
 shapeRails();
 
 // ===== wiring =====
-restoreStudioProject.before(() => {
-  sc.selected.clear();
-  sc.placing = false;
-  sc.originTool = false;
-});
-newProject.before(() => {
-  sc.selected.clear();
-  sc.placing = false;
-  sc.originTool = false;
-});
 renderAnimations.after(() => {
-  render();
-});
-showView.after((v) => {
-  render();
-  if (v === 'shapes') fit();
-});
-redrawAll.after(() => {
   render();
 });
 planePicker();
 mountGhost();
-StudioShell.viewStatus('shapes', $('scStatus'));
 new ResizeObserver(() => draw()).observe($('scViewport'));
 render();

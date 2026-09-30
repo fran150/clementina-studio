@@ -4,18 +4,23 @@
 // This file holds rendering and wiring; its parts live in palettes/: the
 // shared model, copy and paste, the rail, the palette list, bank configs and
 // the color swatches.
-import { $, isField } from './dom.js';
-import { renderPaletteLibrary, showView } from './lifecycle.js';
+import { $ } from './dom.js';
 import { copyPalette, pastePalette } from './palettes/clipboard.js';
 import { colorInput, renderColors } from './palettes/colors.js';
 import { configActions, renderConfigs } from './palettes/configs.js';
 import { libraryActions, renderPaletteList } from './palettes/library.js';
 import { palette, pl } from './palettes/model.js';
 import { paletteRails } from './palettes/rails.js';
-import { activeConfig, currentView, paletteConfigs, paletteLibrary } from './state.js';
+import { activeConfig, paletteConfigs, paletteLibrary } from './state.js';
 import { StudioShell } from './studio-shell.js';
 
 const host = $('paletteWorkspace');
+const workspace = StudioShell.defineEditor({
+  view: 'palettes',
+  host,
+  render,
+  status: $('palStatus'),
+});
 paletteRails();
 libraryActions();
 configActions();
@@ -23,7 +28,7 @@ configActions();
 // ===== rendering =====
 /** Redraws the library: configs, bars, the open palette's colors and the list. */
 function render() {
-  if (host.hidden) return;
+  if (!workspace.shown()) return;
   renderConfigs();
   if (pl.index >= paletteLibrary.length) pl.index = Math.max(0, paletteLibrary.length - 1);
   const entry = palette();
@@ -42,23 +47,9 @@ pl.render = render;
 
 // ===== wiring =====
 colorInput();
-window.addEventListener(
-  'keydown',
-  (event) => {
-    if (currentView !== 'palettes' || !(event.metaKey || event.ctrlKey) || isField(event.target))
-      return;
-    const key = event.key.toLowerCase();
-    if (key !== 'c' && key !== 'v') return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    if (key === 'c') copyPalette();
-    else pastePalette();
-  },
-  true,
-);
-showView.after((view) => {
-  host.hidden = view !== 'palettes';
-  render();
+StudioShell.viewKeys('palettes', (e, { key, mod, handled }) => {
+  if (!mod || (key !== 'c' && key !== 'v')) return;
+  handled();
+  if (key === 'c') copyPalette();
+  else pastePalette();
 });
-StudioShell.viewStatus('palettes', $('palStatus'));
-renderPaletteLibrary.after(render);

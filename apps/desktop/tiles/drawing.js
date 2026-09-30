@@ -297,34 +297,23 @@ export function canvasPointer() {
   $('bankSelection').oncontextmenu = (e) => {
     e.preventDefault();
     if (!asset() || painting()) return;
-    const sel = !!tl.pixelSelection;
-    StudioShell.contextMenu(e.clientX, e.clientY, [
-      { label: 'Cut', hint: 'Mod+X', disabled: !sel, run: cutSelection },
-      { label: 'Copy', hint: 'Mod+C', disabled: !sel, run: copySelection },
-      {
-        label: 'Paste',
-        hint: 'Mod+V',
-        disabled: !StudioShell.clipboard.has('pixels'),
-        run: startPaste,
-      },
-      { label: 'Delete', hint: 'Delete', disabled: !sel, run: clearSelection },
-      '-',
-      {
-        label: 'Flip horizontally',
-        hint: 'Shift+H',
-        disabled: !sel,
-        run: () => transformSelection('horizontal'),
-      },
-      {
-        label: 'Flip vertically',
-        hint: 'Shift+V',
-        disabled: !sel,
-        run: () => transformSelection('vertical'),
-      },
-      { label: 'Rotate 90°', disabled: !sel, run: () => transformSelection('rotate') },
-      '-',
-      { label: 'Select all', hint: 'Mod+A', run: selectAllPixels },
-      { label: 'Deselect', hint: 'Esc', disabled: !sel, run: dropPixelSelection },
-    ]);
+    StudioShell.editMenu(e, {
+      selected: !!tl.pixelSelection,
+      kind: 'pixels',
+      cut: cutSelection,
+      copy: copySelection,
+      paste: startPaste,
+      remove: clearSelection,
+      flip: (axis) => transformSelection(axis === 'x' ? 'horizontal' : 'vertical'),
+      transform: [
+        {
+          label: 'Rotate 90°',
+          disabled: !tl.pixelSelection,
+          run: () => transformSelection('rotate'),
+        },
+      ],
+      selectAll: selectAllPixels,
+      deselect: dropPixelSelection,
+    });
   };
 }

@@ -1,8 +1,7 @@
 // The shape editor's top bar and keyboard: the zoom buttons (the wheel pans
 // the canvas's camera; zooming keeps the art under the pointer in place),
 // the grid, snap, preview and display settings, and the shortcuts.
-import { $, isField } from '../dom.js';
-import { currentView } from '../state.js';
+import { $ } from '../dom.js';
 import { StudioShell } from '../studio-shell.js';
 import {
   copySprites,
@@ -102,65 +101,55 @@ export function topBarControls() {
 
 /** Wires the shortcuts, and resets Space and any drag when the window loses focus. */
 export function shapeKeys() {
-  window.addEventListener(
-    'keydown',
-    (e) => {
-      if (currentView !== 'shapes' || isField(e.target)) return;
-      const key = e.key.toLowerCase();
-      if (e.code === 'Space') {
-        sc.space = true;
-        e.preventDefault();
-        return;
+  StudioShell.viewKeys('shapes', (e, { key, mod, handled }) => {
+    if (e.code === 'Space') {
+      sc.space = true;
+      e.preventDefault();
+      return;
+    }
+    if (key === 'escape') {
+      sc.drag = null;
+      setMode('move');
+      return;
+    }
+    if (mod && key === 'a') {
+      handled();
+      sc.selected = new Set(spritesOf().map((_, i) => i));
+      sc.render();
+      return;
+    }
+    if (mod && ['c', 'x', 'v', 'd'].includes(key)) {
+      const done = { c: copySprites, x: cutSprites, v: pasteSprites, d: duplicateSprites }[key]();
+      if (done || key === 'd') {
+        handled();
       }
-      if (key === 'escape') {
-        sc.drag = null;
-        setMode('move');
-        return;
-      }
-      if ((e.ctrlKey || e.metaKey) && key === 'a') {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        sc.selected = new Set(spritesOf().map((_, i) => i));
-        sc.render();
-        return;
-      }
-      if ((e.ctrlKey || e.metaKey) && ['c', 'x', 'v', 'd'].includes(key)) {
-        const done = { c: copySprites, x: cutSprites, v: pasteSprites, d: duplicateSprites }[key]();
-        if (done || key === 'd') {
+      return;
+    }
+    if (/** @type {HTMLElement} */ (e.target).closest?.('[role="option"]')) return;
+    if (sc.selected.size && ['delete', 'backspace'].includes(key)) {
+      e.preventDefault();
+      $('scRemove').click();
+    }
+    const d = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1] }[key];
+    if (d && sc.selected.size) {
+      e.preventDefault();
+      translate(...d);
+    }
+    if (!mod && !e.altKey) {
+      if (e.shiftKey && (key === 'h' || key === 'v')) {
+        if (sc.selected.size) {
           e.preventDefault();
-          e.stopImmediatePropagation();
+          flip(key === 'h' ? 'x' : 'y');
         }
         return;
       }
-      if (/** @type {HTMLElement} */ (e.target).closest?.('[role="option"]')) return;
-      if (sc.selected.size && ['delete', 'backspace'].includes(key)) {
+      const mode = { v: 'move', s: 'box', h: 'pan' }[key];
+      if (mode) {
         e.preventDefault();
-        $('scRemove').click();
+        setMode(mode);
       }
-      const d = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1] }[
-        key
-      ];
-      if (d && sc.selected.size) {
-        e.preventDefault();
-        translate(...d);
-      }
-      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (e.shiftKey && (key === 'h' || key === 'v')) {
-          if (sc.selected.size) {
-            e.preventDefault();
-            flip(key === 'h' ? 'x' : 'y');
-          }
-          return;
-        }
-        const mode = { v: 'move', s: 'box', h: 'pan' }[key];
-        if (mode) {
-          e.preventDefault();
-          setMode(mode);
-        }
-      }
-    },
-    true,
-  );
+    }
+  });
   window.addEventListener('keyup', (e) => {
     if (e.code === 'Space') sc.space = false;
   });
