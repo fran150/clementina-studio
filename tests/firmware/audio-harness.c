@@ -8,7 +8,8 @@
 //   m <value>                   a write to AUDIO_VOLUME
 //   track <voice> <hex bytes>   bytes at the voice's track base, then AUDIO_SEQ_LOAD
 //   start|stop|take|give <mask> AUDIO_SEQ_START / SEQ_STOP / VOICE_TAKE / VOICE_RELEASE
-//   run <samples>               that many audio interrupts
+//   run <ticks>                 that many sequencer ticks: MIA_AUDIO_SAMPLES_PER_TICK
+//                               audio interrupts, and output samples, each
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,8 +20,14 @@
 static uint8_t ram[256 * 1024];
 uint8_t *mem = ram;
 volatile index_t idx[256];
-uint16_t harness_level[2];
+pwm_hw_t harness_pwm;
 unsigned harness_seq_done;
+
+// A pin's PWM compare level, as the interrupt last wrote it.
+static int harness_level(unsigned pin) {
+    uint32_t cc = harness_pwm.slice[pwm_gpio_to_slice_num(pin)].cc;
+    return (int)((cc >> (pwm_gpio_to_channel(pin) ? 16u : 0u)) & 0xFFFFu);
+}
 
 int main(void) {
     char line[1 << 16];
@@ -63,9 +70,10 @@ int main(void) {
         } else if (!strcmp(cmd, "run")) {
             unsigned count;
             sscanf(line + 3, "%u", &count);
-            for (unsigned i = 0; i < count; i++) {
+            for (unsigned i = 0; i < count * MIA_AUDIO_SAMPLES_PER_TICK; i++) {
                 audio_irq_handler();
-                printf("%d %d\n", (int)harness_level[0] - (int)AUDIO_PWM_CENTER, (int)harness_level[1] - (int)AUDIO_PWM_CENTER);
+                printf("%d %d\n", harness_level(MIA_AUDIO_L_PIN) - (int)AUDIO_PWM_CENTER,
+                       harness_level(MIA_AUDIO_R_PIN) - (int)AUDIO_PWM_CENTER);
             }
         }
     }

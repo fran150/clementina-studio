@@ -3,16 +3,20 @@
 // envelope and pan fields both edit. See docs/audio.md.
 import { $ } from './dom.js';
 
+// Streams count MIA ticks (RATE per second); each tick renders PER_TICK
+// samples at the chip's output rate.
 const RATE = 24000,
+  OUT_RATE = 48000,
+  PER_TICK = OUT_RATE / RATE,
   CHUNK = 2400,
   AHEAD = 0.3;
 let context = null,
   job = null;
-// The context runs at the chip's own sample rate, so the engine's samples
+// The context runs at the chip's own output rate, so the engine's samples
 // play as they are and are resampled once, for the output device, rather
 // than per chunk.
 function audioContext() {
-  if (!context) context = new AudioContext({ sampleRate: RATE, latencyHint: 'interactive' });
+  if (!context) context = new AudioContext({ sampleRate: OUT_RATE, latencyHint: 'interactive' });
   if (context.state === 'suspended') context.resume();
   return context;
 }
@@ -38,13 +42,13 @@ function play(stream, { onEnd, origin = 0 } = {}) {
   const pump = () => {
     if (job !== j) return;
     while (!j.stream.finished && j.start + j.scheduled / RATE < c.currentTime + AHEAD) {
-      const left = new Float32Array(CHUNK),
-        right = new Float32Array(CHUNK),
+      const left = new Float32Array(CHUNK * PER_TICK),
+        right = new Float32Array(CHUNK * PER_TICK),
         n = j.stream.render(left, right, CHUNK);
       if (!n) break;
-      const buffer = c.createBuffer(2, n, RATE);
-      buffer.copyToChannel(left.subarray(0, n), 0);
-      buffer.copyToChannel(right.subarray(0, n), 1);
+      const buffer = c.createBuffer(2, n * PER_TICK, OUT_RATE);
+      buffer.copyToChannel(left.subarray(0, n * PER_TICK), 0);
+      buffer.copyToChannel(right.subarray(0, n * PER_TICK), 1);
       const source = c.createBufferSource();
       source.buffer = buffer;
       source.connect(c.destination);

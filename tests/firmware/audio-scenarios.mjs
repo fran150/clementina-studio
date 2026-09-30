@@ -83,9 +83,9 @@ export function runEngine(audio, scenario) {
   else if (command === 'take') engine.take(args[0]);
   else if (command === 'give') engine.release(args[0]);
   else if (command === 'run') {
-   const left = new Float32Array(args[0]), right = new Float32Array(args[0]);
+   const samples = args[0] * audio.OUTPUT_PER_TICK, left = new Float32Array(samples), right = new Float32Array(samples);
    engine.render(args[0], left, right);
-   for (let i = 0; i < args[0]; i++) out.push([Math.round(left[i] * 512), Math.round(right[i] * 512)]);
+   for (let i = 0; i < samples; i++) out.push([Math.round(left[i] * 512), Math.round(right[i] * 512)]);
   }
  }
  return out;

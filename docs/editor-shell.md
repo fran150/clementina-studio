@@ -150,7 +150,8 @@ model mutation, undo and canvas geometry stay in each editor.
   shell, as `StudioAudio`: `play(stream)`, `stop()` and `position()` play a
   stream from the MIA engine (`window.MiaAudio`, the compiled
   `packages/assets/audio.ts`, loaded by `editor.html` as a module) through a
-  24 kHz `AudioContext`, a chunk at a time; `envelopeRows`, `syncEnvelope`,
+  48 kHz `AudioContext` (the chip's output rate: two samples per 24 kHz tick
+  the streams count in), a chunk at a time; `envelopeRows`, `syncEnvelope`,
   `bindEnvelope` and `drawEnvelope` are the envelope fields and the curve the
   engine draws; `bindRange` makes one slider drag one undo step; and
   `voiceColors` is the color each of MIA's four voices draws in. Its

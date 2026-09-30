@@ -9,7 +9,11 @@ is to graphics. The hardware sources are clementina-mia's
 ## What the hardware has
 
 MIA's audio is a small programmable sound generator, not sample playback:
-four voices mixed to stereo 10-bit PWM at 24 000 samples a second. Each voice
+four voices mixed to stereo 10-bit PWM at 48 000 samples a second, on a clock
+of 24 000 ticks a second. Register writes, the sequencer and the envelopes step
+once per tick; the oscillators run on every output sample. Everywhere below, a
+"sample" of time — a duration, a song position, `SAMPLE_RATE` — means one of
+those 24 kHz ticks, and the engine plays two output samples for each. Each voice
 is a 16-byte register record at `$12010 + 16·v`:
 
 | Register | Range | Meaning |

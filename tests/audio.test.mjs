@@ -29,6 +29,7 @@ const {
   defaultInstruments,
   newSong,
   newSound,
+  OUTPUT_PER_TICK,
 } = audio;
 
 // What clementina-mia's src/mia/audio/audio.c played for each scenario in
@@ -36,11 +37,11 @@ const {
 // firmware on the desktop and compares every sample; rerun it and update
 // these when the firmware's audio changes.
 const FIRMWARE = {
-  voices: '033b7770',
-  song: '98844dbc',
-  once: 'ed714c9f',
-  sounds: '16d5ff11',
-  take: '9378acf5',
+  voices: '7226dc8a',
+  song: '4da1bb39',
+  once: '4c26d169',
+  sounds: 'ac80631d',
+  take: 'f9a36151',
 };
 
 test('the engine plays every scenario sample for sample as the firmware does', () => {
@@ -321,12 +322,12 @@ test('a sound writes its whole record on the first frame, then only what changes
 
 test('streams play to the end of their release', () => {
   const render = (stream) => {
-    const l = new Float32Array(4800),
-      r = new Float32Array(4800);
+    const l = new Float32Array(4800 * OUTPUT_PER_TICK),
+      r = new Float32Array(4800 * OUTPUT_PER_TICK);
     let total = 0,
       heard = 0;
     for (let n; (n = stream.render(l, r, 4800)); total += n)
-      heard += l.subarray(0, n).filter(Boolean).length;
+      heard += l.subarray(0, n * OUTPUT_PER_TICK).filter(Boolean).length;
     return { total, heard };
   };
   const sound = { ...newSound('x', 'X'), ...generateSound('coin', 4) };
@@ -349,18 +350,18 @@ test('playing a song from partway sounds exactly as it would there', () => {
     loopStart: 0,
   };
   const take = (stream, n) => {
-    const l = new Float32Array(n),
-      r = new Float32Array(n);
+    const l = new Float32Array(n * OUTPUT_PER_TICK),
+      r = new Float32Array(n * OUTPUT_PER_TICK);
     stream.render(l, r, n);
     return [...l, ...r];
   };
   const whole = songStream(s, instruments),
-    l = new Float32Array(20000),
-    r = new Float32Array(20000);
+    l = new Float32Array(20000 * OUTPUT_PER_TICK),
+    r = new Float32Array(20000 * OUTPUT_PER_TICK);
   whole.render(l, r, 20000);
   assert.deepEqual(take(songStream(s, instruments, { from: 7000 }), 13000), [
-    ...l.slice(7000),
-    ...r.slice(7000),
+    ...l.slice(7000 * OUTPUT_PER_TICK),
+    ...r.slice(7000 * OUTPUT_PER_TICK),
   ]);
   const muted = take(songStream(s, instruments, { mutes: [true, true] }), 5000);
   assert.ok(

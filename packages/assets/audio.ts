@@ -8,10 +8,10 @@
 // sine table, oscillators and noise generator, envelope rate and level
 // tables, fixed-point gain chain, pan law and 10-bit output clamp — and the
 // same sequencer, timing included. The sequencer holds a NOTE or REST for its
-// duration field *plus one* sample: audio_seq_step decodes the next event on
-// the sample after its countdown reaches zero (clementina-6502's
+// duration field *plus one* tick: audio_seq_step decodes the next event on
+// the tick after its countdown reaches zero (clementina-6502's
 // audio_sequencer_test.go asserts the same), so the compiler writes one less
-// than the samples an event should last. A preview is what the chip
+// than the ticks an event should last. A preview is what the chip
 // plays, sample for sample, before its PWM output stage.
 //
 // The renderer loads this module as it is; editor.html's import map resolves
@@ -31,7 +31,15 @@ import {
 export { compileSong, noteFrequency, soundWrites, stepSample };
 export type { CompiledSong, CompiledVoice } from '@clementina/assets/audio';
 
+/**
+ * SAMPLE_RATE is MIA's tick rate: the sequencer, the envelopes and register
+ * writes step once per tick, and every time here (song positions, event
+ * durations, write times) counts ticks. The chip plays OUTPUT_PER_TICK samples
+ * per tick, at OUTPUT_RATE.
+ */
 export const SAMPLE_RATE = AUDIO_SAMPLE_RATE,
+  OUTPUT_RATE = 48000,
+  OUTPUT_PER_TICK = OUTPUT_RATE / SAMPLE_RATE,
   VOICE_COUNT = AUDIO_VOICE_COUNT,
   FRAME_RATE = 60,
   FRAME_SAMPLES = SAMPLE_RATE / FRAME_RATE;
@@ -299,7 +307,7 @@ interface Sequencer {
 const RECORD_SIZE = [0, 6, 4, 2, 3, 2, 2, 2, 4];
 const read24 = (b: Uint8Array, at: number) => (b[at] | (b[at + 1] << 8) | (b[at + 2] << 16)) >>> 0;
 
-/** MIA's audio block and sequencer, as audio.c runs them in its 24 kHz interrupt. */
+/** MIA's audio block and sequencer, as audio.c runs them in its 48 kHz interrupt (a 24 kHz tick). */
 export class MiaEngine {
   /** Each voice's 16-byte register record, as MIA RAM holds it. */
   readonly regs = new Uint8Array(16 * VOICE_COUNT);
@@ -418,8 +426,8 @@ export class MiaEngine {
       case REG.FREQ_L:
       case REG.FREQ_H:
         s.freq = this.regs[b] | (this.regs[b + 1] << 8);
-        // (freq_q4 << 32) / (24000 * 16), exactly: 2^32 / 384000 is 2^22 / 375.
-        s.inc = s.freq ? Math.floor((s.freq * 4194304) / 375) : 0;
+        // (freq_q4 << 32) / (OUTPUT_RATE * 16), exactly: 2^32 / 768000 is 2^21 / 375.
+        s.inc = s.freq ? Math.floor((s.freq * 2097152) / 375) : 0;
         break;
       case REG.PULSE_WIDTH:
         s.pulse = value;
@@ -516,8 +524,10 @@ export class MiaEngine {
   }
 
   /**
-   * Runs `count` samples, writing them as floats in [-1, 1) from `offset` in
-   * `left` and `right` when given. The body is audio_irq_handler.
+   * Runs `count` ticks: each is audio_irq_handler's control step (register
+   * writes, sequencer, envelopes) and then its OUTPUT_PER_TICK samples,
+   * written as floats in [-1, 1) from sample `offset * OUTPUT_PER_TICK` in
+   * `left` and `right` when given.
    */
   render(count: number, left?: Float32Array, right?: Float32Array, offset = 0): void {
     const voices = this.voices;
@@ -525,22 +535,25 @@ export class MiaEngine {
       this.clock = (this.clock + 1) >>> 0;
       if (this.queue.length || this.overflow) this.drain();
       for (let v = 0; v < VOICE_COUNT; v++) this.step(v);
-      let l = 0,
-        r = 0;
-      for (let v = 0; v < VOICE_COUNT; v++) {
-        const s = voices[v];
-        let x = next(s);
-        envelopeStep(s);
-        x = (x * (s.vol >>> 16)) >> 8;
-        x = (x * s.volume) >> 8;
-        l += (x * s.panL) >> 7;
-        r += (x * s.panR) >> 7;
-      }
+      for (let v = 0; v < VOICE_COUNT; v++) envelopeStep(voices[v]);
       const gain = (this.master & 15) * 17;
-      l = (l * gain) >> 8;
-      r = (r * gain) >> 8;
-      if (left) left[offset + n] = Math.max(OUT_MIN, Math.min(OUT_MAX, l)) / OUT_SCALE;
-      if (right) right[offset + n] = Math.max(OUT_MIN, Math.min(OUT_MAX, r)) / OUT_SCALE;
+      for (let k = 0; k < OUTPUT_PER_TICK; k++) {
+        let l = 0,
+          r = 0;
+        for (let v = 0; v < VOICE_COUNT; v++) {
+          const s = voices[v];
+          let x = next(s);
+          x = (x * (s.vol >>> 16)) >> 8;
+          x = (x * s.volume) >> 8;
+          l += (x * s.panL) >> 7;
+          r += (x * s.panR) >> 7;
+        }
+        l = (l * gain) >> 8;
+        r = (r * gain) >> 8;
+        const at = (offset + n) * OUTPUT_PER_TICK + k;
+        if (left) left[at] = Math.max(OUT_MIN, Math.min(OUT_MAX, l)) / OUT_SCALE;
+        if (right) right[at] = Math.max(OUT_MIN, Math.min(OUT_MAX, r)) / OUT_SCALE;
+      }
     }
   }
 
@@ -761,9 +774,12 @@ export function songSample(
 // ---------------------------------------------------------------------------
 
 export interface AudioStream {
-  /** Renders up to `count` samples into both channels from `offset`; returns how many, 0 once finished. */
+  /**
+   * Renders up to `count` ticks from tick `offset` into both channels,
+   * OUTPUT_PER_TICK samples each; returns how many ticks, 0 once finished.
+   */
   render(left: Float32Array, right: Float32Array, count: number, offset?: number): number;
-  /** Samples rendered so far. */
+  /** Ticks rendered so far. */
   readonly position: number;
   readonly finished: boolean;
 }
