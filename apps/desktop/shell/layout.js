@@ -85,7 +85,7 @@ export function emptyEditor(host, empty) {
 }
 // Each editor's status line — sizes, counts, what is under the pointer —
 // shows in the one status bar, beside the app's messages.
-export const viewStatuses = new Map();
+const viewStatuses = new Map();
 export function viewStatus(view, element) {
   viewStatuses.set(view, element);
   $('viewStatus').append(element);

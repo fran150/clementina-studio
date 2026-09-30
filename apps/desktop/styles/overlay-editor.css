@@ -120,13 +120,6 @@
   border-top: 1px solid var(--line);
   padding: 10px 18px;
 }
-#ovStatus {
-  padding: 6px 18px;
-  font-size: 10px;
-  color: var(--text-dim);
-  background: var(--panel);
-  border-top: 1px solid var(--line);
-}
 .ovTileLibrary strong {
   display: block;
   font-size: 10px;

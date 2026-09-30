@@ -57,11 +57,6 @@
   touch-action: none;
   outline: none;
 }
-#scStatus {
-  padding: 6px 10px;
-  font-size: 10px;
-  color: var(--text-dim);
-}
 #scPaletteDock {
   width: 100%;
   align-self: stretch;

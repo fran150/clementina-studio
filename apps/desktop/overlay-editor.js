@@ -231,7 +231,6 @@ $('ovPhHeight').onchange = () => applyPlaceholderField($('ovPhHeight'), 'height'
 
 function render() {
   host.hidden = currentView !== 'overlays';
-  document.body.classList.toggle('overlayView', !host.hidden);
   if (host.hidden) {
     editor.clearHover();
     return;

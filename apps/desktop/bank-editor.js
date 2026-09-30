@@ -59,7 +59,6 @@ document.addEventListener('studiohistory', () => {
 /** Redraws the whole editor: libraries, bars, tools, the map, canvas and dock. */
 function render() {
   host.hidden = currentView !== 'tiles';
-  document.body.classList.toggle('drawingView', !host.hidden);
   if (host.hidden) {
     tl.hovering = false;
     return;

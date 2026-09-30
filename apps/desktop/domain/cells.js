@@ -30,7 +30,7 @@ export function isBlank(cell) {
 }
 
 /** Whether (col, row) lies inside the grid. */
-export function inGrid(grid, col, row) {
+function inGrid(grid, col, row) {
   return col >= 0 && row >= 0 && col < grid.width && row < grid.height;
 }
 

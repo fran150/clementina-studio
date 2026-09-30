@@ -130,7 +130,6 @@ $('bgResize').onclick = () =>
 
 function render() {
   host.hidden = currentView !== 'backgrounds';
-  document.body.classList.toggle('backgroundView', !host.hidden);
   if (host.hidden) {
     editor.clearHover();
     return;

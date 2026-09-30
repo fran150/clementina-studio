@@ -83,9 +83,6 @@
   border: 1px solid var(--line);
   padding: 5px;
 }
-#bankFiles option {
-  padding: 7px;
-}
 #bankFiles {
   border: 1px solid var(--line);
   background: var(--bg);
@@ -264,11 +261,6 @@
 #drawingOptions details p {
   display: block;
   max-width: 380px;
-}
-#drawingStatus {
-  padding: 5px 18px;
-  font-size: 11px;
-  color: var(--text-dim);
 }
 
 #toolOptions {

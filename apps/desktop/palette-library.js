@@ -61,7 +61,6 @@ window.addEventListener(
 );
 showView.after((view) => {
   host.hidden = view !== 'palettes';
-  document.body.classList.toggle('paletteWorkspaceView', view === 'palettes');
   render();
 });
 StudioShell.viewStatus('palettes', $('palStatus'));
