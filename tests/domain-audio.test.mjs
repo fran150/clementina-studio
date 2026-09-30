@@ -11,7 +11,6 @@ import {
   inversionAxis,
   resizeFrames,
   reverseFrames,
-  semitoneFreq,
   transposeFrames,
 } from '../apps/desktop/domain/sounds.js';
 import {
@@ -29,18 +28,18 @@ import {
   shiftedNotes,
 } from '../apps/desktop/domain/songs.js';
 
-const A4 = semitoneFreq(audio, 57);
+const A4 = audio.noteFrequency(57);
 const frame = (freq, volume = 200) => ({ freq, volume, pulse: 128, wave: 0, gate: true });
 
 test('pitch conversions round-trip through semitones', () => {
   assert.equal(A4, 440 * 16);
-  assert.equal(Math.round(audio.frequencyNote(semitoneFreq(audio, 60))), 60);
+  assert.equal(Math.round(audio.frequencyNote(audio.noteFrequency(60))), 60);
   assert.deepEqual(ZERO, { freq: 0, volume: 0, pulse: 0, wave: 0, gate: false });
 });
 
 test('lines between frames sweep evenly', () => {
-  const up = semitoneFreq(audio, 69);
-  assert.equal(interpolate(audio, 'freq', A4, up, 0.5, true), semitoneFreq(audio, 63));
+  const up = audio.noteFrequency(69);
+  assert.equal(interpolate(audio, 'freq', A4, up, 0.5, true), audio.noteFrequency(63));
   assert.equal(interpolate(audio, 'freq', 0, up, 0.4, true), 0);
   assert.equal(interpolate(audio, 'freq', 0, up, 0.6, true), up);
   assert.equal(interpolate(audio, 'volume', 0, 255, 0.5, true), 128);
@@ -48,9 +47,9 @@ test('lines between frames sweep evenly', () => {
 });
 
 test('transpose, reverse and invert change only the range', () => {
-  const frames = [frame(A4), frame(0), frame(semitoneFreq(audio, 60), 1), frame(A4)];
+  const frames = [frame(A4), frame(0), frame(audio.noteFrequency(60), 1), frame(A4)];
   transposeFrames(audio, frames, { from: 0, to: 3 }, 12);
-  const c4 = semitoneFreq(audio, 60);
+  const c4 = audio.noteFrequency(60);
   assert.deepEqual(
     frames.map((f) => f.freq),
     [A4 * 2, 0, Math.round(c4 * 2), A4],
@@ -58,7 +57,7 @@ test('transpose, reverse and invert change only the range', () => {
   reverseFrames(frames, { from: 0, to: 3 });
   assert.equal(frames[0].volume, 1);
   assert.equal(inversionAxis(audio, [frame(0)], { from: 0, to: 1 }), null);
-  const pair = [frame(semitoneFreq(audio, 57)), frame(semitoneFreq(audio, 60))];
+  const pair = [frame(audio.noteFrequency(57)), frame(audio.noteFrequency(60))];
   invertFrames(audio, pair, { from: 0, to: 2 }, inversionAxis(audio, pair, { from: 0, to: 2 }));
   assert.deepEqual(
     pair.map((f) => Math.round(audio.frequencyNote(f.freq))),

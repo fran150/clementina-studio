@@ -3,6 +3,7 @@
 // and frame readouts beside the canvas.
 import { $ } from '../dom.js';
 import { clamp } from '../domain/geometry.js';
+import { StudioShell } from '../studio-shell.js';
 import { canvas, frameW, frameX, lanes } from './geometry.js';
 import {
   A,
@@ -21,16 +22,7 @@ const host = $('soundEditor');
 /** Draws the canvas. */
 export function draw() {
   if (host.hidden || !sound()) return;
-  const dpr = devicePixelRatio || 1,
-    w = canvas.clientWidth,
-    h = canvas.clientHeight;
-  if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
-    canvas.width = Math.round(w * dpr);
-    canvas.height = Math.round(h * dpr);
-  }
-  const ctx = canvas.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, w, h);
+  const { ctx, w, h } = StudioShell.sizedContext(canvas);
   const list = frames(),
     fw = frameW(),
     ls = lanes(),

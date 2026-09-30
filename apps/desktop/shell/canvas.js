@@ -39,3 +39,23 @@ export function dashedRect(ctx, x, y, width, height, color, backColor = null) {
   }
   ctx.restore();
 }
+
+/**
+ * Sizes a canvas's backing store to its on-screen size at the screen's pixel
+ * density, then returns its context, cleared and scaled so drawing is in CSS
+ * pixels, with that size.
+ * @param {HTMLCanvasElement} canvas
+ */
+export function sizedContext(canvas) {
+  const dpr = devicePixelRatio || 1,
+    w = canvas.clientWidth,
+    h = canvas.clientHeight;
+  if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  return { ctx, w, h };
+}

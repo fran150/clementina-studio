@@ -81,10 +81,12 @@ export function installMenuDismiss() {
  * @property {() => void} cut
  * @property {() => void} copy
  * @property {() => void} paste
+ * @property {string} [pasteLabel] Paste's label, when it says where: 'Paste at the cursor'.
  * @property {() => void} [duplicate] Adds Duplicate (Mod+D) before Delete.
  * @property {() => void} remove
- * @property {(axis: 'x' | 'y') => void} flip
- * @property {object[]} [transform] Items after the two flips, such as Rotate 90°.
+ * @property {(axis: 'x' | 'y') => void} [flip] Adds Flip horizontally (Shift+H)
+ *   and Flip vertically (Shift+V).
+ * @property {object[]} [transform] Items after the flips, such as Rotate 90°.
  * @property {object[]} [arrange] A group of its own before Select all.
  * @property {() => void} selectAll
  * @property {() => void} [deselect] Adds Deselect (Esc) after Select all.
@@ -93,8 +95,8 @@ export function installMenuDismiss() {
 /**
  * Opens a canvas's right-click edit menu at the pointer. Every canvas shares
  * the same items, in the same order and with the same shortcuts: Cut, Copy,
- * Paste, Delete, the two flips, Select all and Deselect. An editor adds its
- * own extras through `duplicate`, `transform` and `arrange`.
+ * Paste, Delete, the flips, Select all and Deselect. An editor adds its own
+ * extras through `duplicate`, `transform` and `arrange`.
  * @param {MouseEvent} e The contextmenu event.
  * @param {EditMenuCommands} c
  */
@@ -104,18 +106,22 @@ export function editMenu(e, c) {
   const items = [
     { label: 'Cut', hint: 'Mod+X', disabled: off, run: c.cut },
     { label: 'Copy', hint: 'Mod+C', disabled: off, run: c.copy },
-    { label: 'Paste', hint: 'Mod+V', disabled: !clipboard.has(c.kind), run: c.paste },
+    {
+      label: c.pasteLabel ?? 'Paste',
+      hint: 'Mod+V',
+      disabled: !clipboard.has(c.kind),
+      run: c.paste,
+    },
   ];
   if (c.duplicate)
     items.push({ label: 'Duplicate', hint: 'Mod+D', disabled: off, run: c.duplicate });
-  items.push(
-    { label: 'Delete', hint: 'Delete', disabled: off, run: c.remove },
-    '-',
-    { label: 'Flip horizontally', hint: 'Shift+H', disabled: off, run: () => c.flip('x') },
-    { label: 'Flip vertically', hint: 'Shift+V', disabled: off, run: () => c.flip('y') },
-    ...(c.transform ?? []),
-    '-',
-  );
+  items.push({ label: 'Delete', hint: 'Delete', disabled: off, run: c.remove }, '-');
+  if (c.flip)
+    items.push(
+      { label: 'Flip horizontally', hint: 'Shift+H', disabled: off, run: () => c.flip('x') },
+      { label: 'Flip vertically', hint: 'Shift+V', disabled: off, run: () => c.flip('y') },
+    );
+  items.push(...(c.transform ?? []), '-');
   if (c.arrange) items.push(...c.arrange, '-');
   items.push({ label: 'Select all', hint: 'Mod+A', run: c.selectAll });
   if (c.deselect) items.push({ label: 'Deselect', hint: 'Esc', disabled: off, run: c.deselect });

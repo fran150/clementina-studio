@@ -10,6 +10,7 @@
 // playback, pointer input, the voice strip, the song and instrument panels,
 // the top bar and keys, and the rails.
 import { StudioAudio } from './audio-shared.js';
+import { syncTools } from './audio/tools.js';
 import { canAdd, clampIndex, copyAsset, newId, removeAt } from './domain/assets.js';
 import { clamp } from './domain/geometry.js';
 import { SYMBOL_NAME, canRename, freshName } from './domain/names.js';
@@ -18,7 +19,7 @@ import { $ } from './dom.js';
 import { musicKeys, musicZoom } from './music/controls.js';
 import { canvas, center, clampScroll, fitLevel, pitchY, stepX } from './music/geometry.js';
 import { instrumentLibrary, instrumentProps, renderInstrumentProps } from './music/instruments.js';
-import { A, ROW_H, RULER_H, edit, instrument, mu, notes, song } from './music/model.js';
+import { A, edit, instrument, mu, notes, ROW_H, RULER_H, song, TOOLS } from './music/model.js';
 import { copyNotes, cutNotes, pasteNotes, selected } from './music/notes.js';
 import { replay, rewind, toggle } from './music/playback.js';
 import { canvasPointer } from './music/pointer.js';
@@ -150,13 +151,7 @@ function render() {
   mu.selection = new Set(notes().filter((n) => mu.selection.has(n)));
   mu.cursor = clamp(mu.cursor, 0, s.length - 1);
   $('muTitle').textContent = s.name;
-  for (const [id, name] of [
-    ['muSelectTool', 'select'],
-    ['muPencilTool', 'pencil'],
-    ['muEraserTool', 'eraser'],
-    ['muPanTool', 'pan'],
-  ])
-    $(id).classList.toggle('on', mu.tool === name);
+  syncTools('mu', TOOLS, mu.tool);
   const playing = StudioAudio.playing() && !mu.audition;
   StudioShell.setIcon(
     $('muPlay'),
