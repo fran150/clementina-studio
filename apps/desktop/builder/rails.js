@@ -1,7 +1,6 @@
 // The builder's rails: the asset library and tools on the left, the
 // properties and Delete on the right, and copy, paste, undo and redo.
 import { $ } from '../dom.js';
-import { ProjectHistory } from '../history.js';
 import { StudioShell } from '../studio-shell.js';
 import { addSlot, copy, paste, remove } from './slots.js';
 
@@ -32,8 +31,7 @@ export function builderRails() {
     [
       action('buCopy', 'Copy slot', 'copy', copy),
       action('buPaste', 'Paste slot', 'paste', paste),
-      action('buUndo', 'Undo', 'undo', ProjectHistory.undo),
-      action('buRedo', 'Redo', 'redo', ProjectHistory.redo),
+      ...StudioShell.historyButtons('bu'),
     ],
   );
   const right = StudioShell.toolRail('buRightRail', 'Builder properties', 'right');

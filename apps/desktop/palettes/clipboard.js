@@ -2,10 +2,9 @@
 // one color when a swatch has focus. A copied color pastes into the swatch
 // with focus, or the one last edited; it is the same clipboard the tileset
 // editor's palette dock copies colors to.
-import { graphicsEdit } from '../bank-editor.js';
 import { setStatus } from '../status.js';
 import { StudioShell } from '../studio-shell.js';
-import { focusedInk, palette, pl } from './model.js';
+import { focusedInk, palette, paletteEdit, pl } from './model.js';
 
 /** Copies the palette, or the focused color; false when there is no palette. */
 export function copyPalette() {
@@ -29,10 +28,10 @@ export function pastePalette() {
   const colors = StudioShell.clipboard.get('palette'),
     color = StudioShell.clipboard.get('color');
   if (colors)
-    graphicsEdit('Paste a palette', () => entry.colors.splice(0, colors.length, ...colors));
+    paletteEdit('Paste a palette', () => entry.colors.splice(0, colors.length, ...colors));
   else if (color !== null) {
     const ink = focusedInk() ?? pl.editing;
-    graphicsEdit('Paste a color', () => (entry.colors[ink] = color));
+    paletteEdit('Paste a color', () => (entry.colors[ink] = color));
   } else return false;
   pl.render();
   return true;

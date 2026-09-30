@@ -2,7 +2,6 @@
 // tools, clipboard and history; the right one opens the properties and
 // holds reverse, invert, transpose, duplicate and delete.
 import { $ } from '../dom.js';
-import { ProjectHistory } from '../history.js';
 import { StudioShell } from '../studio-shell.js';
 import {
   copyFrames,
@@ -69,8 +68,7 @@ export function soundRails() {
     [
       action('sfCopy', 'Copy frames (Ctrl/Cmd+C)', 'copy', copyFrames),
       action('sfPaste', 'Paste frames after the selection (Ctrl/Cmd+V)', 'paste', pasteFrames),
-      action('sfUndo', 'Undo (Ctrl/Cmd+Z)', 'undo', ProjectHistory.undo),
-      action('sfRedo', 'Redo (Ctrl/Cmd+Shift+Z)', 'redo', ProjectHistory.redo),
+      ...StudioShell.historyButtons('sf'),
     ],
   );
   const propsToggle = StudioShell.iconButton(

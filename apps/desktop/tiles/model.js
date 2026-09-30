@@ -95,24 +95,28 @@ export const asset = () => tilesets[tl.index];
 // state, go into the project's one history (history.js). Palettes travel
 // with every tileset edit because drawing records banks the active config
 // arranges; the rare edit that repoints sprite groups folds shapes in too.
-export function remember(withGroups, label = 'Edit the tileset') {
-  ProjectHistory.checkpoint(
-    ['tilesets', 'palettes', ...(withGroups ? ['shapes', 'animations'] : [])],
-    label,
-  );
+const history = ProjectHistory.editor({
+  parts: ['tilesets', 'palettes'],
+  label: 'Edit the tileset',
+  after: () => tl.render(),
+});
+/** The parts an edit changes: shapes and animations too `withGroups`. */
+const partsFor = (withGroups) =>
+  withGroups ? ['tilesets', 'palettes', 'shapes', 'animations'] : undefined;
+/** Records an undo step, labeled `label`, before an edit made in parts. */
+export function remember(withGroups, label) {
+  history.checkpoint(label, partsFor(withGroups));
 }
-/** Marks the project changed and redraws. */
+/** Marks the project changed and redraws, after an edit made in parts. */
 export function changed() {
   markDirty();
   tl.render();
 }
 // An edit's label names it in the history: mutate('Delete X', fn[, withGroups]).
 export function mutate(...args) {
-  const label = typeof args[0] === 'string' ? args.shift() : 'Edit the tileset';
+  const label = typeof args[0] === 'string' ? args.shift() : undefined;
   const [fn, withGroups] = args;
-  remember(withGroups, label);
-  fn();
-  changed();
+  history.edit(label ?? 'Edit the tileset', fn, partsFor(withGroups));
 }
 // One pixel of a tile, on the 1bpp page being viewed.
 export function sample(a, t, x, y) {

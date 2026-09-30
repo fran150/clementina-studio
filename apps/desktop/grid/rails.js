@@ -2,7 +2,6 @@
 // panel toggles, its tools, then copy, paste, undo and redo; the right rail
 // holds the editor's own panel toggles, the flips and Priority the next
 // stamp (or the selection) takes, then clearing the selection.
-import { ProjectHistory } from '../history.js';
 import { StudioShell } from '../studio-shell.js';
 
 /**
@@ -45,8 +44,7 @@ export function gridRails(ed) {
           () => selection.copy() && syncEditActions(),
         ),
         button('Paste', 'Paste (Ctrl/Cmd+V) — click to place it', 'paste', ed.startPaste),
-        button('Undo', 'Undo (Ctrl/Cmd+Z)', 'undo', ProjectHistory.undo),
-        button('Redo', 'Redo (Ctrl/Cmd+Shift+Z)', 'redo', ProjectHistory.redo),
+        ...StudioShell.historyButtons(prefix),
       ],
     );
     const sideRail = StudioShell.toolRail(prefix + 'SideRail', 'Selection', 'right');

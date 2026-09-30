@@ -1,10 +1,9 @@
 // The open palette's eight colors: each swatch opens the color input, and
 // right-click copies, pastes or edits one color.
-import { graphicsEdit } from '../bank-editor.js';
 import { $ } from '../dom.js';
 import { css565, css565ToInput, inputTo565 } from '../state.js';
 import { StudioShell } from '../studio-shell.js';
-import { palette, pl } from './model.js';
+import { palette, paletteEdit, pl } from './model.js';
 
 const host = $('paletteWorkspace');
 
@@ -55,7 +54,7 @@ export function renderColors(entry) {
             disabled: !StudioShell.clipboard.has('color'),
             run: () => {
               const color = StudioShell.clipboard.get('color');
-              graphicsEdit('Paste a color', () => (entry.colors[ink] = color));
+              paletteEdit('Paste a color', () => (entry.colors[ink] = color));
               pl.render();
             },
           },
@@ -82,7 +81,7 @@ export function renderColors(entry) {
 export function colorInput() {
   $('palColorInput').onchange = () => {
     if (!palette()) return;
-    graphicsEdit(
+    paletteEdit(
       'Change a color',
       () => (palette().colors[pl.editing] = inputTo565($('palColorInput').value)),
     );

@@ -8,7 +8,6 @@
 
 import { MAX_CANVAS_HEIGHT, MAX_CANVAS_WIDTH } from './domain/shapes.js';
 import { $ } from './dom.js';
-import { ProjectHistory } from './history.js';
 import {
   newProject,
   redrawAll,
@@ -62,13 +61,8 @@ for (const [id, label, icon] of [
 ])
   $('scShapeActions').append(iconButton(id, label, icon));
 // Undo/redo move into the left rail once it exists (see below); created here,
-// ahead of the onclick wiring further down, since they don't exist in the
-// static template above.
-for (const [id, label, icon] of [
-  ['scUndo', 'Undo (Ctrl/Cmd+Z)', 'undo'],
-  ['scRedo', 'Redo (Ctrl/Cmd+Shift+Z)', 'redo'],
-])
-  host.append(iconButton(id, label, icon));
+// since they don't exist in the static template above.
+host.append(...StudioShell.historyButtons('sc'));
 // Box select likewise moves into the left rail once it exists.
 host.append(
   iconButton(
@@ -131,8 +125,6 @@ function render() {
     !sc.placing && !sc.originTool && !sc.boxSelect && !sc.panMode,
   );
   $('scPanTool').classList.toggle('on', sc.panMode);
-  $('scUndo').disabled = !ProjectHistory.canUndo();
-  $('scRedo').disabled = !ProjectHistory.canRedo();
   $('scCopy').disabled = !sc.selected.size;
   $('scPaste').disabled = !a || !StudioShell.clipboard.has('sprites');
   for (const id of [
@@ -211,8 +203,6 @@ for (const id of ['scWidth', 'scHeight'])
 // ===== the sprites, history and controls =====
 $('scRemove').onclick = removeSprites;
 StudioShell.editActions('shapes', { copy: copySprites, cut: cutSprites, paste: pasteSprites });
-$('scUndo').onclick = ProjectHistory.undo;
-$('scRedo').onclick = ProjectHistory.redo;
 document.addEventListener('studiohistory', () => {
   setShapeIndex(Math.max(0, Math.min(shapeIndex, shapes.length - 1)));
 });

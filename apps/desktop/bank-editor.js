@@ -5,7 +5,6 @@
 // shared model, drawing, the palette dock, pixel selections, pointer input,
 // the libraries, zoom and keys, and the layout.
 import { $ } from './dom.js';
-import { ProjectHistory } from './history.js';
 import { redrawAll, renderBankEditor, showView } from './lifecycle.js';
 import { currentView, inputTo565, setBankColor, tilesets } from './state.js';
 import { StudioShell } from './studio-shell.js';
@@ -99,8 +98,6 @@ function render() {
   $('bankFileMode').value = a.bpp;
   $('bankFilePlane').value = String(tl.plane);
   $('bankFilePlaneLabel').hidden = a.bpp !== 1;
-  $('bankUndo').disabled = !ProjectHistory.canUndo();
-  $('bankRedo').disabled = !ProjectHistory.canRedo();
   $('pencilTool').classList.toggle('on', tl.tool === 'pencil');
   $('eraserTool').classList.toggle('on', tl.tool === 'eraser');
   $('pickerTool').classList.toggle('on', tl.tool === 'picker');
@@ -165,7 +162,6 @@ tl.render = render;
 renderBankEditor.after(render);
 // The palette library panel edits the same shared state, so it shares this history.
 // Its second argument folds sprite groups into the snapshot when an edit repoints them.
-export { mutate as graphicsEdit } from './tiles/model.js';
 redrawAll.after(() => {
   render();
 });

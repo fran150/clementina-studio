@@ -7,6 +7,7 @@
 // Setting up the page's shared parts runs here, in order, once.
 import { bankDock, hoverBankDock, syncBankDock, TRANSPARENT_ZERO } from './shell/bank-dock.js';
 import { clipboard, editActions, installEditCommands } from './shell/clipboard.js';
+import { historyButtons } from './shell/history-buttons.js';
 import { iconButton, icons, setIcon } from './shell/icons.js';
 import {
   bindPanel,
@@ -43,6 +44,7 @@ export const StudioShell = Object.freeze({
   hoverBankDock,
   TRANSPARENT_ZERO,
   iconButton,
+  historyButtons,
   setIcon,
   toolRail,
   railLayout,
