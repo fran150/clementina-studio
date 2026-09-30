@@ -1,5 +1,6 @@
 // Operations every list of assets shares: tilesets, backgrounds, overlays,
 // shapes, animations, sounds, songs and instruments.
+import { clamp } from './geometry.js';
 
 /** A project holds at most this many assets of each kind. */
 export const MAX_ASSETS = 255;
@@ -40,5 +41,5 @@ export function removeAt(list, index) {
 
 /** An index kept within the list, 0 when it is empty. */
 export function clampIndex(list, index) {
-  return Math.max(0, Math.min(index, list.length - 1));
+  return clamp(index, 0, list.length - 1);
 }

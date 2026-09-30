@@ -1,6 +1,7 @@
 // Pointer input: on the canvas (select, move, box-select, pan, drag the origin
 // or the resize corner, place tiles, the context menu, and tiles dropped from
 // the tile picker) and on the tile picker's map (drag to pick tiles).
+import { clamp, rectBetween } from '../domain/geometry.js';
 import {
   MAX_CANVAS_HEIGHT,
   MAX_CANVAS_WIDTH,
@@ -133,8 +134,8 @@ export function canvasPointer() {
     const pos = world(e);
     if (sc.drag.kind === 'origin') {
       sc.drag.point = {
-        x: Math.max(0, Math.min(width(), pos.x)),
-        y: Math.max(0, Math.min(height(), pos.y)),
+        x: clamp(pos.x, 0, width()),
+        y: clamp(pos.y, 0, height()),
       };
       draw();
       return;
@@ -252,13 +253,7 @@ export function canvasPointer() {
 
 /** Wires the pointer on the tile picker: a drag picks a block of tiles to place. */
 export function tilePickerPointer() {
-  const mapCell = (e) => {
-    const r = $('scBankMap').getBoundingClientRect();
-    return {
-      x: Math.max(0, Math.min(15, Math.floor(((e.clientX - r.left) / r.width) * 16))),
-      y: Math.max(0, Math.min(15, Math.floor(((e.clientY - r.top) / r.height) * 16))),
-    };
-  };
+  const mapCell = (e) => StudioShell.pointerCell(e, $('scBankMap'), 16, 16);
   $('scBankMap').tabIndex = 0;
   $('scBankMap').oncontextmenu = (e) => e.preventDefault();
   $('scBankMap').onpointerdown = (e) => {
@@ -273,12 +268,7 @@ export function tilePickerPointer() {
   $('scBankMap').onpointermove = (e) => {
     if (!sc.sourceAnchor) return;
     const p = mapCell(e);
-    sc.sourceRect = {
-      x: Math.min(p.x, sc.sourceAnchor.x),
-      y: Math.min(p.y, sc.sourceAnchor.y),
-      width: Math.abs(p.x - sc.sourceAnchor.x) + 1,
-      height: Math.abs(p.y - sc.sourceAnchor.y) + 1,
-    };
+    sc.sourceRect = rectBetween(sc.sourceAnchor.x, sc.sourceAnchor.y, p.x, p.y);
     drawBank();
   };
   $('scBankMap').onpointerup = () => {

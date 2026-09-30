@@ -17,7 +17,9 @@ import {
   visibleTables,
 } from '../domain/backgrounds.js';
 import { $ } from '../dom.js';
-import { bankColor, css565, overlays, tilePixel } from '../state.js';
+import { clamp } from '../domain/geometry.js';
+import { placedPixel } from '../domain/tilesets.js';
+import { bankColor, css565, overlays } from '../state.js';
 
 /**
  * Wires up the camera preview of the background editor.
@@ -93,9 +95,7 @@ export function backgroundCamera({ host, background, editor, render }) {
             if (!cell) continue;
             const source = cell.chrAlt ? alt : primary;
             if (!source) continue;
-            const cx = cell.flipX ? 7 - px : px,
-              cy = cell.flipY ? 7 - py : py;
-            const ink = tilePixel(source, cell.tile, cx, cy, 0);
+            const ink = placedPixel(source, cell, px, py);
             if (ink === 0) continue;
             ctx.fillStyle = css565(bankColor(cell.paletteBank, ink));
             ctx.fillRect(viewportOrigin.x * 8 + x0 + dx, viewportOrigin.y * 8 + y0 + dy, 1, 1);
@@ -118,8 +118,8 @@ export function backgroundCamera({ host, background, editor, render }) {
     const mode = viewportMode(previewModeId);
     const cols = Math.min(mode.columns, a.width),
       rows = Math.min(mode.rows, a.height);
-    viewportOrigin.x = Math.max(0, Math.min(a.width - cols, viewportOrigin.x));
-    viewportOrigin.y = Math.max(0, Math.min(a.height - rows, viewportOrigin.y));
+    viewportOrigin.x = clamp(viewportOrigin.x, 0, a.width - cols);
+    viewportOrigin.y = clamp(viewportOrigin.y, 0, a.height - rows);
     overlay.hidden = false;
     overlay.style.left = viewportOrigin.x * 8 * zoom + 'px';
     overlay.style.top = viewportOrigin.y * 8 * zoom + 'px';

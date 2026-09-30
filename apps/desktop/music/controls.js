@@ -27,13 +27,7 @@ const host = $('musicEditor');
 export function musicZoom() {
   mu.zoomControls = StudioShell.canvasZoom({
     view: 'music',
-    ids: {
-      fit: 'muFit',
-      actual: 'muActualSize',
-      zoomOut: 'muZoomOut',
-      label: 'muZoomLabel',
-      zoomIn: 'muZoomIn',
-    },
+    prefix: 'mu',
     min: 0.25,
     max: 4,
     get: () => mu.zoom,

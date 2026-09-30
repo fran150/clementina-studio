@@ -10,6 +10,7 @@
 // tile-ID bytes in that region, left-to-right/top-to-bottom; mapping a value
 // (a score, a string) to tile IDs is the programmer's job, not Studio's.
 import { clampIndex, copyAsset, newId, removeAt } from './domain/assets.js';
+import { clamp } from './domain/geometry.js';
 import { FILE_NAME, canRename, freshName } from './domain/names.js';
 import {
   COLUMNS as OVERLAY_COLUMNS,
@@ -215,7 +216,7 @@ function applyPlaceholderField(input, field, min, max) {
   const a = overlay(),
     p = a?.placeholders[placeholderIndex];
   if (!p) return;
-  const value = Math.max(min, Math.min(max, Math.round(Number(input.value)) || min));
+  const value = clamp(Math.round(Number(input.value)) || min, min, max);
   const next = { ...p, [field]: value };
   if (!fitsOverlay(next)) {
     setStatus(`That placeholder would fall outside the ${OVERLAY_COLUMNS} × ${OVERLAY_ROWS} grid.`);
@@ -238,7 +239,7 @@ $('ovPhHeight').onchange = () => applyPlaceholderField($('ovPhHeight'), 'height'
 
 function render() {
   if (!workspace.shown()) return;
-  overlayIndex = Math.min(overlayIndex, Math.max(0, overlays.length - 1));
+  overlayIndex = clampIndex(overlays, overlayIndex);
   const a = overlay();
   $('ovEmpty').hidden = !!a;
   StudioShell.emptyEditor(host, !a);
@@ -311,11 +312,6 @@ $('ovPlaceholderDelete').onclick = () => {
 const library = host.querySelector('.ovLibrary'),
   tileLibrary = host.querySelector('.ovTileLibrary'),
   placeholderLibrary = host.querySelector('.ovPlaceholderLibrary');
-const panelToggle = (panel, id, label, icon, asset = false) => {
-  const b = StudioShell.iconButton(id, label, icon);
-  StudioShell.bindPanel({ panel, button: b, group: 'ovLeft', closeGroups: ['ovLeft'], asset });
-  return b;
-};
 const placeholderPropsToggle = StudioShell.iconButton(
   'ovPlaceholderPropsToggle',
   "Placeholder — the selected one's position and size",
@@ -332,13 +328,21 @@ StudioShell.bindPanel({
 });
 editor.buildRails({
   panels: [
-    panelToggle(library, 'ovLibraryToggle', 'Overlays', 'overlay'),
-    panelToggle(tileLibrary, 'ovTileLibraryToggle', 'Tilesets and tile picker', 'tilePicker', true),
-    panelToggle(
+    StudioShell.panelToggle(library, 'ovLibraryToggle', 'Overlays', 'overlay', 'ovLeft'),
+    StudioShell.panelToggle(
+      tileLibrary,
+      'ovTileLibraryToggle',
+      'Tilesets and tile picker',
+      'tilePicker',
+      'ovLeft',
+      true,
+    ),
+    StudioShell.panelToggle(
       placeholderLibrary,
       'ovPlaceholderLibraryToggle',
       'Placeholders',
       'placeholder',
+      'ovLeft',
       true,
     ),
   ],

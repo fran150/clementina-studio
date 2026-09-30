@@ -23,11 +23,6 @@ export function musicRails() {
     instrumentLibrary = host.querySelector('.muInstrumentLibrary'),
     songProps = host.querySelector('.muSongProps'),
     instrumentProps = host.querySelector('.muInstrumentProps');
-  const panelToggle = (panel, id, label, icon, group, asset = false) => {
-    const b = StudioShell.iconButton(id, label, icon);
-    StudioShell.bindPanel({ panel, button: b, group, closeGroups: [group], asset });
-    return b;
-  };
   const toolButton = (id, label, icon, name) =>
     Object.assign(StudioShell.iconButton(id, label, icon), { onclick: () => setTool(name) });
   const action = (id, label, icon, fn) =>
@@ -38,8 +33,8 @@ export function musicRails() {
     rail,
     [
       [
-        panelToggle(library, 'muLibraryToggle', 'Songs', 'music', 'muLeft'),
-        panelToggle(
+        StudioShell.panelToggle(library, 'muLibraryToggle', 'Songs', 'music', 'muLeft'),
+        StudioShell.panelToggle(
           instrumentLibrary,
           'muInstrumentLibraryToggle',
           'Instruments',
@@ -84,7 +79,7 @@ export function musicRails() {
   host.append(sideRail);
   StudioShell.railLayout(sideRail, [
     [
-      panelToggle(
+      StudioShell.panelToggle(
         songProps,
         'muSongPropsToggle',
         'Song — tempo, length, loop, pans and sequencer size',
@@ -92,7 +87,7 @@ export function musicRails() {
         'muRight',
         true,
       ),
-      panelToggle(
+      StudioShell.panelToggle(
         instrumentProps,
         'muInstrumentPropsToggle',
         'Instrument — waveform, pulse width, volume and envelope',

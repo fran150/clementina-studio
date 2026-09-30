@@ -6,6 +6,7 @@
 // shortcut sheet.
 // Setting up the page's shared parts runs here, in order, once.
 import { bankDock, hoverBankDock, syncBankDock, TRANSPARENT_ZERO } from './shell/bank-dock.js';
+import { dashedRect, pointerCell } from './shell/canvas.js';
 import { clipboard, editActions, installEditCommands } from './shell/clipboard.js';
 import { defineEditor } from './shell/editor.js';
 import { historyButtons } from './shell/history-buttons.js';
@@ -15,6 +16,7 @@ import {
   bindPanel,
   emptyEditor,
   mountNavigation,
+  panelToggle,
   railLayout,
   selectView,
   toolRail,
@@ -23,6 +25,7 @@ import {
 import { assetLibrary } from './shell/library.js';
 import { renderList, renderOptions, startRename } from './shell/lists.js';
 import { contextMenu, editMenu, installMenuDismiss } from './shell/menu.js';
+import { stagePan } from './shell/pan.js';
 import { helpButton, installShortcuts, showShortcuts } from './shell/shortcuts.js';
 import { installTooltips } from './shell/tooltip.js';
 import { canvasCommand, canvasZoom, fitZoom, zoomScrolled } from './shell/zoom.js';
@@ -54,6 +57,7 @@ export const StudioShell = Object.freeze({
   toolRail,
   railLayout,
   bindPanel,
+  panelToggle,
   emptyEditor,
   selectView,
   assetLibrary,
@@ -61,7 +65,10 @@ export const StudioShell = Object.freeze({
   renderOptions,
   startRename,
   fitZoom,
+  pointerCell,
+  dashedRect,
   zoomScrolled,
+  stagePan,
   canvasZoom,
   canvasCommand,
 });

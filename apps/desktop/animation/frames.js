@@ -10,6 +10,7 @@ import {
   toggleFrameFlip,
 } from '../domain/animations.js';
 import { $ } from '../dom.js';
+import { clampIndex } from '../domain/assets.js';
 import { frameIndex, setFrameIndex, setPlaying, shapes, tilesetById } from '../state.js';
 import { setStatus } from '../status.js';
 import { StudioShell } from '../studio-shell.js';
@@ -36,7 +37,7 @@ export function frameActions({ render }) {
     if (!a || a.frames.length < 2) return false;
     edit('Delete a frame', () => {
       a.frames.splice(frameIndex, 1);
-      setFrameIndex(Math.max(0, Math.min(frameIndex, a.frames.length - 1)));
+      setFrameIndex(clampIndex(a.frames, frameIndex));
     });
     return true;
   }
@@ -86,7 +87,7 @@ export function frameActions({ render }) {
   function selectFrame(index) {
     const a = currentAnimation();
     if (!a) return;
-    setFrameIndex(Math.max(0, Math.min(index, a.frames.length - 1)));
+    setFrameIndex(clampIndex(a.frames, index));
     setPlaying(false);
     render();
   }

@@ -1,6 +1,7 @@
 // The shape editor's edits: resizing the canvas, moving the origin, placing
 // tiles, and working on the selected sprites (nudge, flip, remove, the
 // clipboard and draw order). Each is one undoable step.
+import { clamp } from '../domain/geometry.js';
 import {
   MAX_CANVAS_HEIGHT,
   MAX_CANVAS_WIDTH,
@@ -26,8 +27,8 @@ import { edit, height, hideGhost, ox, oy, sc, shape, source, spritesOf, width } 
  * OAM's coordinate range. OAM carries X as 10-bit signed and Y as 9-bit signed.
  */
 export function resizeCanvas(w, h) {
-  w = Math.max(1, Math.min(MAX_CANVAS_WIDTH, Math.round(w)));
-  h = Math.max(1, Math.min(MAX_CANVAS_HEIGHT, Math.round(h)));
+  w = clamp(Math.round(w), 1, MAX_CANVAS_WIDTH);
+  h = clamp(Math.round(h), 1, MAX_CANVAS_HEIGHT);
   const a = shape();
   if (!a) return;
   const { x: nx, y: ny } = resizedOrigin(a, w, h);
@@ -49,8 +50,8 @@ export function resizeCanvas(w, h) {
  * 'bottom-center') or 'custom'.
  */
 export function setOrigin(x, y, anchor = 'custom') {
-  x = Math.max(0, Math.min(width(), x));
-  y = Math.max(0, Math.min(height(), y));
+  x = clamp(x, 0, width());
+  y = clamp(y, 0, height());
   if (
     !shape() ||
     !Number.isInteger(x) ||

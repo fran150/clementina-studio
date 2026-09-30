@@ -2,6 +2,7 @@
 // selection, playhead and ruler, the fixed label column, and the position
 // and frame readouts beside the canvas.
 import { $ } from '../dom.js';
+import { clamp } from '../domain/geometry.js';
 import { canvas, frameW, frameX, lanes } from './geometry.js';
 import {
   A,
@@ -127,7 +128,7 @@ function drawFrames(ctx, list, ls, first, last, semitoneY) {
       ctx.globalAlpha = lane.key === 'pulse' && fr.wave !== 1 ? 0.3 : 1;
       if (lane.key === 'freq') {
         if (!fr.freq) continue;
-        const y = Math.max(lane.top, Math.min(bottom, semitoneY(A().frequencyNote(fr.freq))));
+        const y = clamp(semitoneY(A().frequencyNote(fr.freq)), lane.top, bottom);
         ctx.fillStyle = lane.color + '40';
         ctx.fillRect(x, y, bar, bottom - y);
         ctx.fillStyle = lane.color;

@@ -162,13 +162,7 @@ export function animationPreview({ host, render, actions }) {
   function mountZoom() {
     zoomControls = StudioShell.canvasZoom({
       view: 'animations',
-      ids: {
-        fit: 'anFit',
-        actual: 'anActualSize',
-        zoomOut: 'anZoomOut',
-        label: 'anZoomLabel',
-        zoomIn: 'anZoomIn',
-      },
+      prefix: 'an',
       min: 0.25,
       max: 32,
       get: () => previewZoom,

@@ -33,6 +33,7 @@ import {
   inArea,
   newTileset,
   patternAt,
+  placedPixel,
   setAreaPixel,
   setTilePixel,
   shapePixels,
@@ -97,6 +98,15 @@ test('tile pixels read and write each plane', () => {
   setTilePixel(mono, 0, 0, 0, 7, 2);
   assert.equal(tilePixel(mono, 0, 0, 0, 2), 1, 'a 1bpp page holds one bit');
   assert.equal(tilePixel(mono, 0, 0, 0, 0), 0, 'other pages are untouched');
+});
+
+test('a placed tile reads its pixels through its flips', () => {
+  const t = newTileset('id', 'Tiles');
+  setTilePixel(t, 4, 1, 2, 3);
+  assert.equal(placedPixel(t, { tile: 4, flipX: false, flipY: false }, 1, 2), 3);
+  assert.equal(placedPixel(t, { tile: 4, flipX: true, flipY: false }, 6, 2), 3);
+  assert.equal(placedPixel(t, { tile: 4, flipX: false, flipY: true }, 1, 5), 3);
+  assert.equal(placedPixel(t, { tile: 4, flipX: true, flipY: true }, 6, 5), 3);
 });
 
 test('drawing areas map pixels to tiles', () => {

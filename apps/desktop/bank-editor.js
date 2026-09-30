@@ -5,10 +5,11 @@
 // shared model, drawing, the palette dock, pixel selections, pointer input,
 // the libraries, zoom and keys, and the layout.
 import { $ } from './dom.js';
+import { clampIndex } from './domain/assets.js';
 import { renderBankEditor } from './lifecycle.js';
 import { inputTo565, setBankColor, tilesets } from './state.js';
 import { StudioShell } from './studio-shell.js';
-import { spacePan, tileKeys, tileZoom } from './tiles/controls.js';
+import { fitLevel, spacePan, tileKeys, tileZoom } from './tiles/controls.js';
 import { colorClipboard, refreshPalettes } from './tiles/dock.js';
 import { canvasPointer, tileMapPointer } from './tiles/drawing.js';
 import {
@@ -57,7 +58,7 @@ placePanels();
 // An undo replaces the tilesets array; that is not a newly opened project.
 document.addEventListener('studiohistory', () => {
   tl.reference = tilesets;
-  tl.index = Math.max(0, Math.min(tl.index, tilesets.length - 1));
+  tl.index = clampIndex(tilesets, tl.index);
 });
 
 // ===== rendering =====
@@ -146,14 +147,7 @@ function render() {
   const area = a.id + ':' + tl.selection.width + '×' + tl.selection.height;
   if (!tl.anchor && area !== tl.fittedArea) {
     tl.fittedArea = area;
-    const next = StudioShell.fitZoom(
-      scroll.clientWidth - 48,
-      scroll.clientHeight - 48,
-      tl.selection.width * 8,
-      tl.selection.height * 8,
-      1,
-      32,
-    );
+    const next = fitLevel();
     if (next !== tl.zoom) {
       tl.zoom = next;
       render();

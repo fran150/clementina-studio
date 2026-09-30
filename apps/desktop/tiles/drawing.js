@@ -2,6 +2,7 @@
 // canvas, the painting tools draw, Select selects and moves pixels, the
 // picker picks a color, and right-click erases or opens the edit menu.
 import { $ } from '../dom.js';
+import { clamp, rectBetween } from '../domain/geometry.js';
 import {
   areaTile,
   floodPixels,
@@ -32,22 +33,14 @@ import {
 } from './pixels.js';
 import { updateStatus } from './view.js';
 
+/** The tile under the pointer on the tile map. */
 function mapCell(e) {
-  const r = $('bankMap').getBoundingClientRect();
-  return {
-    x: Math.max(0, Math.min(15, Math.floor(((e.clientX - r.left) / r.width) * 16))),
-    y: Math.max(0, Math.min(15, Math.floor(((e.clientY - r.top) / r.height) * 16))),
-  };
+  return StudioShell.pointerCell(e, $('bankMap'), 16, 16);
 }
 function selectTo(point) {
   tl.pixelSelection = null;
   tl.pasteAnchor = null;
-  tl.selection = {
-    x: Math.min(tl.anchor.x, point.x),
-    y: Math.min(tl.anchor.y, point.y),
-    width: Math.abs(point.x - tl.anchor.x) + 1,
-    height: Math.abs(point.y - tl.anchor.y) + 1,
-  };
+  tl.selection = rectBetween(tl.anchor.x, tl.anchor.y, point.x, point.y);
   tl.render();
 }
 // Paints one pixel of the drawing area, recording the bank it was drawn
@@ -95,8 +88,8 @@ function flood(start, value) {
 /** The pixel under a pointer, kept inside the area; Shift makes a square or circle. */
 function boundedPoint(e) {
   let [x, y] = point(e);
-  x = Math.max(0, Math.min(tl.selection.width * 8 - 1, x));
-  y = Math.max(0, Math.min(tl.selection.height * 8 - 1, y));
+  x = clamp(x, 0, tl.selection.width * 8 - 1);
+  y = clamp(y, 0, tl.selection.height * 8 - 1);
   if (e.shiftKey && tl.shapeStart && ['rectangle', 'ellipse'].includes(tl.tool)) {
     const [sx, sy] = tl.shapeStart,
       dx = x >= sx ? 1 : -1,

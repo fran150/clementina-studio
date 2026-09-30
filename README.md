@@ -67,7 +67,8 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   project buttons, tool rails, drawers, tooltips and status styling; its
   parts live in `shell/` (icons, layout pieces, tooltips, lists and asset
   libraries, menus and the canvas edit menu, editor registration and key
-  guard, canvas zoom, the bank dock, the clipboard and the shortcut sheet).
+  guard, canvas zoom and panning, pointer and outline helpers, the bank dock,
+  the clipboard and the shortcut sheet).
   `styles/` holds the stylesheets: `base.css`, the shell's, then one per editor
   module, named after it and linked in the same order. The editors are
   `bank-editor.js` (tilesets), `overlay-editor.js` (the fixed HUD/text layer),
@@ -92,7 +93,8 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   `domain/` holds the operations on the project's data, with no page code, so
   unit tests cover them directly (`tests/domain-*.test.mjs`): `names.js` (name
   patterns, fresh and unique names), `assets.js` (adding, copying and removing
-  assets), `cells.js` (grids of tile cells: paint, fill, lines, groups, copy,
+  assets), `geometry.js` (clamps, drag rectangles, lines and flood fills every
+  grid shares), `cells.js` (grids of tile cells: paint, fill, lines, groups, copy,
   flip, resize), `backgrounds.js` (BGMODE windows, tables and scrolling),
   `overlays.js` (the fixed overlay and its placeholders), `colors.js` (RGB565
   and the default colors), `palettes.js` (palettes, bank configs and which

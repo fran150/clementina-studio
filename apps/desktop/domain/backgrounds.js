@@ -4,6 +4,7 @@
 // camera math here mirrors clementina-video-client's
 // internal/render/renderer.go (bgTableAndLocal). Nothing here touches the page.
 import { makeCells } from './cells.js';
+import { clamp } from './geometry.js';
 
 /**
  * The six hardware BGMODE window sizes, in tiles: a preview aid, not a canvas
@@ -118,12 +119,12 @@ export function visibleTables(modeId, activeSet, scroll) {
 
 /** A scroll register value from any number: 0 to 65535. */
 export function clampScroll(v) {
-  return Math.max(0, Math.min(65535, Math.round(v) || 0));
+  return clamp(Math.round(v) || 0, 0, 65535);
 }
 
 /** A background dimension from any number: 1 to MAX_DIMENSION tiles. */
 export function clampDimension(v) {
-  return Math.max(1, Math.min(MAX_DIMENSION, Math.round(v) || 1));
+  return clamp(Math.round(v) || 1, 1, MAX_DIMENSION);
 }
 
 /** Whether a width × height background stays within MAX_CELLS. */

@@ -3,6 +3,7 @@
 // palette bank, flips, priority and which of two tilesets it reads (chrAlt).
 // A region is {x, y, width, height} in cells, and a block is a grid lifted
 // out of another one. Nothing here touches the page.
+import { floodFill, lineBetween, rectBetween } from './geometry.js';
 
 /** The tile picker shows a tileset as 16 tiles per row. */
 export const TILES_PER_ROW = 16;
@@ -41,12 +42,7 @@ export function setCell(grid, col, row, cell) {
 
 /** The region between two corner points {col, row}, both included. */
 export function regionBetween(a, b) {
-  return {
-    x: Math.min(a.col, b.col),
-    y: Math.min(a.row, b.row),
-    width: Math.abs(a.col - b.col) + 1,
-    height: Math.abs(a.row - b.row) + 1,
-  };
+  return rectBetween(a.col, a.row, b.col, b.row);
 }
 
 /** Whether a region contains a point {col, row}. */
@@ -108,33 +104,16 @@ export function mirror(block, axis) {
 
 /** The points on a straight line from `from` to `to`, both included. */
 export function linePoints(from, to) {
-  const steps = Math.max(Math.abs(to.col - from.col), Math.abs(to.row - from.row));
-  const points = [];
-  for (let i = 0; i <= steps; i++)
-    points.push({
-      col: Math.round(from.col + ((to.col - from.col) * i) / (steps || 1)),
-      row: Math.round(from.row + ((to.row - from.row) * i) / (steps || 1)),
-    });
-  return points;
+  return lineBetween([from.col, from.row], [to.col, to.row]).map(([col, row]) => ({ col, row }));
 }
 
 /** The 4-connected points around (col, row) showing the same tile. */
 export function floodPoints(grid, col, row) {
-  const { width: w, height: h } = grid;
-  if (!inGrid(grid, col, row)) return [];
-  const old = grid.cells[row * w + col].tile,
-    seen = new Uint8Array(w * h),
-    stack = [[col, row]],
-    points = [];
-  while (stack.length) {
-    const [x, y] = stack.pop();
-    if (x < 0 || y < 0 || x >= w || y >= h || seen[y * w + x] || grid.cells[y * w + x].tile !== old)
-      continue;
-    seen[y * w + x] = 1;
-    points.push({ col: x, row: y });
-    stack.push([x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]);
-  }
-  return points;
+  const tileAt = (x, y) => grid.cells[y * grid.width + x].tile;
+  return floodFill(grid.width, grid.height, [col, row], tileAt).map(([col, row]) => ({
+    col,
+    row,
+  }));
 }
 
 /**

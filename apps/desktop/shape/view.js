@@ -3,7 +3,8 @@
 // status line, plus the Preview panel's miniature.
 import { MAX_SPRITES } from '../domain/shapes.js';
 import { $ } from '../dom.js';
-import { bankColor, css565, tilePixel } from '../state.js';
+import { placedPixel } from '../domain/tilesets.js';
+import { bankColor, css565 } from '../state.js';
 import { StudioShell } from '../studio-shell.js';
 import {
   bounds,
@@ -40,7 +41,7 @@ export function tile(ctx, tileset, p, x, y, scale) {
   }
   for (let py = 0; py < 8; py++)
     for (let px = 0; px < 8; px++) {
-      const v = tilePixel(tileset, p.tile, p.flipX ? 7 - px : px, p.flipY ? 7 - py : py, sc.plane);
+      const v = placedPixel(tileset, p, px, py, sc.plane);
       if (v) {
         ctx.fillStyle = css565(bankColor(p.paletteBank, v));
         ctx.fillRect(x + px * scale, y + py * scale, scale, scale);

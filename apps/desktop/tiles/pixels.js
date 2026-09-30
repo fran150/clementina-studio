@@ -1,6 +1,7 @@
 // Working on selected pixels: selecting, moving, flipping and rotating,
 // the clipboard and pasting, and clearing. Each change is one undoable step.
 import { $ } from '../dom.js';
+import { clamp, rectBetween } from '../domain/geometry.js';
 import {
   applyPixels as domainApplyPixels,
   capturePixels as domainCapturePixels,
@@ -14,12 +15,7 @@ import { asset, mutate, tl } from './model.js';
 
 /** Extends the selection being dragged out to pixel `p`. */
 export function updatePixelSelection(p) {
-  tl.pixelSelection = {
-    x: Math.min(tl.selectStart[0], p[0]),
-    y: Math.min(tl.selectStart[1], p[1]),
-    width: Math.abs(p[0] - tl.selectStart[0]) + 1,
-    height: Math.abs(p[1] - tl.selectStart[1]) + 1,
-  };
+  tl.pixelSelection = rectBetween(tl.selectStart[0], tl.selectStart[1], p[0], p[1]);
 }
 // Previews may bind palettes; they must not reach the project's library.
 export function withScratchLibrary(fn) {
@@ -44,8 +40,8 @@ export function clearPixels(a, r) {
 /** Where a rectangle lands moved by (dx, dy), kept inside the drawing area. */
 export function movePosition(dx, dy, r) {
   return [
-    Math.max(0, Math.min(tl.selection.width * 8 - r.width, r.x + dx)),
-    Math.max(0, Math.min(tl.selection.height * 8 - r.height, r.y + dy)),
+    clamp(r.x + dx, 0, tl.selection.width * 8 - r.width),
+    clamp(r.y + dy, 0, tl.selection.height * 8 - r.height),
   ];
 }
 /** Moves the pixels in `r` (captured as `clip`) to `at`. */
@@ -176,10 +172,5 @@ export function selectionHandle(e) {
 }
 /** Resizes the selection to pixel `p` from the handle drag's fixed corner. */
 export function resizeSelection(p) {
-  tl.pixelSelection = {
-    x: Math.min(p[0], tl.resizeDrag[0]),
-    y: Math.min(p[1], tl.resizeDrag[1]),
-    width: Math.abs(p[0] - tl.resizeDrag[0]) + 1,
-    height: Math.abs(p[1] - tl.resizeDrag[1]) + 1,
-  };
+  tl.pixelSelection = rectBetween(tl.resizeDrag[0], tl.resizeDrag[1], p[0], p[1]);
 }

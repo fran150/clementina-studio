@@ -7,6 +7,7 @@ import { $ } from '../dom.js';
 import { areaTile } from '../domain/tilesets.js';
 import { bankPalette } from '../state.js';
 import { setStatus } from '../status.js';
+import { StudioShell } from '../studio-shell.js';
 import { asset, pixelColor, tl } from './model.js';
 import { applyPixels, clearPixels, withScratchLibrary } from './pixels.js';
 
@@ -178,25 +179,16 @@ export function drawPixelOverlay() {
         }
       : tl.pixelSelection;
   if (rect) {
-    ctx.save();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
-    ctx.strokeRect(
-      rect.x * tl.zoom + 0.5,
-      rect.y * tl.zoom + 0.5,
-      rect.width * tl.zoom - 1,
-      rect.height * tl.zoom - 1,
+    const z = tl.zoom;
+    StudioShell.dashedRect(
+      ctx,
+      rect.x * z,
+      rect.y * z,
+      rect.width * z,
+      rect.height * z,
+      '#fff',
+      '#111',
     );
-    ctx.lineDashOffset = 4;
-    ctx.strokeStyle = '#111';
-    ctx.strokeRect(
-      rect.x * tl.zoom + 0.5,
-      rect.y * tl.zoom + 0.5,
-      rect.width * tl.zoom - 1,
-      rect.height * tl.zoom - 1,
-    );
-    ctx.restore();
     if (!tl.pasteAnchor && !tl.moveDrag && tl.tool === 'select') {
       for (const [x, y] of [
         [rect.x, rect.y],

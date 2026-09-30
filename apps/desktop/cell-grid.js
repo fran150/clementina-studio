@@ -15,6 +15,7 @@ import {
   regionBetween as region,
   regionContains as contains,
 } from './domain/cells.js';
+import { clamp } from './domain/geometry.js';
 import { StudioShell } from './studio-shell.js';
 
 // grid() returns {width, height, cells}; edit(label, fn) runs fn as one
@@ -82,7 +83,7 @@ export function cellSelection({ grid, edit, render }) {
         const g = grid(),
           b = moving.block;
         moving.at = {
-          x: Math.max(0, Math.min(g.width - b.width, moving.from.x + point.col - moving.start.col)),
+          x: clamp(moving.from.x + point.col - moving.start.col, 0, g.width - b.width),
           y: Math.max(
             0,
             Math.min(g.height - b.height, moving.from.y + point.row - moving.start.row),
@@ -184,8 +185,8 @@ export function cellSelection({ grid, edit, render }) {
       if (!rect) return;
       const g = grid(),
         r = rect;
-      const x = Math.max(0, Math.min(g.width - r.width, r.x + dx)),
-        y = Math.max(0, Math.min(g.height - r.height, r.y + dy));
+      const x = clamp(r.x + dx, 0, g.width - r.width),
+        y = clamp(r.y + dy, 0, g.height - r.height);
       if (x === r.x && y === r.y) return;
       const block = lift(g, r);
       edit('Nudge cells', () => {

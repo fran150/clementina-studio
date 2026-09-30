@@ -1,5 +1,6 @@
 // Tooltips: a button's title (or label) shows below it after a short
 // hover or on keyboard focus, and hides on any click, key, scroll or blur.
+import { clamp } from '../domain/geometry.js';
 const tooltip = document.createElement('div');
 tooltip.id = 'studioTooltip';
 tooltip.setAttribute('role', 'tooltip');
@@ -22,8 +23,7 @@ function showTip(target) {
     const r = target.getBoundingClientRect(),
       w = tooltip.offsetWidth,
       h = tooltip.offsetHeight;
-    tooltip.style.left =
-      Math.max(6, Math.min(innerWidth - w - 6, r.left + r.width / 2 - w / 2)) + 'px';
+    tooltip.style.left = clamp(r.left + r.width / 2 - w / 2, 6, innerWidth - w - 6) + 'px';
     tooltip.style.top =
       (r.bottom + h + 12 < innerHeight ? r.bottom + 7 : Math.max(6, r.top - h - 7)) + 'px';
   }, 300);

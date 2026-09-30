@@ -13,6 +13,7 @@ import {
   regionPoints,
   setCell,
 } from '../domain/cells.js';
+import { clamp } from '../domain/geometry.js';
 import { markDirty } from '../status.js';
 import { StudioShell } from '../studio-shell.js';
 import { outlineDrag } from './drag.js';
@@ -105,8 +106,8 @@ export function canvasPainting(ed) {
     const px = ((e.clientX - r.left) / r.width) * g.width * 8,
       py = ((e.clientY - r.top) / r.height) * g.height * 8;
     return {
-      col: Math.max(0, Math.min(g.width - 1, Math.floor(px / 8))),
-      row: Math.max(0, Math.min(g.height - 1, Math.floor(py / 8))),
+      col: clamp(Math.floor(px / 8), 0, g.width - 1),
+      row: clamp(Math.floor(py / 8), 0, g.height - 1),
     };
   }
   // The eyedropper: makes a painted cell the stamp and shows its tile in the

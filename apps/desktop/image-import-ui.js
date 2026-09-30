@@ -1,6 +1,10 @@
 // Artwork import is staged in a modal: decoding, conversion and placement are previews until Apply.
 import { $ } from './dom.js';
+import { css565ToInput } from './domain/colors.js';
+import { clamp, rectBetween } from './domain/geometry.js';
 import { nameTaken, uniqueName } from './domain/names.js';
+import { tilePixel } from './domain/tilesets.js';
+import { StudioShell } from './studio-shell.js';
 const dialog = $('bankImageDialog');
 const el = (id) => document.getElementById(id);
 let session = null,
@@ -14,14 +18,6 @@ const checker = (ctx) => {
       ctx.fillRect(x, y, 12, 12);
     }
 };
-function color(word) {
-  return (
-    '#' +
-    [(((word >> 11) & 31) * 255) / 31, (((word >> 5) & 63) * 255) / 63, ((word & 31) * 255) / 31]
-      .map((v) => Math.round(v).toString(16).padStart(2, '0'))
-      .join('')
-  );
-}
 function tilesetCanvas(tileset) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 128;
@@ -30,11 +26,9 @@ function tilesetCanvas(tileset) {
   for (let t = 0; t < 256; t++)
     for (let y = 0; y < 8; y++)
       for (let x = 0; x < 8; x++) {
-        let v = 0;
-        for (let p = 0; p < 3; p++) v |= ((tileset.chr[p * 2048 + t * 8 + y] >> x) & 1) << p;
-        if (tileset.bpp === 1) v = (v >> tileset.plane) & 1;
+        const v = tilePixel(tileset, t, x, y, tileset.plane);
         if (v) {
-          ctx.fillStyle = color(tileset.palettes[tileset.tilePaletteBanks[t] * 8 + v]);
+          ctx.fillStyle = css565ToInput(tileset.palettes[tileset.tilePaletteBanks[t] * 8 + v]);
           ctx.fillRect((t % 16) * 8 + x, Math.floor(t / 16) * 8 + y, 1, 1);
         }
       }
@@ -189,10 +183,11 @@ const sourcePoint = (e) => {
   };
 };
 function cropTo(p) {
-  el('iiCropX').value = String(Math.min(cropAnchor.x, p.x));
-  el('iiCropY').value = String(Math.min(cropAnchor.y, p.y));
-  el('iiCropW').value = String(Math.abs(p.x - cropAnchor.x) + 1);
-  el('iiCropH').value = String(Math.abs(p.y - cropAnchor.y) + 1);
+  const r = rectBetween(cropAnchor.x, cropAnchor.y, p.x, p.y);
+  el('iiCropX').value = String(r.x);
+  el('iiCropY').value = String(r.y);
+  el('iiCropW').value = String(r.width);
+  el('iiCropH').value = String(r.height);
   update();
 }
 el('iiSource').onpointerdown = (e) => {
@@ -211,16 +206,11 @@ el('iiSource').onpointerup = (e) => {
 el('iiSource').onpointercancel = () => (cropAnchor = null);
 el('iiBank').onpointerdown = (e) => {
   if (!session) return;
+  // The tile clicked becomes the image's top-left, kept where the whole image fits.
   const o = options(),
-    r = el('iiBank').getBoundingClientRect(),
-    tw = Math.ceil(o.width / 8),
-    th = Math.ceil(o.height / 8);
-  el('iiTileX').value = String(
-    Math.max(0, Math.min(16 - tw, Math.floor(((e.clientX - r.left) / r.width) * 16))),
-  );
-  el('iiTileY').value = String(
-    Math.max(0, Math.min(16 - th, Math.floor(((e.clientY - r.top) / r.height) * 16))),
-  );
+    cell = StudioShell.pointerCell(e, el('iiBank'), 16, 16);
+  el('iiTileX').value = String(clamp(cell.x, 0, 16 - Math.ceil(o.width / 8)));
+  el('iiTileY').value = String(clamp(cell.y, 0, 16 - Math.ceil(o.height / 8)));
   update();
 };
 el('iiApply').onclick = () => {

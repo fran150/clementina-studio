@@ -5,6 +5,7 @@
 // (window.MiaAudio in the page), passed in as `audio`, so these functions use
 // the same note and register conversions as the engine. Nothing here touches
 // the page.
+import { clamp } from './geometry.js';
 
 /** What an erase writes to each register: its zero. */
 export const ZERO = Object.freeze({ freq: 0, volume: 0, pulse: 0, wave: 0, gate: false });
@@ -34,8 +35,7 @@ export function interpolate(audio, key, a, b, t, snap) {
 export function transposeFrames(audio, frames, { from, to }, semitones) {
   for (let f = from; f < to; f++) {
     const fr = frames[f];
-    if (fr.freq)
-      fr.freq = Math.max(1, Math.min(audio.MAX_FREQ, Math.round(fr.freq * 2 ** (semitones / 12))));
+    if (fr.freq) fr.freq = clamp(Math.round(fr.freq * 2 ** (semitones / 12)), 1, audio.MAX_FREQ);
   }
 }
 

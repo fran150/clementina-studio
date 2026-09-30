@@ -2,7 +2,8 @@
 // 320 × 200 screen, and the strip of frame cards to select, reorder (by
 // dragging or Alt+arrows) and open the context menu on.
 import { $ } from '../dom.js';
-import { bankColor, css565, frameIndex, tilePixel, tilesetById } from '../state.js';
+import { placedPixel } from '../domain/tilesets.js';
+import { bankColor, css565, frameIndex, tilesetById } from '../state.js';
 import { frameSprites, shapeById } from './model.js';
 
 /**
@@ -36,13 +37,7 @@ export function paintFrame(canvas, frame, zoom = 1) {
     for (const sprite of frameSprites(frame))
       for (let y = 0; y < 8; y++)
         for (let x = 0; x < 8; x++) {
-          const ink = tilePixel(
-            source,
-            sprite.tile,
-            sprite.flipX ? 7 - x : x,
-            sprite.flipY ? 7 - y : y,
-            0,
-          );
+          const ink = placedPixel(source, sprite, x, y);
           if (ink) {
             ctx.fillStyle = css565(bankColor(sprite.paletteBank, ink));
             ctx.fillRect(160 + sprite.x + x, 100 + sprite.y + y, 1, 1);
