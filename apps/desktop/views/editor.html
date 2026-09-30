@@ -71,11 +71,15 @@
     </div>
     <!-- include image-import-dialog.html -->
     <!-- include palette-delete-dialog.html -->
-    <!-- An import map has to come before the first module. -->
+    <!-- An import map has to come before the first module. The SDK's audio
+     module imports @clementina/core for small helpers; the page maps it to
+     core's utils, because core's index also loads the schema validator (Ajv),
+     which can't run in the page. -->
     <script type="importmap">
       {
         "imports": {
-          "@clementina/assets/audio": "../../node_modules/@clementina/assets/dist/audio.js"
+          "@clementina/assets/audio": "../../node_modules/@clementina/assets/dist/audio.js",
+          "@clementina/core": "../../node_modules/@clementina/core/dist/utils.js"
         }
       }
     </script>

@@ -39,6 +39,7 @@
   "dependencies": {
     "@clementina/assets": "file:../clementina-sdk/packages/assets",
     "@clementina/build": "file:../clementina-sdk/packages/build",
+    "@clementina/core": "file:../clementina-sdk/packages/core",
     "@clementina/emulator-client": "file:../clementina-sdk/packages/emulator-client",
     "@clementina/project": "file:../clementina-sdk/packages/project"
   }
