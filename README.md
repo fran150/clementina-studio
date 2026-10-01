@@ -109,6 +109,13 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   re-exports the model helpers the editors import from it.
   `npm run typecheck` checks them with TypeScript's checkJs;
   `types/globals.d.ts` types the DOM helpers they share.
+  The main process is `main.ts`, which opens the window and wires it to
+  `app-menu.ts` (the application menu), `project-files.ts` (where the project
+  lives, saving, opening and imports), `builder-ipc.ts` (the Builder's folder,
+  tools, build and emulator), `recovery-session.ts` with `recovery.ts` (crash
+  recovery snapshots), `close-guard.ts` (asking to save on close) and
+  `page-bridge.ts` (questions only the page can answer); `preload.cts` is the
+  page's only way to reach them.
 - `packages/assets`: Studio project persistence and attribute encoders. Its
   validators delegate to the SDK. `audio.ts` gathers the audio model, MIA
   preview engine, playback streams and sound presets from `audio/`, and
