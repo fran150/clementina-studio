@@ -15,11 +15,11 @@ const studio = {
     ipcRenderer.invoke('project:opened', path, kind),
   newProject: () => ipcRenderer.invoke('project:new'),
   save: (project: unknown, saveAs: boolean) => ipcRenderer.invoke('project:save', project, saveAs),
-  // Application menu commands: New, Open, Save, Save As and the View menu's zoom.
   // Whether the project has unsaved edits, for the window's edited indicator.
   edited: (edited: boolean) => ipcRenderer.send('project:edited', edited),
   // What Edit ▸ Undo and Redo say, and whether they can be chosen.
   historyMenu: (history: unknown) => ipcRenderer.send('menu:history', history),
+  // Application menu commands: New, Open, Save, Save As and the View menu's zoom.
   onCommand: (listener: (command: string) => void) => {
     ipcRenderer.on('studio:command', (_event, command: string) => listener(command));
   },

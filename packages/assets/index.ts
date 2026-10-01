@@ -14,11 +14,14 @@ import type {
   ProjectAssetsBuild,
 } from '@clementina/project';
 export { fromStudioProjectV2, toStudioProjectV2 } from '@clementina/project';
-import { createConfig } from './palettes.js';
 import type { Instrument, Sound, Song } from './audio.js';
 export * from './audio.js';
-export const BANK_BYTES = 6144,
+/** One bit plane of a tileset: 256 tiles of 8 bytes. A 1bpp tileset is one plane. */
+export const PLANE_BYTES = 2048;
+/** A whole tileset: three bit planes, the most a tile can have. */
+export const BANK_BYTES = 3 * PLANE_BYTES,
   TILES_PER_BANK = 256,
+  PALETTE_BANKS = 16,
   PROJECT_VERSION = 2;
 export const MAX_BACKGROUND_DIMENSION = 1024,
   MAX_BACKGROUND_CELLS = 200000;
@@ -105,14 +108,19 @@ export function decodeProject(text: string): StudioProject {
   return project;
 }
 
-/** A project with one rainbow-free empty config, enough to open an editor on. */
+/**
+ * A project with one empty bank config, enough to open an editor on. Tests use
+ * it; the page starts new projects with its own palettes (see state.js).
+ */
 export function emptyProject(): StudioProject {
-  const paletteLibrary: ProjectPalette[] = [],
-    paletteConfigs: PaletteBankConfig[] = [];
-  const config = createConfig(paletteConfigs, paletteLibrary, 'Default');
+  const config = {
+    id: crypto.randomUUID(),
+    name: 'Default',
+    banks: Array(PALETTE_BANKS).fill(null),
+  };
   return {
-    paletteLibrary,
-    paletteConfigs,
+    paletteLibrary: [],
+    paletteConfigs: [config],
     activeConfigId: config.id,
     tilesets: [],
     backgrounds: [],
@@ -123,6 +131,17 @@ export function emptyProject(): StudioProject {
     sounds: [],
     songs: [],
   };
+}
+
+/**
+ * A tileset's CHR from a file's payload: one plane (1bpp) or three (3bpp),
+ * padded to a whole tileset. Null when the payload is neither size.
+ */
+function chrPayload(payload: Uint8Array): { chr: number[]; bpp: number } | null {
+  if (payload.length !== PLANE_BYTES && payload.length !== BANK_BYTES) return null;
+  const chr = Array(BANK_BYTES).fill(0);
+  chr.splice(0, payload.length, ...payload);
+  return { chr, bpp: payload.length === PLANE_BYTES ? 1 : 3 };
 }
 
 /** A PRG wraps CHR data in a CPU load header; its address is not a CHR bank. */
@@ -138,16 +157,13 @@ export function importTilesetPrg(bytes: Uint8Array): {
   const header = address >= 0x8000 ? 3 : 2;
   if (header === 3 && (bytes.length < 3 || bytes[2] < 1 || bytes[2] > 31))
     throw Error('Invalid PRG bank header');
-  const payload = bytes.subarray(header);
-  if (payload.length !== 2048 && payload.length !== BANK_BYTES)
+  const tiles = chrPayload(bytes.subarray(header));
+  if (!tiles)
     throw Error(
       'Expected 2048 bytes of 1bpp tiles or 6144 bytes of 3bpp tiles after the PRG header',
     );
-  const chr = Array(BANK_BYTES).fill(0);
-  chr.splice(0, payload.length, ...payload);
   return {
-    chr,
-    bpp: payload.length === 2048 ? 1 : 3,
+    ...tiles,
     address,
     ...(header === 3 ? { bank: bytes[2] } : {}),
   };
@@ -161,41 +177,7 @@ export function importTilesetFile(
   const ext = extension.toLowerCase().replace(/^\./, '');
   if (ext === 'prg') return importTilesetPrg(bytes);
   if (!['bin', 'chr'].includes(ext)) throw Error('Choose a PRG, BIN or CHR tileset file.');
-  if (bytes.length !== 2048 && bytes.length !== BANK_BYTES)
-    throw Error('Raw tilesets must contain exactly 2048 (1bpp) or 6144 (3bpp) bytes.');
-  const chr = Array(BANK_BYTES).fill(0);
-  chr.splice(0, bytes.length, ...bytes);
-  return { chr, bpp: bytes.length === 2048 ? 1 : 3 };
-}
-
-// ---------------------------------------------------------------------------
-// Attribute encoding. Background cells and sprites carry the same fields at
-// different bit positions, so each gets its own encoder. The build step that
-// writes them to files comes later; these are hardware facts, kept here with
-// their tests so they do not have to be re-derived.
-// ---------------------------------------------------------------------------
-
-/** OAM byte 3: palette 0-3, priority 4, flip X 5, flip Y 6 — not the background layout. */
-export function spriteAttr(sprite: Sprite): number {
-  return (sprite.paletteBank & 15) | (sprite.flipX ? 32 : 0) | (sprite.flipY ? 64 : 0);
-}
-/** OAM byte 4: X high bits 0-1, Y high bit 2, disable 3. */
-export function spriteExt(sprite: Sprite): number {
-  return ((sprite.x >> 8) & 3) | (((sprite.y >> 8) & 1) << 2);
-}
-/** Background and overlay cells: palette 0-3, flip X 4, flip Y 5, priority 6, CHR_ALT 7. */
-export function cellAttr(cell: {
-  paletteBank: number;
-  flipX: boolean;
-  flipY: boolean;
-  priority?: boolean;
-  chrAlt?: boolean;
-}): number {
-  return (
-    (cell.paletteBank & 15) |
-    (cell.flipX ? 16 : 0) |
-    (cell.flipY ? 32 : 0) |
-    (cell.priority ? 64 : 0) |
-    (cell.chrAlt ? 128 : 0)
-  );
+  const tiles = chrPayload(bytes);
+  if (!tiles) throw Error('Raw tilesets must contain exactly 2048 (1bpp) or 6144 (3bpp) bytes.');
+  return tiles;
 }
