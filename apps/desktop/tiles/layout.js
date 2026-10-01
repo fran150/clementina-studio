@@ -1,7 +1,7 @@
 // The tile editor's layout, built around the page's markup: the rails and
 // their tools, the libraries as docks, the top bar with its view settings
 // and fill options, the canvas stage with the Preview, and the palette dock.
-// Each step runs where bank-editor.js calls it, in the order the editor was
+// Each step runs where tileset-editor.js calls it, in the order the editor was
 // always built.
 import { $ } from '../dom.js';
 import { StudioShell } from '../studio-shell.js';
@@ -10,7 +10,7 @@ import { backgroundRow, scroll, tl } from './model.js';
 import { clearSelection, copySelection, startPaste, transformSelection } from './pixels.js';
 import { drawMiniature } from './view.js';
 
-const host = $('namedBankEditor');
+const host = $('tilesetEditor');
 const palettePanel = host.querySelector('.inlinePalettes');
 const canvasPanel = host.querySelector('.bankCanvases');
 // Built by one step and extended by later ones.

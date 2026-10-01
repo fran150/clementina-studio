@@ -71,9 +71,9 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   the clipboard and the shortcut sheet).
   `styles/` holds the stylesheets: `base.css`, the shell's, then one per editor
   module, named after it and linked in the same order. The editors are
-  `bank-editor.js` (tilesets), `overlay-editor.js` (the fixed HUD/text layer),
+  `tileset-editor.js` (tilesets), `overlay-editor.js` (the fixed HUD/text layer),
   `background-editor.js` (backgrounds), `palette-library.js` (palettes and
-  bank configs), `sprite-composer.js` (shapes), `animation-editor.js`
+  bank configs), `shape-editor.js` (shapes), `animation-editor.js`
   (animations), `image-import-ui.js` (artwork import), `sound-editor.js`
   (sounds) and `music-editor.js` (songs and instruments), which share
   `audio-shared.js`. The overlay and background editors share `grid-editor.js`,
@@ -86,7 +86,7 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   rails, `music/` for the music editor's piano roll, note edits,
   playback, voices, song and instrument panels, and rails, `audio/` for the
   keyboard and tool table the sound and music editors share, `tiles/` for
-  the tileset editor (`bank-editor.js`): its drawing, palette dock, pixel
+  the tileset editor (`tileset-editor.js`): its drawing, palette dock, pixel
   selections, libraries, zoom and keys, and layout, `builder/` for the
   Builder's asset list and memory map, properties, slots, rails and SDK calls,
   and `palettes/` for the palette library's list, bank configs, colors, copy

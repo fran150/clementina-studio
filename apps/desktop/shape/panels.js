@@ -22,7 +22,7 @@ import { setOrigin } from './editing.js';
 import { edit, height, sc, shape, shapeTileset, spritesOf, width } from './model.js';
 import { draw, drawBank, fit } from './view.js';
 
-const host = $('spriteComposer');
+const host = $('shapeEditor');
 
 // ===== the shape list =====
 /** Opens shape `i` with the first tile picked, fitted to the canvas. */

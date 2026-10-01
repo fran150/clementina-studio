@@ -42,7 +42,7 @@ export const sc = {
   plane: 0,
   /** The zoom buttons, once built. */
   zoomControls: null,
-  /** Redraws the whole editor; sprite-composer.js fills this in. */
+  /** Redraws the whole editor; shape-editor.js fills this in. */
   render: () => {},
 };
 

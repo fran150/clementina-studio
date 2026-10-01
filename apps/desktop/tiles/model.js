@@ -6,7 +6,7 @@ import { ProjectHistory } from '../history.js';
 import { bankColor, css565, tilesets } from '../state.js';
 import { markDirty } from '../status.js';
 
-const host = $('namedBankEditor');
+const host = $('tilesetEditor');
 
 /** The editor's working state; the tilesets themselves live in state.js. */
 export const tl = {
@@ -78,7 +78,7 @@ export const tl = {
   /** Color 0 is a background tile's background color and transparent for
    * sprites. Which of the two the canvas and the swatches show is a view choice. */
   zeroAsColor: false,
-  /** Redraws the whole editor; bank-editor.js fills this in. */
+  /** Redraws the whole editor; tileset-editor.js fills this in. */
   render: () => {},
 };
 

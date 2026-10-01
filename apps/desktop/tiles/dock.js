@@ -15,7 +15,7 @@ import { StudioShell } from '../studio-shell.js';
 import { icon } from './icons.js';
 import { asset, mutate, tl } from './model.js';
 
-const host = $('namedBankEditor');
+const host = $('tilesetEditor');
 /** Shows the chosen color and which banks the tileset uses. */
 export function refreshPalettes() {
   const a = asset();
