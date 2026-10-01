@@ -121,6 +121,10 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   preview engine, playback streams and sound presets from `audio/`, and
   imports the browser-safe SDK audio module through the import map in
   `editor.html`, which exposes it as `window.MiaAudio`.
+- `tests/desktop-*.cjs`: the UI suites, each run in Electron against the
+  built page. `tests/harness/` holds what they share: `electron.cjs` opens the
+  window and reports the result, `studio.cjs` drives the page (keys, pointer,
+  menus, screenshots).
 - `tests/firmware`: the harness that runs clementina-mia's `audio.c` on the
   desktop to check Studio's engine against it (`npm run test:firmware`).
 - `apps/vscode`, `packages/basic`, `packages/cli`, `examples`: planned.

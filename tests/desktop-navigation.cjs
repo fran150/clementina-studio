@@ -1,76 +1,35 @@
 // Canvas navigation shared by the tileset, shape, background and overlay
 // editors, the application menu's commands, and the fixes that came with them.
 // Run with `npm run test:desktop:navigation`.
-const { app, BrowserWindow, ipcMain } = require('electron');
 const assert = require('node:assert/strict');
-const path = require('node:path');
-app.whenReady().then(async () => {
-  const saves = [];
-  let opens = 0;
-  ipcMain.handle('project:new', () => {});
-  ipcMain.handle('project:open', () => {
-    opens++;
-    return null;
-  });
-  ipcMain.handle('project:save', (_event, _project, saveAs) => {
-    saves.push(saveAs);
-    return 'navigation.cstudio';
-  });
-  // A 2×1 PNG: one opaque red pixel, one transparent.
-  ipcMain.handle('image:import', () => ({
-    name: 'Hero.png',
-    format: 'png',
-    dataUrl:
-      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAD0lEQVR4nGP4z8AARAwMAAz8Af9c/RSVAAAAAElFTkSuQmCC',
-  }));
-  const window = new BrowserWindow({
-    show: false,
-    enableLargerThanScreen: true,
-    width: 1440,
-    height: 1000,
-    webPreferences: {
-      preload: path.resolve(__dirname, '../dist/apps/desktop/preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
+const { suite } = require('./harness/electron.cjs');
+
+const saves = [];
+let opens = 0;
+
+suite(
+  'navigation',
+  {
+    handlers: {
+      'project:open': () => {
+        opens++;
+        return null;
+      },
+      'project:save': (_event, _project, saveAs) => {
+        saves.push(saveAs);
+        return 'navigation.cstudio';
+      },
+      // A 2×1 PNG: one opaque red pixel, one transparent.
+      'image:import': () => ({
+        name: 'Hero.png',
+        format: 'png',
+        dataUrl:
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAD0lEQVR4nGP4z8AARAwMAAz8Af9c/RSVAAAAAElFTkSuQmCC',
+      }),
     },
-  });
-  // A window is created no larger than the screen, and the CI Mac's is
-  // small. Resize it to the size the test's layout and pointer positions
-  // assume; enableLargerThanScreen lets macOS keep it.
-  window.setSize(1440, 1000);
-  const errors = [];
-  window.webContents.on('console-message', (event) => {
-    if (event.level === 'error') errors.push(event.message);
-  });
-  // Page code runs against the studio's modules, found through window.__studio.
-  const run = (source) =>
-    window.webContents.executeJavaScript(`with (__studio) (()=>{${source}})()`);
-  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  const command = async (name) => {
-    window.webContents.send('studio:command', name);
-    await wait(60);
-  };
-  // Real wheel input, so native scrolling happens when nothing prevents it.
-  const wheel = async (x, y, deltaY, modifiers = []) => {
-    window.webContents.sendInputEvent({
-      type: 'mouseWheel',
-      x: Math.round(x),
-      y: Math.round(y),
-      deltaX: 0,
-      deltaY,
-      canScroll: true,
-      modifiers,
-    });
-    await wait(120);
-  };
-  const key = async (keyCode) => {
-    window.webContents.sendInputEvent({ type: 'keyDown', keyCode });
-    window.webContents.sendInputEvent({ type: 'keyUp', keyCode });
-    await wait(40);
-  };
-  try {
-    await window.loadFile(path.resolve(__dirname, '../apps/desktop/editor.html'));
+    input: { round: true, settle: { key: 40, command: 60, wheel: 120 } },
+  },
+  async ({ window, run, key, drag, wheel, command, wait }) => {
     await run(
       `window.__wheel=[];addEventListener('wheel',e=>__wheel.push({deltaY:e.deltaY,ctrl:e.ctrlKey}),true);`,
     );
@@ -93,27 +52,13 @@ app.whenReady().then(async () => {
       objectsButton +
         `const r=$('bankMap').getBoundingClientRect();return {left:r.left+3,top:r.top+3,right:r.right-3,bottom:r.bottom-3};`,
     );
-    window.webContents.sendInputEvent({
-      type: 'mouseDown',
-      x: Math.round(map.left),
-      y: Math.round(map.top),
-      button: 'left',
-      clickCount: 1,
-    });
-    window.webContents.sendInputEvent({
-      type: 'mouseMove',
-      x: Math.round(map.right),
-      y: Math.round(map.bottom),
-      button: 'left',
-    });
-    window.webContents.sendInputEvent({
-      type: 'mouseUp',
-      x: Math.round(map.right),
-      y: Math.round(map.bottom),
-      button: 'left',
-      clickCount: 1,
-    });
-    await wait(80);
+    await drag(
+      [
+        { x: map.left, y: map.top },
+        { x: map.right, y: map.bottom },
+      ],
+      { settle: 80 },
+    );
     // A tileset area opens fitted to the window.
     assert.ok(
       await run(
@@ -128,7 +73,7 @@ app.whenReady().then(async () => {
       `const r=document.querySelector('#canvasStage .selectionScroll').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};`,
     );
     // A plain wheel scrolls the canvas instead of zooming.
-    await wheel(stage.x, stage.y, -240);
+    await wheel(stage, -240);
     const scrolled = await run(
       `return {top:document.querySelector('#canvasStage .selectionScroll').scrollTop,zoom:$('zoomLabel').textContent};`,
     );
@@ -142,7 +87,7 @@ app.whenReady().then(async () => {
     // scroll as well as zoom. Start a new wheel sequence.
     await wait(1000);
     const before = await run(artAt);
-    await wheel(stage.x, stage.y, 120, ['control']);
+    await wheel(stage, 120, ['control']);
     const after = await run(artAt);
     assert.ok((await run(`return __wheel.at(-1);`)).ctrl);
     assert.notEqual(after[2], before[2], 'Ctrl+wheel must zoom');
@@ -188,7 +133,7 @@ app.whenReady().then(async () => {
     const shapeZoom = await run(`return $('scZoomLabel').textContent;`),
       topBefore = await run(artTop);
     // Scrolls up, moving the art down, so its top edge stays on screen.
-    await wheel(shapeCanvas.x, shapeCanvas.y, 120);
+    await wheel(shapeCanvas, 120);
     const panned = await run(`return __wheel.at(-1).deltaY;`),
       topAfter = await run(artTop);
     assert.ok(
@@ -200,7 +145,7 @@ app.whenReady().then(async () => {
       shapeZoom,
       'a plain wheel must not zoom shapes',
     );
-    await wheel(shapeCanvas.x, shapeCanvas.y, 120, ['control']);
+    await wheel(shapeCanvas, 120, ['control']);
     assert.notEqual(
       await run(`return $('scZoomLabel').textContent;`),
       shapeZoom,
@@ -235,7 +180,7 @@ app.whenReady().then(async () => {
       `const r=$('bgStage').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};`,
     );
     const bgZoom = await run(`return $('bgZoomLabel').textContent;`);
-    await wheel(bgStage.x, bgStage.y, -240);
+    await wheel(bgStage, -240);
     assert.ok(
       await run(`return $('bgStage').scrollTop>0;`),
       'a plain wheel must scroll the background',
@@ -244,7 +189,7 @@ app.whenReady().then(async () => {
     // As on the tileset canvas, start a new wheel sequence so the Ctrl+wheel
     // is not grouped into the scroll above.
     await wait(1000);
-    await wheel(bgStage.x, bgStage.y, 120, ['control']);
+    await wheel(bgStage, 120, ['control']);
     assert.notEqual(
       await run(`return $('bgZoomLabel').textContent;`),
       bgZoom,
@@ -294,12 +239,5 @@ app.whenReady().then(async () => {
     assert.equal(await pinch(1.1), '6×', 'a small pinch must not change the step');
     assert.equal(await pinch(0.5), '3×', 'pinching in by half must zoom 6× to 3×');
     window.webContents.debugger.detach();
-
-    assert.deepEqual(errors, []);
-    console.log('desktop navigation: ok');
-    app.exit(0);
-  } catch (e) {
-    console.error(e, errors);
-    app.exit(1);
-  }
-});
+  },
+);

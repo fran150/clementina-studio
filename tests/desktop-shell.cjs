@@ -1,34 +1,17 @@
 // Shared shell behavior, exercised in the real Electron renderer.
-const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('node:path');
 const assert = require('node:assert/strict');
-app.whenReady().then(async () => {
-  ipcMain.handle('project:new', () => {});
-  const window = new BrowserWindow({
-    show: false,
-    enableLargerThanScreen: true,
-    width: 1440,
-    height: 1000,
-    webPreferences: {
-      preload: path.resolve(__dirname, '../dist/apps/desktop/preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
+const { suite } = require('./harness/electron.cjs');
+
+suite(
+  'shell',
+  {
+    // Report the thrown error and the renderer's errors separately.
+    onFailure: (error, errors) => {
+      console.error(error);
+      console.error(errors);
     },
-  });
-  // A window is created no larger than the screen, and the CI Mac's is
-  // small. Resize it to the size the test's layout and pointer positions
-  // assume; enableLargerThanScreen lets macOS keep it.
-  window.setSize(1440, 1000);
-  const errors = [];
-  window.webContents.on('console-message', (event) => {
-    if (event.level === 'error') errors.push(event.message);
-  });
-  // Page code runs against the studio's modules, found through window.__studio.
-  const run = (source) =>
-    window.webContents.executeJavaScript(`with (__studio) (()=>{${source}})()`);
-  try {
-    await window.loadFile(path.resolve(__dirname, '../apps/desktop/editor.html'));
+  },
+  async ({ run }) => {
     for (const view of [
       'palettes',
       'tiles',
@@ -88,12 +71,5 @@ app.whenReady().then(async () => {
       `const before=JSON.stringify(studioProject());for(const view of ['tiles','animations','palettes','shapes'])showView(view);return before===JSON.stringify(studioProject());`,
     );
     assert.equal(roundTrip, true, 'view changes must not mutate project assets');
-    assert.deepEqual(errors, []);
-    console.log('desktop shell: ok');
-    app.exit(0);
-  } catch (e) {
-    console.error(e);
-    console.error(errors);
-    app.exit(1);
-  }
-});
+  },
+);

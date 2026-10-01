@@ -1,140 +1,66 @@
 // User journey: no injected assets, direct handlers, or synthetic DOM clicks.
-const { app, BrowserWindow, ipcMain } = require('electron');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
+const { suite } = require('./harness/electron.cjs');
+
+// Screenshots, and on failure the error, land here.
 const artifacts = process.env.STUDIO_CAPTURE_DIR || path.resolve('test-results');
-const timeout = setTimeout(() => {
-  console.error('UI workflow timed out');
-  app.exit(1);
-}, 45000);
-app.whenReady().then(async () => {
-  ipcMain.handle('project:new', () => {});
-  const window = new BrowserWindow({
-    show: false,
-    enableLargerThanScreen: true,
+
+// Writes one file into the artifacts folder, creating the folder if needed.
+function saveArtifact(name, data) {
+  fs.mkdirSync(artifacts, { recursive: true });
+  fs.writeFileSync(path.join(artifacts, name), data);
+}
+
+suite(
+  'workflow',
+  {
     width: 1024,
     height: 900,
-    webPreferences: {
-      preload: path.resolve(__dirname, '../dist/apps/desktop/preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      backgroundThrottling: false,
+    webPreferences: { backgroundThrottling: false },
+    timeout: 45000,
+    onSuccess: async ({ png }) => saveArtifact('workflow-success.png', await png()),
+    onFailure: async (error, errors, studio) => {
+      console.error(error, errors);
+      saveArtifact('workflow-failure.png', await studio.png());
+      saveArtifact('workflow-failure.txt', String(error.stack) + '\n' + errors.join('\n'));
     },
-  });
-  // A window is created no larger than the screen, and the CI Mac's is
-  // small. Resize it to the size the test's layout and pointer positions
-  // assume; enableLargerThanScreen lets macOS keep it.
-  window.setSize(1024, 900);
-  const errors = [];
-  window.webContents.on('console-message', (event) => {
-    if (event.level === 'error') errors.push(event.message);
-  });
-  window.webContents.on('render-process-gone', (_, details) =>
-    errors.push(JSON.stringify(details)),
-  );
-  // Page code runs against the studio's modules, found through window.__studio.
-  const read = (expression) =>
-    window.webContents.executeJavaScript(`with (__studio) ${expression}`);
-  async function waitFor(expression) {
-    const deadline = Date.now() + 4000;
-    while (Date.now() < deadline) {
-      if (await read(expression)) return;
-      await new Promise((resolve) => setTimeout(resolve, 30));
-    }
-    throw new Error(`Timed out waiting for ${expression}`);
-  }
-  // Input events land asynchronously, so the previous click may still be
-  // settling: wait until the target is clickable, and say what the page shows
-  // if it never becomes so.
-  async function click(selector) {
-    const clickable = `(() => {
-      const el = document.querySelector(${JSON.stringify(selector)});
-      return !!el && !el.disabled && el.checkVisibility();
-    })()`;
-    try {
-      await waitFor(clickable);
-    } catch {
-      const state = await read(
-        `JSON.stringify({view: currentView, width: innerWidth, height: innerHeight, visible: [...document.querySelectorAll('#workspace > section, #workspace > div')].filter(e => e.checkVisibility()).map(e => e.id)})`,
-      );
-      throw new Error(`Not clickable: ${selector} ${state}`);
-    }
-    const point = await read(`(() => {
-      const el = document.querySelector(${JSON.stringify(selector)});
-      if(!el || el.disabled || !el.checkVisibility()) throw new Error('Not clickable: ' + ${JSON.stringify(selector)});
-      const r = el.getBoundingClientRect(), x = Math.round(r.left + r.width/2), y = Math.round(r.top + r.height/2);
-      if(!el.contains(document.elementFromPoint(x,y))) throw new Error('Covered or offscreen: ' + ${JSON.stringify(selector)});
-      return {x,y};
-    })()`);
-    window.webContents.sendInputEvent({
-      type: 'mouseDown',
-      ...point,
-      button: 'left',
-      clickCount: 1,
-    });
-    window.webContents.sendInputEvent({ type: 'mouseUp', ...point, button: 'left', clickCount: 1 });
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  try {
-    await window.loadFile(path.resolve(__dirname, '../apps/desktop/editor.html'));
-    await click('[data-view="animations"]');
-    await click('#anLibraryToggle');
-    await click('#anNew');
-    await waitFor(
+  },
+  async ({ read, until, clickElement, expectValidProject }) => {
+    await clickElement('[data-view="animations"]');
+    await clickElement('#anLibraryToggle');
+    await clickElement('#anNew');
+    await until(
       `document.querySelector('#anEmptyMessage')?.checkVisibility() && document.querySelector('#anEmptyMessage').textContent.includes('Create a shape first')`,
     );
     assert.equal(await read(`document.querySelector('#anAnimList').children.length`), 0);
-    await click('#anCreateShape');
-    await waitFor(`document.querySelector('#scNew').checkVisibility()`);
+    await clickElement('#anCreateShape');
+    await until(`document.querySelector('#scNew').checkVisibility()`);
     // Create the source tileset, then the shape, using the same controls as a user.
-    await click('[data-view="tiles"]');
-    await click('#emptyNew');
-    await click('[data-view="shapes"]');
-    await click('#scNew');
-    await waitFor(`document.querySelector('#scSprites').children.length === 1`);
-    await click('[data-view="animations"]');
-    await click('#anNew');
-    await waitFor(`document.querySelector('#anGroupTitle').textContent === 'animation_1'`);
+    await clickElement('[data-view="tiles"]');
+    await clickElement('#emptyNew');
+    await clickElement('[data-view="shapes"]');
+    await clickElement('#scNew');
+    await until(`document.querySelector('#scSprites').children.length === 1`);
+    await clickElement('[data-view="animations"]');
+    await clickElement('#anNew');
+    await until(`document.querySelector('#anGroupTitle').textContent === 'animation_1'`);
     assert.equal(await read(`document.querySelector('#anEmpty').hidden`), true);
     assert.equal(await read(`document.querySelector('#anTimeline').children.length`), 1);
-    await click('#anDuplicateFrame');
-    await waitFor(`document.querySelector('#anTimeline').children.length === 2`);
-    await click('#anUndo');
-    await waitFor(`document.querySelector('#anTimeline').children.length === 1`);
-    await click('#anRedo');
-    await waitFor(`document.querySelector('#anTimeline').children.length === 2`);
-    await click('#anPlay');
-    await waitFor(`document.querySelector('#anPlay').getAttribute('aria-pressed') === 'true'`);
-    await click('#anPlay');
-    await waitFor(`document.querySelector('#anPlay').getAttribute('aria-pressed') === 'false'`);
-    await click('#anNew');
-    await waitFor(`document.querySelector('#anGroupTitle').textContent === 'animation_2'`);
+    await clickElement('#anDuplicateFrame');
+    await until(`document.querySelector('#anTimeline').children.length === 2`);
+    await clickElement('#anUndo');
+    await until(`document.querySelector('#anTimeline').children.length === 1`);
+    await clickElement('#anRedo');
+    await until(`document.querySelector('#anTimeline').children.length === 2`);
+    await clickElement('#anPlay');
+    await until(`document.querySelector('#anPlay').getAttribute('aria-pressed') === 'true'`);
+    await clickElement('#anPlay');
+    await until(`document.querySelector('#anPlay').getAttribute('aria-pressed') === 'false'`);
+    await clickElement('#anNew');
+    await until(`document.querySelector('#anGroupTitle').textContent === 'animation_2'`);
     assert.equal(await read(`document.querySelector('#anAnimList').children.length`), 2);
-    const { validateProject } = await import('../dist/packages/assets/index.js');
-    validateProject(await read('studioProject()'));
-    assert.deepEqual(errors, []);
-    fs.mkdirSync(artifacts, { recursive: true });
-    fs.writeFileSync(
-      path.join(artifacts, 'workflow-success.png'),
-      (await window.webContents.capturePage()).toPNG(),
-    );
-    console.log('desktop workflow: ok');
-    clearTimeout(timeout);
-    app.exit(0);
-  } catch (error) {
-    console.error(error, errors);
-    fs.mkdirSync(artifacts, { recursive: true });
-    fs.writeFileSync(
-      path.join(artifacts, 'workflow-failure.png'),
-      (await window.webContents.capturePage()).toPNG(),
-    );
-    fs.writeFileSync(
-      path.join(artifacts, 'workflow-failure.txt'),
-      String(error.stack) + '\n' + errors.join('\n'),
-    );
-    clearTimeout(timeout);
-    app.exit(1);
-  }
-});
+    await expectValidProject();
+  },
+);

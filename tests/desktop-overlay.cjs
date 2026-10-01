@@ -1,40 +1,11 @@
 // Drives the real renderer in Electron. Run with `npm run test:desktop:overlay`.
-const { app, BrowserWindow, ipcMain } = require('electron');
 const assert = require('node:assert/strict');
-const path = require('node:path');
-const fs = require('node:fs');
-app.whenReady().then(async () => {
-  ipcMain.handle('project:new', () => {});
-  const window = new BrowserWindow({
-    show: false,
-    enableLargerThanScreen: true,
-    width: 1440,
-    height: 1000,
-    webPreferences: {
-      preload: path.resolve(__dirname, '../dist/apps/desktop/preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
-  // A window is created no larger than the screen, and the CI Mac's is
-  // small. Resize it to the size the test's layout and pointer positions
-  // assume; enableLargerThanScreen lets macOS keep it.
-  window.setSize(1440, 1000);
-  const errors = [];
-  window.webContents.on('console-message', (event) => {
-    if (event.level === 'error') errors.push(event.message);
-  });
-  // Page code runs against the studio's modules, found through window.__studio.
-  const run = (source) =>
-    window.webContents.executeJavaScript(`with (__studio) (()=>{${source}})()`);
-  const click = (x, y) => {
-    window.webContents.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 });
-    window.webContents.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 });
-  };
-  try {
-    await window.loadFile(path.resolve(__dirname, '../apps/desktop/editor.html'));
+const { suite } = require('./harness/electron.cjs');
 
+suite(
+  'overlay',
+  {},
+  async ({ run, click, drag, cells, resize, wait, shot, expectValidProject }) => {
     // A 3bpp tileset with a distinct tile (index 1, bank 3), plus a 1bpp
     // tileset with tile 5's plane 1 painted (plane 0 stays blank), to exercise
     // both normal painting and the plane selector.
@@ -130,8 +101,7 @@ app.whenReady().then(async () => {
     const pick = await run(
       `const r=$('ovTileMap').getBoundingClientRect();return {x:r.left+r.width*(1.5/16),y:r.top+r.height*(0.5/16)};`,
     );
-    click(pick.x, pick.y);
-    await new Promise((r) => setTimeout(r, 60));
+    await click(pick);
     assert.deepEqual(
       await run(`return {tile:$('ovStampTile').textContent,bank:$('ovBankLabel').textContent};`),
       { tile: '1', bank: 'Bank 03' },
@@ -141,12 +111,11 @@ app.whenReady().then(async () => {
     const canvas = await run(
       `$('ovPencilTool').click();$('ovActualSize').click();const r=$('ovCanvas').getBoundingClientRect();return {left:r.left,top:r.top};`,
     );
-    const at = (col, row) => ({ x: canvas.left + col * 8 + 4, y: canvas.top + row * 8 + 4 });
+    const at = await cells(canvas);
 
     // A pencil click stamps the picked tile and bank, and is one undo step.
     let p = at(2, 2);
-    click(p.x, p.y);
-    await new Promise((r) => setTimeout(r, 60));
+    await click(p);
     assert.deepEqual(
       await run(
         `const c=overlays[0].cells[2*40+2];return {tile:c.tile,bank:c.paletteBank,undoEnabled:!$('ovUndo').disabled};`,
@@ -167,22 +136,7 @@ app.whenReady().then(async () => {
     await run(`$('ovRectangleTool').click();`);
     const from = at(5, 5),
       to = at(7, 6);
-    window.webContents.sendInputEvent({
-      type: 'mouseDown',
-      x: from.x,
-      y: from.y,
-      button: 'left',
-      clickCount: 1,
-    });
-    window.webContents.sendInputEvent({ type: 'mouseMove', x: to.x, y: to.y, button: 'left' });
-    window.webContents.sendInputEvent({
-      type: 'mouseUp',
-      x: to.x,
-      y: to.y,
-      button: 'left',
-      clickCount: 1,
-    });
-    await new Promise((r) => setTimeout(r, 60));
+    await drag([from, to]);
     const filledRect = `(()=>{let n=0;for(let y=5;y<=6;y++)for(let x=5;x<=7;x++)if(overlays[0].cells[y*40+x].tile===1)n++;return n;})()`;
     assert.equal(await run(`return ${filledRect};`), 6);
     await run(`$('ovUndo').click();`);
@@ -195,8 +149,7 @@ app.whenReady().then(async () => {
     // Flood fill spreads across contiguous matching cells as a single undo step.
     await run(`$('ovFillTool').click();`);
     p = at(20, 20);
-    click(p.x, p.y);
-    await new Promise((r) => setTimeout(r, 60));
+    await click(p);
     assert.equal(await run(`return overlays[0].cells[20*40+20].tile;`), 1);
     await run(`$('ovUndo').click();`);
     assert.equal(await run(`return overlays[0].cells[20*40+20].tile;`), 0);
@@ -204,12 +157,10 @@ app.whenReady().then(async () => {
     // The eraser resets a cell to the blank default.
     await run(`$('ovPencilTool').click();`);
     p = at(10, 10);
-    click(p.x, p.y);
-    await new Promise((r) => setTimeout(r, 60));
+    await click(p);
     assert.equal(await run(`return overlays[0].cells[10*40+10].tile;`), 1);
     await run(`$('ovEraserTool').click();`);
-    click(p.x, p.y);
-    await new Promise((r) => setTimeout(r, 60));
+    await click(p);
     assert.deepEqual(
       await run(`const c=overlays[0].cells[10*40+10];return {tile:c.tile,bank:c.paletteBank};`),
       { tile: 0, bank: 0 },
@@ -219,22 +170,7 @@ app.whenReady().then(async () => {
     await run(`$('ovPlaceholderTool').click();`);
     const phFrom = at(0, 0),
       phTo = at(6, 0);
-    window.webContents.sendInputEvent({
-      type: 'mouseDown',
-      x: phFrom.x,
-      y: phFrom.y,
-      button: 'left',
-      clickCount: 1,
-    });
-    window.webContents.sendInputEvent({ type: 'mouseMove', x: phTo.x, y: phTo.y, button: 'left' });
-    window.webContents.sendInputEvent({
-      type: 'mouseUp',
-      x: phTo.x,
-      y: phTo.y,
-      button: 'left',
-      clickCount: 1,
-    });
-    await new Promise((r) => setTimeout(r, 60));
+    await drag([phFrom, phTo]);
     const placed = await run(
       `const p=overlays[0].placeholders[0];return {count:overlays[0].placeholders.length,col:p.col,row:p.row,width:p.width,height:p.height};`,
     );
@@ -268,27 +204,7 @@ app.whenReady().then(async () => {
     // Dragging a second, overlapping region must be rejected — no placeholder added.
     const overFrom = at(2, 0),
       overTo = at(4, 0);
-    window.webContents.sendInputEvent({
-      type: 'mouseDown',
-      x: overFrom.x,
-      y: overFrom.y,
-      button: 'left',
-      clickCount: 1,
-    });
-    window.webContents.sendInputEvent({
-      type: 'mouseMove',
-      x: overTo.x,
-      y: overTo.y,
-      button: 'left',
-    });
-    window.webContents.sendInputEvent({
-      type: 'mouseUp',
-      x: overTo.x,
-      y: overTo.y,
-      button: 'left',
-      clickCount: 1,
-    });
-    await new Promise((r) => setTimeout(r, 60));
+    await drag([overFrom, overTo]);
     assert.equal(
       await run(`return overlays[0].placeholders.length;`),
       1,
@@ -353,27 +269,7 @@ app.whenReady().then(async () => {
     const stageCenter = await run(
       `const r=$('ovStage').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};`,
     );
-    window.webContents.sendInputEvent({
-      type: 'mouseDown',
-      x: stageCenter.x,
-      y: stageCenter.y,
-      button: 'left',
-      clickCount: 1,
-    });
-    window.webContents.sendInputEvent({
-      type: 'mouseMove',
-      x: stageCenter.x - 40,
-      y: stageCenter.y - 25,
-      button: 'left',
-    });
-    window.webContents.sendInputEvent({
-      type: 'mouseUp',
-      x: stageCenter.x - 40,
-      y: stageCenter.y - 25,
-      button: 'left',
-      clickCount: 1,
-    });
-    await new Promise((r) => setTimeout(r, 60));
+    await drag([stageCenter, { x: stageCenter.x - 40, y: stageCenter.y - 25 }]);
     const panAfter = await run(
       `return {left:$('ovStage').scrollLeft,top:$('ovStage').scrollTop,cellsUnchanged:JSON.stringify(overlays[0].cells)===${JSON.stringify(panBefore.cells)}};`,
     );
@@ -386,8 +282,7 @@ app.whenReady().then(async () => {
 
     // Docked-panel bounds at two window widths, matching the other editors' check.
     for (const width of [1440, 1024]) {
-      window.setSize(width, 900);
-      await new Promise((r) => setTimeout(r, 150));
+      await resize(width, 900, 150);
       for (const toggle of [
         'ovLibraryToggle',
         'ovTileLibraryToggle',
@@ -396,28 +291,16 @@ app.whenReady().then(async () => {
         await run(
           `if($('${toggle}').getAttribute('aria-expanded')!=='true')$('${toggle}').click();`,
         );
-        await new Promise((r) => setTimeout(r, 80));
+        await wait(80);
         const bounds = await run(
           `const panel=$($('${toggle}').getAttribute('aria-controls')).getBoundingClientRect(),main=document.querySelector('#overlayEditor main').getBoundingClientRect(),stage=$('ovStage').getBoundingClientRect();return {clear:panel.right<=main.left||panel.left>=main.right,canvasWithin:stage.left>=main.left&&stage.right<=main.right+1};`,
         );
         assert.equal(bounds.clear, true);
         assert.equal(bounds.canvasWithin, true);
       }
-      if (process.env.STUDIO_CAPTURE_DIR)
-        fs.writeFileSync(
-          path.join(process.env.STUDIO_CAPTURE_DIR, `overlay-${width}.png`),
-          (await window.webContents.capturePage()).toPNG(),
-        );
+      await shot(`overlay-${width}`);
     }
 
-    const data = await run(`return studioProject();`);
-    const { validateProject } = await import('../dist/packages/assets/index.js');
-    validateProject(data);
-    assert.deepEqual(errors, []);
-    console.log('desktop overlay: ok');
-    app.exit(0);
-  } catch (e) {
-    console.error(e, errors);
-    app.exit(1);
-  }
-});
+    await expectValidProject();
+  },
+);
