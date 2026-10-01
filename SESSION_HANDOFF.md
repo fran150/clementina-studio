@@ -192,9 +192,9 @@ bar compacts so all of it fits one row at 1024.
 - **Renderer:** Electron with plain classic scripts sharing globals. Keep the
   script order in `apps/desktop/editor.html`:
   - `studio-shell.js`, `cell-grid.js`, `history.js`
-  - `image-import-ui.js`, `bank-editor.js` (Tilesets), `overlay-editor.js`,
+  - `image-import-ui.js`, `tileset-editor.js` (Tilesets), `overlay-editor.js`,
     `background-editor.js`, `palette-library.js`, `animation-editor.js`,
-    `sprite-composer.js` (Shapes)
+    `shape-editor.js` (Shapes)
   - `audio-shared.js`, `sound-editor.js`, `music-editor.js`
   - then a module script imports `dist/packages/assets/audio.js` as
     `window.MiaAudio`. It runs after `bootStudio()`, before the page's load

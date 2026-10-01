@@ -6,7 +6,7 @@ import { currentView } from '../state.js';
 import { height, hideGhost, ox, oy, sc, shape, source, width } from './model.js';
 import { canvas, screen, tile, world } from './view.js';
 
-const host = $('spriteComposer');
+const host = $('shapeEditor');
 /** @type {HTMLCanvasElement} */
 let ghost;
 

@@ -1,20 +1,20 @@
-#spriteComposer .studioDock h2:not(:first-of-type) {
+#shapeEditor .studioDock h2:not(:first-of-type) {
   margin-top: 12px;
 }
-#spriteComposer p {
+#shapeEditor p {
   font-size: 10px;
   line-height: 1.5;
   color: var(--text-dim);
 }
-#spriteComposer select {
+#shapeEditor select {
   width: 100%;
   margin: 5px 0;
 }
-#spriteComposer button {
+#shapeEditor button {
   margin: 3px 1px;
   padding: 5px 8px;
 }
-#spriteComposer input[type='number'] {
+#shapeEditor input[type='number'] {
   width: 65px;
   background: var(--bg);
   color: var(--text);
@@ -26,7 +26,7 @@
   touch-action: none;
   image-rendering: pixelated;
 }
-#spriteComposer main {
+#shapeEditor main {
   padding: 0;
   gap: 0;
   align-items: stretch;
@@ -96,10 +96,10 @@
   text-align: left;
   font-size: 10px;
 }
-#spriteComposer .on {
+#shapeEditor .on {
   outline: 1px solid #36c9d6;
 }
-#spriteComposer .missing {
+#shapeEditor .missing {
   color: #ff7777;
 }
 #scUnits {

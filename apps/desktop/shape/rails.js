@@ -6,7 +6,7 @@ import { StudioShell } from '../studio-shell.js';
 import { copySprites, flip, moveSelection, moveToEnd, pasteSprites } from './editing.js';
 import { setMode, shape } from './model.js';
 
-const host = $('spriteComposer');
+const host = $('shapeEditor');
 const iconButton = (id, label, icon) => StudioShell.iconButton(id, label, icon);
 
 /**

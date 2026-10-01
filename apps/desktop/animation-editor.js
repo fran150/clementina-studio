@@ -1,6 +1,6 @@
 // Animation authoring. An animation is a sequence of shapes with durations; it
 // names shapes rather than owning sprites, so a shape edit reaches every frame
-// showing it, flipped or not. Loaded before sprite-composer.js, which wraps
+// showing it, flipped or not. Loaded before shape-editor.js, which wraps
 // renderAnimations to keep its own canvas in sync with shape edits.
 //
 // This file holds the animation list, the shapes to append, and rendering;

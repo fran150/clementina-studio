@@ -204,7 +204,7 @@ suite(
 
     // ---- Tileset pixels ----
     // The canvas shows the tiles picked on the tile map: tile 0 by default.
-    await run(`showView('tiles');setTilePixel(tilesets[0],0,3,0,5);renderBankEditor();`);
+    await run(`showView('tiles');setTilePixel(tilesets[0],0,3,0,5);renderTilesetEditor();`);
     await key('A', ['control']);
     const pixel = `return tilePixel(tilesets[0],0,3,0);`;
     const before = await run(pixel);

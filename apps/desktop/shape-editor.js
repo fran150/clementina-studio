@@ -45,7 +45,7 @@ import { setShapeIndex, shapeIndex, shapes, tilesets } from './state.js';
 
 import { StudioShell } from './studio-shell.js';
 
-const host = $('spriteComposer');
+const host = $('shapeEditor');
 const workspace = StudioShell.defineEditor({
   view: 'shapes',
   host,

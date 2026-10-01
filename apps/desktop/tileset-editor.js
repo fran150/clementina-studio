@@ -6,7 +6,7 @@
 // the libraries, zoom and keys, and the layout.
 import { $ } from './dom.js';
 import { clampIndex } from './domain/assets.js';
-import { renderBankEditor } from './lifecycle.js';
+import { renderTilesetEditor } from './lifecycle.js';
 import { inputTo565, setBankColor, tilesets } from './state.js';
 import { StudioShell } from './studio-shell.js';
 import { fitLevel, spacePan, tileKeys, tileZoom } from './tiles/controls.js';
@@ -40,7 +40,7 @@ import {
   updateStatus,
 } from './tiles/view.js';
 
-const host = $('namedBankEditor');
+const host = $('tilesetEditor');
 const workspace = StudioShell.defineEditor({
   view: 'tiles',
   host,
@@ -155,7 +155,7 @@ function render() {
   }
 }
 tl.render = render;
-renderBankEditor.after(render);
+renderTilesetEditor.after(render);
 
 // ===== the parts =====
 tileMapPointer();

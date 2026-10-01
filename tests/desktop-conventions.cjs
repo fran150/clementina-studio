@@ -126,7 +126,7 @@ suite(
     await run(`$('miniatureToggle').click();`);
 
     // ---- Tilesets: Shift+V flips the selection; right-click erases or opens the menu ----
-    await run(`showView('tiles');setTilePixel(tilesets[0],0,3,0,5);renderBankEditor();`);
+    await run(`showView('tiles');setTilePixel(tilesets[0],0,3,0,5);renderTilesetEditor();`);
     await key('A', ['control']);
     await key('V', ['shift']);
     assert.equal(

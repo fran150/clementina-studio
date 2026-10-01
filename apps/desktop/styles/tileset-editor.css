@@ -73,11 +73,11 @@
   margin-top: 16px;
   width: fit-content;
 }
-#namedBankEditor h2 {
+#tilesetEditor h2 {
   font-size: 12px;
   color: var(--text-dim);
 }
-#namedBankEditor input {
+#tilesetEditor input {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--line);
@@ -198,10 +198,10 @@
 .assetRow:focus {
   outline: 1px solid var(--sel);
 }
-#namedBankEditor .objectLibrary > h2 {
+#tilesetEditor .objectLibrary > h2 {
   margin-top: 14px;
 }
-#namedBankEditor #bankMap {
+#tilesetEditor #bankMap {
   width: 100%;
   height: auto;
   aspect-ratio: 1;

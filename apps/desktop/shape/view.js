@@ -19,7 +19,7 @@ import {
   width,
 } from './model.js';
 
-const host = $('spriteComposer');
+const host = $('shapeEditor');
 export const canvas = $('scCanvas');
 
 /**

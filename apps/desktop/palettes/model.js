@@ -2,7 +2,7 @@
 // color is being edited, and which configs use a palette.
 import { paletteUsage } from '../domain/palettes.js';
 import { ProjectHistory } from '../history.js';
-import { renderBankEditor } from '../lifecycle.js';
+import { renderTilesetEditor } from '../lifecycle.js';
 import { paletteConfigs, paletteLibrary } from '../state.js';
 
 /** The palette library's working state; the palettes live in state.js. */
@@ -19,7 +19,7 @@ export const pl = {
 // banks the palettes fill; the tileset editor redraws after every edit.
 const history = ProjectHistory.editor({
   parts: ['tilesets', 'palettes'],
-  after: () => renderBankEditor(),
+  after: () => renderTilesetEditor(),
 });
 /**
  * One undoable edit of the palettes: runs fn, marks the project changed and

@@ -15,7 +15,7 @@ import { showGhost } from './ghost.js';
 import { hideGhost, sc, setMode, spritesOf } from './model.js';
 import { canvas, draw, fit, viewport } from './view.js';
 
-const host = $('spriteComposer');
+const host = $('shapeEditor');
 const iconButton = (id, label, icon) => StudioShell.iconButton(id, label, icon);
 
 /** Builds the zoom buttons into the top bar. */

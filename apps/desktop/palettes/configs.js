@@ -3,7 +3,7 @@
 // rather than just this panel.
 import { $ } from '../dom.js';
 import { nameTaken } from '../domain/names.js';
-import { redrawAll, renderAnimations, renderBankEditor } from '../lifecycle.js';
+import { redrawAll, renderAnimations, renderTilesetEditor } from '../lifecycle.js';
 import {
   activeConfig,
   activeConfigId,
@@ -22,7 +22,7 @@ import { paletteEdit, pl } from './model.js';
 export function configEdit(...args) {
   paletteEdit(...args);
   renderConfigPicker();
-  renderBankEditor();
+  renderTilesetEditor();
   renderAnimations();
 }
 // Electron's window.prompt() throws rather than showing a dialog, so config
