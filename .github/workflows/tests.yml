@@ -7,14 +7,14 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           path: clementina-studio
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: fran150/clementina-sdk
           path: clementina-sdk
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       - name: Build SDK dependencies
@@ -48,7 +48,7 @@ jobs:
         run: npm run test:all
       - name: Upload UI screenshots and failure details
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ui-test-results
           path: clementina-studio/test-results
