@@ -513,3 +513,7 @@ uploaded as `ui-test-results`; the workflow test also writes a screenshot and er
 report on failure. Locally these go in `test-results/` (override with
 `STUDIO_CAPTURE_DIR`). Native file dialogs and full main-process save/open flows
 are not covered by these renderer tests.
+
+## License
+
+GPLv3. See [LICENSE](LICENSE).
