@@ -222,7 +222,9 @@ flip so that a mirrored pose does not either: it mirrors the shape about its
 origin by toggling each sprite's flip bit and moving it from `x` to `-x - 8`.
 
 Every shape in one animation must name the same tileset: they are displayed in
-sequence out of the single sprite CHR bank.
+sequence out of the single sprite CHR bank. A game that rewrites `SPRBANK`
+between frames, which changes every sprite on screen, does so in its own code,
+with one animation per tileset.
 
 This is why a shape needs no per-frame ordering. A limb that passes in front of
 a torso partway through a walk is two shapes built from the same tiles in a
@@ -303,11 +305,6 @@ Packing several tilesets into one CHR bank, with tile indices rebased at build
 time, is possible but unnecessary while a tileset is a whole bank.
 
 ## Open questions
-
-Whether an animation's shapes may span more than one tileset. They cannot be
-displayed in sequence from a single sprite CHR bank unless a game rewrites
-`SPRBANK` between frames, which affects every sprite on screen. The model
-above forbids it; a game doing raster tricks would want it back.
 
 Whether the tileset editor's preview background should be a `(bank, index)`
 pick from palette RAM rather than a free hex value. `BACKDROP_COLOR` is itself
