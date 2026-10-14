@@ -69,6 +69,8 @@ export interface Sequencer {
 export const RECORD_SIZE = [0, 6, 4, 2, 3, 2, 2, 2, 4];
 export const read24 = (b: Uint8Array, at: number) =>
   (b[at] | (b[at + 1] << 8) | (b[at + 2] << 16)) >>> 0;
+/** audio_seq_event_ticks: a NOTE or REST's length in ticks; a duration of 0 still takes its decode tick. */
+export const eventTicks = (duration: number) => duration || 1;
 
 export function emptySequencer(): Sequencer {
   return {

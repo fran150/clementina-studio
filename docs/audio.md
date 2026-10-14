@@ -49,9 +49,10 @@ Three details of the firmware shape everything below.
    rising edge.** Two `NOTE`s in a row therefore slide from one pitch to the
    next under one envelope. A note that should attack again needs the gate
    to fall first. `NOTE` also resets the oscillator's phase every time.
-2. **The sequencer holds an event for its duration field plus one sample.**
-   The next event is decoded on the sample after the countdown reaches zero.
-   clementina-6502's `audio_sequencer_test.go` asserts the same timing.
+2. **The sequencer holds an event for exactly its duration field.** The
+   sample that decodes the event counts, and a duration of 0 still takes that
+   sample. clementina-6502's `audio_sequencer_test.go` asserts the same
+   timing.
 3. **Nothing on the sequencer changes a frequency except `NOTE`.** So a
    sequenced pitch move resets the phase at every step. A program writing
    `FREQ_L`/`FREQ_H` directly slides smoothly.
@@ -112,9 +113,8 @@ recipe for its bytes:
 - **Time.** Steps become samples once, at the song's tempo. Each step
   boundary is rounded, rather than each duration, so every voice keeps the
   same clock: a boundary falls on the same sample in every track. Every
-  event's duration field is its length in samples minus one, because of the
-  extra sample the sequencer holds. Events longer than 2²⁴ samples are
-  split.
+  event's duration field is its length in samples. Events longer than
+  2²⁴ − 1 samples are split.
 - **Pan.** A `SET_PAN` opens each track.
 - **Instruments.** Before each note come the `SET_*` opcodes for what its
   instrument changes on the voice. Nothing is assumed at the start of a
@@ -204,11 +204,6 @@ For audio:
 
 Found while building this; recorded here rather than worked around silently.
 
-- **`docs/audio-sequencer.md` says a `NOTE` holds for `dur` samples; the
-  interrupt holds `dur + 1`.** Studio writes one less. `TRACK` writes
-  `ticks × 150`, so each of its events runs one sample long. Its voices
-  therefore drift apart by one sample per event: a sixteenth-note part
-  against a whole-note part slips about 0.6 ms a bar.
 - **`TRACK` never lowers the gate between notes.** Rule 1 above then makes
   every run of notes one slide under one envelope. Under a plucked envelope
   with sustain 0, only the first note of `"C D E F"` is heard. Studio avoids

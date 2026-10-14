@@ -2,10 +2,9 @@
 // sine table, oscillators and noise generator, envelope rate and level
 // tables, fixed-point gain chain, pan law and 10-bit output clamp, and the
 // same sequencer, timing included. The sequencer holds a NOTE or REST for
-// its duration field *plus one* tick: audio_seq_step decodes the next
-// event on the tick after its countdown reaches zero (clementina-6502's
-// audio_sequencer_test.go asserts the same), so the compiler writes one
-// less than the ticks an event should last.
+// exactly its duration field, counting the tick that decodes it, and a
+// duration of 0 still takes that tick (clementina-6502's
+// audio_sequencer_test.go asserts the same).
 import {
   CONTROL_GATE,
   CONTROL_RESET_PHASE,
@@ -28,6 +27,7 @@ import {
   Voice,
   emptySequencer,
   envelopeStep,
+  eventTicks,
   jumpTarget,
   next,
   read24,
@@ -324,13 +324,13 @@ export class MiaEngine {
     }
   }
   /** Starts the event at the cursor: a NOTE gates on, a REST gates off. */
-  private event(voice: number, op: number, size: number, duration: number): void {
+  private event(voice: number, op: number, size: number, ticks: number): void {
     const s = this.seqs[voice];
     if (op === OP.NOTE) this.note(voice, s.cursor);
     else this.gate(voice, false);
     s.noteIndex++;
-    s.eventDuration = duration;
-    s.countdown = duration;
+    s.eventDuration = ticks;
+    s.countdown = ticks - 1;
     s.cursor += size;
   }
   private step(voice: number): void {
@@ -355,7 +355,12 @@ export class MiaEngine {
         return;
       }
       if (op === OP.NOTE || op === OP.REST) {
-        this.event(voice, op, size, read24(s.bytes, s.cursor + (op === OP.NOTE ? 3 : 1)));
+        this.event(
+          voice,
+          op,
+          size,
+          eventTicks(read24(s.bytes, s.cursor + (op === OP.NOTE ? 3 : 1))),
+        );
         return;
       }
       if (op === OP.JUMP) s.cursor = jumpTarget(s.bytes, s.cursor);
@@ -388,15 +393,15 @@ export class MiaEngine {
         continue;
       }
       if (op === OP.NOTE || op === OP.REST) {
-        const duration = read24(s.bytes, s.cursor + (op === OP.NOTE ? 3 : 1));
-        if (duration <= s.catchupRemaining) {
-          s.catchupRemaining -= duration;
+        const ticks = eventTicks(read24(s.bytes, s.cursor + (op === OP.NOTE ? 3 : 1)));
+        if (ticks <= s.catchupRemaining) {
+          s.catchupRemaining -= ticks;
           s.noteIndex++;
           s.cursor += size;
           continue;
         }
         s.catchingUp = false;
-        this.event(voice, op, size, duration);
+        this.event(voice, op, size, ticks);
         return;
       }
       this.config(voice, s.cursor, op);
