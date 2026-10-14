@@ -68,6 +68,17 @@ export function scenarios(audio) {
  soundWrites({id: 'x', name: 'x', ...generateSound('laser', 3)}).forEach(frame => take.push(...frame.map(([field, value]) => write(1, field, value)), ['run', FRAME_SAMPLES]));
  take.push(['give', 2], ['run', 9000], ['take', 4], ['give', 4], ['run', 3000], ['stop', 9], ['run', 4000], ['start', 9], ['run', 9000]);
  list.take = take;
+
+ // Hand-written tracks for what songs rarely produce: a NOTE straight after the
+ // same NOTE, a TIE carrying a note on, a TIE after a REST starting its own,
+ // and catch-up landing on a TIE while the voice still sounds.
+ const {OP} = audio;
+ const timed = (op, f, ticks) => [op, ...(op === OP.REST ? [] : [f & 255, f >> 8]), ticks & 255, (ticks >> 8) & 255, ticks >> 16];
+ const tie0 = [OP.SET_ADSR, 0x52, 0xA4, ...timed(OP.NOTE, noteFrequency(57), 3000), ...timed(OP.NOTE, noteFrequency(57), 3000),
+  ...timed(OP.TIE, noteFrequency(60), 3000), ...timed(OP.REST, 0, 1500), ...timed(OP.TIE, noteFrequency(64), 3000), OP.END];
+ const tie1 = [OP.SET_ADSR, 0x61, 0xB5, ...timed(OP.NOTE, noteFrequency(45), 6000), ...timed(OP.TIE, noteFrequency(47), 6000),
+  ...timed(OP.TIE, noteFrequency(48), 6000), OP.END];
+ list.ties = [['track', 0, tie0], ['track', 1, tie1], ['start', 3], ['run', 2000], ['take', 2], ['run', 8000], ['give', 2], ['run', 14000]];
  return list;
 }
 

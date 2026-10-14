@@ -1,7 +1,7 @@
 // The engine: clementina-mia src/mia/audio/audio.c, bit for bit — the same
 // sine table, oscillators and noise generator, envelope rate and level
 // tables, fixed-point gain chain, pan law and 10-bit output clamp, and the
-// same sequencer, timing included. The sequencer holds a NOTE or REST for
+// same sequencer, timing included. The sequencer holds a NOTE, TIE or REST for
 // exactly its duration field, counting the tick that decodes it, and a
 // duration of 0 still takes that tick (clementina-6502's
 // audio_sequencer_test.go asserts the same).
@@ -28,9 +28,9 @@ import {
   emptySequencer,
   envelopeStep,
   eventTicks,
+  isTimed,
   jumpTarget,
   next,
-  read24,
 } from './voice.js';
 
 /** MIA's audio block and sequencer, as audio.c runs them in its 48 kHz interrupt (a 24 kHz tick). */
@@ -296,10 +296,15 @@ export class MiaEngine {
     this.gate(voice, false);
     this.finishedTracks++;
   }
-  private note(voice: number, at: number): void {
+  private freq(voice: number, at: number): void {
     const b = this.seqs[voice].bytes;
     this.apply(voice, REG.FREQ_L, b[at + 1]);
     this.apply(voice, REG.FREQ_H, b[at + 2]);
+  }
+  /** A new note: the envelope restarts only on the gate's rising edge, so the gate drops first. */
+  private note(voice: number, at: number): void {
+    this.freq(voice, at);
+    this.gate(voice, false);
     this.gate(voice, true);
   }
   private config(voice: number, at: number, op: number): void {
@@ -323,10 +328,17 @@ export class MiaEngine {
         break;
     }
   }
-  /** Starts the event at the cursor: a NOTE gates on, a REST gates off. */
-  private event(voice: number, op: number, size: number, ticks: number): void {
+  /**
+   * Starts the event at the cursor (audio_seq_apply_timed): a NOTE starts a
+   * note, a REST gates off, and a TIE changes the pitch of the sounding note.
+   * A TIE starts a note instead when the voice is released, or when catch-up
+   * resumes on it, since the note it continued was skipped.
+   */
+  private event(voice: number, op: number, size: number, ticks: number, resume = false): void {
     const s = this.seqs[voice];
-    if (op === OP.NOTE) this.note(voice, s.cursor);
+    const gated = (this.voices[voice].control & CONTROL_GATE) !== 0;
+    if (op === OP.TIE && gated && !resume) this.freq(voice, s.cursor);
+    else if (op === OP.NOTE || op === OP.TIE) this.note(voice, s.cursor);
     else this.gate(voice, false);
     s.noteIndex++;
     s.eventDuration = ticks;
@@ -354,13 +366,8 @@ export class MiaEngine {
         this.finish(voice);
         return;
       }
-      if (op === OP.NOTE || op === OP.REST) {
-        this.event(
-          voice,
-          op,
-          size,
-          eventTicks(read24(s.bytes, s.cursor + (op === OP.NOTE ? 3 : 1))),
-        );
+      if (isTimed(op)) {
+        this.event(voice, op, size, eventTicks(s.bytes, s.cursor, op));
         return;
       }
       if (op === OP.JUMP) s.cursor = jumpTarget(s.bytes, s.cursor);
@@ -392,8 +399,8 @@ export class MiaEngine {
         s.cursor = jumpTarget(s.bytes, s.cursor);
         continue;
       }
-      if (op === OP.NOTE || op === OP.REST) {
-        const ticks = eventTicks(read24(s.bytes, s.cursor + (op === OP.NOTE ? 3 : 1)));
+      if (isTimed(op)) {
+        const ticks = eventTicks(s.bytes, s.cursor, op);
         if (ticks <= s.catchupRemaining) {
           s.catchupRemaining -= ticks;
           s.noteIndex++;
@@ -401,7 +408,7 @@ export class MiaEngine {
           continue;
         }
         s.catchingUp = false;
-        this.event(voice, op, size, ticks);
+        this.event(voice, op, size, ticks, true);
         return;
       }
       this.config(voice, s.cursor, op);

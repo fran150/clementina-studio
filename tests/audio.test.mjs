@@ -38,10 +38,11 @@ const {
 // these when the firmware's audio changes.
 const FIRMWARE = {
   voices: '7226dc8a',
-  song: '4da1bb39',
-  once: '4c26d169',
+  song: '04ff7273',
+  once: '83c8caea',
   sounds: 'ac80631d',
-  take: 'f9a36151',
+  take: '07efb84c',
+  ties: '07534745',
 };
 
 test('the engine plays every scenario sample for sample as the firmware does', () => {
@@ -140,10 +141,6 @@ test('a song compiles to the sequencer bytecode', () => {
     [
       OP.SET_PAN,
       0xf8,
-      OP.REST,
-      1,
-      0,
-      0,
       OP.SET_WAVE,
       1,
       OP.SET_ADSR,
@@ -156,17 +153,13 @@ test('a song compiles to the sequencer bytecode', () => {
       OP.NOTE,
       0x80,
       0x1b,
-      0xb7,
+      0xb8,
       0x0b,
-      0,
-      OP.REST,
-      1,
-      0,
       0,
       OP.NOTE,
       0xb4,
       0x20,
-      0xb7,
+      0xb8,
       0x0b,
       0,
       OP.REST,
@@ -197,9 +190,10 @@ function passes(bytes) {
         target = at + 4 + offset;
       return [total, total - marks.get(target)];
     }
-    if (op === OP.NOTE) total += bytes[at + 3] | (bytes[at + 4] << 8) | (bytes[at + 5] << 16);
+    if (op === OP.NOTE || op === OP.TIE)
+      total += bytes[at + 3] | (bytes[at + 4] << 8) | (bytes[at + 5] << 16);
     if (op === OP.REST) total += bytes[at + 1] | (bytes[at + 2] << 8) | (bytes[at + 3] << 16);
-    at += [1, 6, 4, 2, 3, 2, 2, 2, 4][op];
+    at += [1, 6, 4, 2, 3, 2, 2, 2, 4, 6][op];
   }
 }
 
@@ -245,7 +239,7 @@ test('every voice keeps the same clock, through the loop', () => {
   assert.equal(held.notes, 1);
 });
 
-test('a legato note slides under one envelope; any other note restarts it', () => {
+test('a legato note carries on the note before it; any other note starts its own', () => {
   const bytes = compileSong(
     song([
       {
@@ -260,10 +254,10 @@ test('a legato note slides under one envelope; any other note restarts it', () =
     instruments,
   ).voices[0].bytes;
   const ops = [];
-  for (let at = 0; bytes[at] !== OP.END; at += [1, 6, 4, 2, 3, 2, 2, 2, 4][bytes[at]])
+  for (let at = 0; bytes[at] !== OP.END; at += [1, 6, 4, 2, 3, 2, 2, 2, 4, 6][bytes[at]])
     ops.push(bytes[at]);
-  const events = ops.filter((op) => op === OP.NOTE || op === OP.REST);
-  assert.deepEqual(events, [OP.REST, OP.NOTE, OP.NOTE, OP.REST, OP.NOTE, OP.REST]);
+  const events = ops.filter((op) => op === OP.NOTE || op === OP.TIE || op === OP.REST);
+  assert.deepEqual(events, [OP.NOTE, OP.TIE, OP.NOTE, OP.REST]);
 });
 
 test('events longer than a 24-bit duration are split', () => {
