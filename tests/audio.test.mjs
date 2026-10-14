@@ -61,7 +61,7 @@ test('notes are equal-tempered 12.4 frequency values', () => {
   assert.deepEqual([0, 57, 61, 95].map(noteName), ['C0', 'A4', 'C#5', 'B7']);
 });
 
-test('the sequencer holds an event for its duration field plus one sample', () => {
+test('the sequencer holds an event for exactly its duration field', () => {
   // The same timing clementina-6502's audio_sequencer_test.go asserts.
   const engine = new MiaEngine();
   engine.loadTrack(
@@ -74,7 +74,8 @@ test('the sequencer holds an event for its duration field plus one sample', () =
     engine.render(1);
     indexes.push(engine.noteIndex(0));
   }
-  assert.deepEqual(indexes, [1, 1, 1, 2, 2, 2]);
+  // A lasts its 2 samples, B's duration of 0 still takes 1, then END.
+  assert.deepEqual(indexes, [1, 1, 2, 2, 2, 2]);
   assert.equal(engine.isRunning(0), false);
 });
 
@@ -119,7 +120,7 @@ const song = (voices, extra = {}) => ({
 });
 
 test('a song compiles to the sequencer bytecode', () => {
-  // 120 BPM in sixteenths: a step is 3000 samples, so a note's duration field is 2999 — less one where it gives a sample to restart the envelope.
+  // 120 BPM in sixteenths: a step is 3000 samples, so a note's duration field is 3000 — less one where it gives a sample to restart the envelope.
   const { voices, samples, loopSample } = compileSong(
     song([
       {
@@ -140,7 +141,7 @@ test('a song compiles to the sequencer bytecode', () => {
       OP.SET_PAN,
       0xf8,
       OP.REST,
-      0,
+      1,
       0,
       0,
       OP.SET_WAVE,
@@ -155,21 +156,21 @@ test('a song compiles to the sequencer bytecode', () => {
       OP.NOTE,
       0x80,
       0x1b,
-      0xb6,
+      0xb7,
       0x0b,
       0,
       OP.REST,
-      0,
+      1,
       0,
       0,
       OP.NOTE,
       0xb4,
       0x20,
-      0xb6,
+      0xb7,
       0x0b,
       0,
       OP.REST,
-      0x6f,
+      0x70,
       0x17,
       0,
       OP.END,
@@ -196,8 +197,8 @@ function passes(bytes) {
         target = at + 4 + offset;
       return [total, total - marks.get(target)];
     }
-    if (op === OP.NOTE) total += (bytes[at + 3] | (bytes[at + 4] << 8) | (bytes[at + 5] << 16)) + 1;
-    if (op === OP.REST) total += (bytes[at + 1] | (bytes[at + 2] << 8) | (bytes[at + 3] << 16)) + 1;
+    if (op === OP.NOTE) total += bytes[at + 3] | (bytes[at + 4] << 8) | (bytes[at + 5] << 16);
+    if (op === OP.REST) total += bytes[at + 1] | (bytes[at + 2] << 8) | (bytes[at + 3] << 16);
     at += [1, 6, 4, 2, 3, 2, 2, 2, 4][op];
   }
 }
