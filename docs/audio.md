@@ -88,7 +88,7 @@ is real:
 | voice | one of four, numbered 0–3 | a register record; one track |
 | instrument | waveform, pulse width, envelope and volume, named | what `SET_WAVE`, `SET_ADSR`, `SET_PULSE` and `SET_VOL` put on a voice |
 | song | four voices of notes on a step grid, a tempo and a loop | four tracks started together |
-| note | a pitch, a start and a length in steps, an instrument, legato or not | a `NOTE`, after a one-sample `REST` when it restarts the envelope |
+| note | a pitch, a start and a length in steps, an instrument, legato or not | a `NOTE`, or a `TIE` when it is legato |
 | sound | one voice's registers for each 60 Hz frame, with one envelope and pan | what a driver writes to the voice it takes |
 | frame | 1/60 s: 400 samples | one tick of `TI`, the machine's 60 Hz clock |
 
@@ -119,10 +119,13 @@ recipe for its bytes:
 - **Instruments.** Before each note come the `SET_*` opcodes for what its
   instrument changes on the voice. Nothing is assumed at the start of a
   track, nor at the loop start, where playback arrives from two places.
-- **Articulation.** A note that restarts its envelope is preceded by a
-  one-sample `REST`, so the gate falls and rises again. A **legato** note
-  skips it and slides from the note before, the way a tied note would.
-- **Loop.** A note held across the loop start is split there. The track
+- **Articulation.** A note is a `NOTE`, which starts it with its own
+  attack, even straight after another note. A **legato** note right after
+  another is a `TIE`: it changes the pitch of the sounding note without a
+  new attack, the way a tied or slurred note would. A legato note after a
+  rest, or first on its voice, has nothing to carry on and is a `NOTE`.
+- **Loop.** A note held across the loop start is split there, and its
+  second part is a `TIE`, so the first pass hears one note. The track
   ends with a `JUMP` back to the loop start, or with `END`. The loop body
   has the same length in samples in every voice, so the voices stay
   together through every pass.

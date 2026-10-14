@@ -4,6 +4,7 @@
 import {
   ATTACK_MS,
   DECAY_RELEASE_MS,
+  OP,
   SAMPLE_RATE,
   WAVE_NOISE,
   WAVE_PULSE,
@@ -66,11 +67,14 @@ export interface Sequencer {
   takenAt: number;
   noteIndex: number;
 }
-export const RECORD_SIZE = [0, 6, 4, 2, 3, 2, 2, 2, 4];
+export const RECORD_SIZE = [0, 6, 4, 2, 3, 2, 2, 2, 4, 6];
 export const read24 = (b: Uint8Array, at: number) =>
   (b[at] | (b[at + 1] << 8) | (b[at + 2] << 16)) >>> 0;
-/** audio_seq_event_ticks: a NOTE or REST's length in ticks; a duration of 0 still takes its decode tick. */
-export const eventTicks = (duration: number) => duration || 1;
+/** audio_seq_is_timed: NOTE, TIE and REST take time and advance the note index. */
+export const isTimed = (op: number) => op === OP.NOTE || op === OP.TIE || op === OP.REST;
+/** audio_seq_event_ticks: a NOTE, TIE or REST's length in ticks; a duration of 0 still takes its decode tick. */
+export const eventTicks = (bytes: Uint8Array, at: number, op: number) =>
+  read24(bytes, at + (op === OP.REST ? 1 : 3)) || 1;
 
 export function emptySequencer(): Sequencer {
   return {
