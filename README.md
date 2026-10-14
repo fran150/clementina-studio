@@ -6,9 +6,11 @@ Development tools for creating Clementina games and programs.
 
 - Desktop editors for tilesets, palettes, shapes, animations, maps, music, and
   sound effects.
-- Shared asset converters and command-line build tools.
-- BASIC tokenizer and generated runtime asset loaders.
-- A future VS Code extension for Clementina BASIC.
+- A Builder tab that exports a project's assets through the SDK.
+
+The asset converters, command-line build tools, BASIC tokenizer, runtime asset
+loaders and the VS Code extension for Clementina BASIC live in clementina-sdk;
+see [Companion repositories](#companion-repositories).
 
 Game assembly remains in its own repository and uses ca65/ld65, matching
 Clementina ROM's toolchain. Studio is a TypeScript workspace with an Electron
@@ -127,12 +129,14 @@ header can describe MIA destinations. Raw binary files can be runtime assets.
   menus, screenshots).
 - `tests/firmware`: the harness that runs clementina-mia's `audio.c` on the
   desktop to check Studio's engine against it (`npm run test:firmware`).
-- `apps/vscode`, `packages/basic`, `packages/cli`, `examples`: planned.
 
 ## Companion repositories
 
 Paths below are relative to this checkout in the development directory layout:
 
+- `../clementina-sdk`: project format, asset converters, build, CLI, BASIC
+  tooling and the VS Code extension. Studio's `@clementina/*` dependencies
+  point into it, so it is checked out and built first.
 - `../clementina-rom`: kernel, BASIC, and runtime file-format
   documentation. `docs/basic-video.md` and `docs/memory-map.md` are where the
   register and attribute layouts come from.
@@ -141,9 +145,6 @@ Paths below are relative to this checkout in the development directory layout:
 - `../clementina-6502`: emulator and CPU-visible behavior verification.
 - `../clementina-video-client`: the renderer. `internal/render/renderer.go`
   is the authority on compositing order and priority.
-
-Verify generated BASIC files against the actual ROM tokenizer and SAVE/LOAD
-behavior.
 
 ## Project files
 
