@@ -144,29 +144,24 @@ function chrPayload(payload: Uint8Array): { chr: number[]; bpp: number } | null 
   return { chr, bpp: payload.length === PLANE_BYTES ? 1 : 3 };
 }
 
-/** A PRG wraps CHR data in a CPU load header; its address is not a CHR bank. */
+/**
+ * A PRG wraps CHR data in a 2-byte CPU load address; the address is not a CHR
+ * bank, and the file records no CPU bank.
+ */
 export function importTilesetPrg(bytes: Uint8Array): {
   chr: number[];
   bpp: number;
   address: number;
-  bank?: number;
 } {
   if (bytes.length < 2) throw Error('PRG is missing its load address');
   const address = bytes[0] | (bytes[1] << 8);
   if (address >= 0xc000) throw Error('Unsupported PRG load address');
-  const header = address >= 0x8000 ? 3 : 2;
-  if (header === 3 && (bytes.length < 3 || bytes[2] < 1 || bytes[2] > 31))
-    throw Error('Invalid PRG bank header');
-  const tiles = chrPayload(bytes.subarray(header));
+  const tiles = chrPayload(bytes.subarray(2));
   if (!tiles)
     throw Error(
       'Expected 2048 bytes of 1bpp tiles or 6144 bytes of 3bpp tiles after the PRG header',
     );
-  return {
-    ...tiles,
-    address,
-    ...(header === 3 ? { bank: bytes[2] } : {}),
-  };
+  return { ...tiles, address };
 }
 
 /** PRG carries an address header; raw BIN/CHR contains exactly one tileset payload. */

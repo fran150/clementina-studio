@@ -202,20 +202,26 @@ test('every shape in one animation draws from the same tileset', () => {
   );
 });
 
-test('PRG import strips unbanked and banked headers without changing pixels', () => {
+test('PRG import strips the 2-byte load address without changing pixels', () => {
   const mono = new Uint8Array(2050);
   mono.set([0, 96, 129]);
   const m = importTilesetPrg(mono);
   assert.equal(m.bpp, 1);
+  assert.equal(m.address, 0x6000);
   assert.equal(m.chr[0], 129);
   assert.equal(m.chr.length, BANK_BYTES);
-  const color = new Uint8Array(6147);
-  color.set([0, 128, 7, 255]);
+  const color = new Uint8Array(6146);
+  color.set([0, 128, 255]);
   const c = importTilesetPrg(color);
   assert.equal(c.bpp, 3);
-  assert.equal(c.bank, 7);
+  assert.equal(c.address, 0x8000);
   assert.equal(c.chr[0], 255);
   assert.throws(() => importTilesetPrg(new Uint8Array(4)));
-  color[2] = 0;
-  assert.throws(() => importTilesetPrg(color));
+  // A file with the old bank byte after a $8000 address is one byte too long.
+  assert.throws(
+    () => importTilesetPrg(new Uint8Array(6147).fill(0x80, 1, 2)),
+    /after the PRG header/,
+  );
+  color[1] = 0xc0;
+  assert.throws(() => importTilesetPrg(color), /load address/);
 });
