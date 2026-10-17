@@ -18,7 +18,7 @@ The code carries these names as of project format version 2.
 | palette RAM | all sixteen banks at once | `$00100`, indices `$90-$9F` |
 | bank config | a named assignment of palettes to all sixteen banks | one palette RAM layout |
 | tileset | 6144 bytes of CHR data, named, authored | the contents of one CHR bank |
-| CHR bank | one of eight, numbered 0-7 | `CHRLOAD bank,…`, `BGBANK`/`SPRBANK` |
+| CHR bank | one of eight, numbered 0-7 | `CHRLOAD path,bank,…`, `BGBANK`/`SPRBANK` |
 | sprite | one OAM entry: tile, offset, palette bank, flips | one 5-byte OAM record |
 | shape | an ordered list of sprites drawn together | a run of consecutive OAM records |
 | animation | a sequence of shapes with durations | successive OAM rewrites |
@@ -90,7 +90,7 @@ Which config is active has no effect on generated files.
 
 Configs themselves are exported, because a config is what a palette file
 contains. Sixteen palettes in bank order is 256 bytes, loadable in one call:
-`PALLOAD 0,0,0,"OVERWORLD.PAL"`. Partial configs work the same way, since
+`PALLOAD "OVERWORLD.PAL",0`. Partial configs work the same way, since
 `PALLOAD` computes `$00100 + bank*16 + offset` and transfers linearly across
 bank boundaries.
 
