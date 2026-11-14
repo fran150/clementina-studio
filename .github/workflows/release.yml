@@ -60,7 +60,7 @@ jobs:
         run: |
           npm ci
           npm install --no-audit --no-fund \
-            ../sdk-pack/clementina-{core,assets,project,basic,assembler,runtime,build,emulator-client}-*.tgz
+            ../sdk-pack/clementina-{core,assets,project,basic,assembler,lib,build,emulator-client}-*.tgz
       - name: Package
         working-directory: clementina-studio
         env:
