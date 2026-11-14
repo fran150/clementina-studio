@@ -153,6 +153,41 @@
   color: var(--text-dim);
   background: #17181c;
 }
+.buMemoryTop {
+  margin: 0 0 8px;
+  font-size: 11px;
+}
+.buMemoryTop input {
+  width: 80px;
+  margin-left: 6px;
+}
+.buMemoryTop small {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+.buCpu {
+  display: grid;
+  gap: 4px;
+}
+.buCpuRegion {
+  border-left: 3px solid #555;
+  padding: 6px 12px;
+  background: #17181c;
+}
+.buCpuRegion.program {
+  border-left-color: var(--ink);
+}
+.buCpuRegion.overlap {
+  outline: 1px solid #e0603a;
+}
+.buCpuRegion strong {
+  display: block;
+  font-size: 11px;
+}
+.buCpuRegion small {
+  color: var(--text-dim);
+  font-size: 10px;
+}
 .buBankEmpty {
   font-size: 10px;
   color: var(--text-dim);

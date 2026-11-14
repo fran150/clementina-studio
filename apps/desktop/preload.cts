@@ -5,8 +5,13 @@ const studio = {
   builderFolder: () => ipcRenderer.invoke('builder:folder'),
   builderFolderSelected: (root: string) => ipcRenderer.invoke('builder:folder-selected', root),
   builderTool: (kind: string) => ipcRenderer.invoke('builder:tool', kind),
-  builderAction: (action: string, project: unknown, settings: unknown, name: string) =>
-    ipcRenderer.invoke('builder:action', action, project, settings, name),
+  builderAction: (
+    action: string,
+    project: unknown,
+    settings: unknown,
+    name: string,
+    program?: unknown,
+  ) => ipcRenderer.invoke('builder:action', action, project, settings, name, program),
   builderFrame: () => ipcRenderer.invoke('builder:frame'),
   importImage: () => ipcRenderer.invoke('image:import'),
   importTileset: () => ipcRenderer.invoke('tileset:import'),

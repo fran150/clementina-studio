@@ -44,7 +44,6 @@ function starterManifest(name: string): ClementinaProjectManifest {
     version: 1,
     name: name || 'Game',
     target: { machine: 'clementina-6502' },
-    program: { kind: 'assembly', entry: 'src/main.s' },
     assets: {
       palettes: [],
       paletteConfigs: [],
@@ -57,6 +56,7 @@ function starterManifest(name: string): ClementinaProjectManifest {
     build: {
       outputDirectory: 'build',
       assembly: {
+        sources: ['src/main.s'],
         linkerConfig: 'link.cfg',
         outputName: 'game',
         loadAddress: LOAD_ADDRESS,
@@ -92,6 +92,12 @@ export const defaultAssets = (): ProjectAssetsBuild => ({
  * already has some or they differ from the defaults.
  */
 type WriteMode = 'builder' | 'save';
+/**
+ * The program settings the Builder edits besides the asset build. `memoryTop`
+ * is build.basic.memoryTop: a number sets it, null removes it, and leaving it
+ * out keeps what the folder has. It applies only to a project with a BASIC program.
+ */
+export type BuilderProgram = { memoryTop?: number | null };
 
 /**
  * The portable project for `studio`: `existing`'s manifest with its asset
@@ -103,6 +109,7 @@ function portableBuilderProject(
   name: string,
   existing?: PortableProject,
   mode: WriteMode = 'builder',
+  program: BuilderProgram = {},
 ) {
   const assets = fromStudioProjectV2(studio);
   const manifest = existing ? structuredClone(existing.manifest) : starterManifest(name);
@@ -133,6 +140,10 @@ function portableBuilderProject(
       JSON.stringify(settings) !== JSON.stringify(defaultAssets()))
   )
     manifest.build.assets = structuredClone(settings);
+  const basic = manifest.build?.basic,
+    top = program.memoryTop;
+  if (basic && top === null) delete basic.memoryTop;
+  else if (basic && typeof top === 'number') basic.memoryTop = top;
   return { manifest, assets };
 }
 /**
@@ -166,11 +177,14 @@ export async function readBuilderFolder(root: string) {
   const opened = await readPortableStudioProject(root);
   if (!opened.portable.manifest.build?.assembly)
     throw Error('Choose an assembly project, or an empty folder for a new one.');
+  const basic = opened.portable.manifest.build?.basic;
   return {
     settings: opened.project.builder ?? defaultAssets(),
     fresh: false,
     project: opened.project,
     name: opened.portable.manifest.name,
+    // Whether the folder has a BASIC program, and the MEMSIZ it sets before running it.
+    basic: basic ? { memoryTop: basic.memoryTop ?? null } : null,
   };
 }
 /** Opens a portable project folder as a Studio project, with its Builder settings. */
@@ -217,8 +231,9 @@ export async function writeBuilderProject(
   settings: ProjectAssetsBuild,
   name: string,
   confirmRemoval: ConfirmRemoval = () => false,
+  program: BuilderProgram = {},
 ) {
-  return writeStudioProject(root, studio, settings, name, confirmRemoval, 'builder');
+  return writeStudioProject(root, studio, settings, name, confirmRemoval, 'builder', program);
 }
 /**
  * Writes `studio` into the folder at `root`. Only the Builder may start a new
@@ -232,6 +247,7 @@ async function writeStudioProject(
   name: string,
   confirmRemoval: ConfirmRemoval,
   mode: WriteMode,
+  program: BuilderProgram = {},
 ) {
   let existing: PortableProject | undefined;
   try {
@@ -245,7 +261,7 @@ async function writeStudioProject(
   if (!existing && mode === 'save') throw Error('Open a portable project before saving it.');
   if (existing && mode === 'builder' && !existing.manifest.build?.assembly)
     throw Error('Builder needs a portable assembly project with build.assembly settings.');
-  const project = portableBuilderProject(studio, settings, name, existing, mode);
+  const project = portableBuilderProject(studio, settings, name, existing, mode, program);
   // Check before asking, so a save that can't happen never asks.
   const checked = checkProject(project);
   if (!checked.ok) throw diagnosticsError(checked.diagnostics);
@@ -268,7 +284,9 @@ export async function buildStudioProject(
   settings: ProjectAssetsBuild,
   name: string,
   confirmRemoval?: ConfirmRemoval,
+  program: BuilderProgram = {},
 ) {
-  if (!(await writeBuilderProject(root, studio, settings, name, confirmRemoval))) return undefined;
+  if (!(await writeBuilderProject(root, studio, settings, name, confirmRemoval, program)))
+    return undefined;
   return buildProject(root);
 }

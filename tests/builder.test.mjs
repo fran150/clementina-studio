@@ -148,3 +148,25 @@ test('Builder retains custom portable asset paths after opening a folder', async
   assert.equal(after.manifest.assets.paletteConfigs[0], 'custom/config.json');
   assert.equal(after.manifest.description, 'Keep this metadata');
 });
+
+test('Builder sets and clears memoryTop for a project with a BASIC program, and keeps it otherwise', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'studio-builder-basic-')),
+    p = emptyProject();
+  await writeBuilderProject(root, p, defaultAssets(), 'Test');
+  assert.equal((await readBuilderFolder(root)).basic, null);
+  // Give the starter project a BASIC program that calls the assembly.
+  const loaded = await loadProject(root);
+  loaded.value.manifest.program = { entry: 'src/main.bas' };
+  loaded.value.manifest.build.basic = { outputName: 'game' };
+  await writeFile(join(root, 'src/main.bas'), '10 SYS 6144\n');
+  await saveProject(root, loaded.value);
+  assert.deepEqual((await readBuilderFolder(root)).basic, { memoryTop: null });
+  const top = async () => (await loadProject(root)).value.manifest.build.basic.memoryTop;
+  await writeBuilderProject(root, p, defaultAssets(), 'Test', undefined, { memoryTop: 0xa000 });
+  assert.equal(await top(), 0xa000);
+  assert.deepEqual((await readBuilderFolder(root)).basic, { memoryTop: 0xa000 });
+  await writeBuilderProject(root, p, defaultAssets(), 'Test');
+  assert.equal(await top(), 0xa000);
+  await writeBuilderProject(root, p, defaultAssets(), 'Test', undefined, { memoryTop: null });
+  assert.equal(await top(), undefined);
+});

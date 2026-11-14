@@ -10,7 +10,7 @@ const unusedVars = {
 };
 
 export default tseslint.config(
-  { ignores: ['dist/', 'node_modules/', 'test-results/'] },
+  { ignores: ['dist/', 'release/', 'node_modules/', 'test-results/'] },
   js.configs.recommended,
   {
     // The renderer: ES modules loaded by editor.html through app.js.

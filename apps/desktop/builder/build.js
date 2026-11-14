@@ -71,11 +71,14 @@ export async function perform(action) {
       studioProject(),
       builderSettings,
       baseName(),
+      bu.basic ? { memoryTop: bu.basic.memoryTop } : {},
     );
     diagnostics(r.diagnostics ?? []);
     $('buReport').open = true;
     if (r.ok) {
       bu.moduleSizes = r.moduleSizes ?? bu.moduleSizes;
+      bu.layout = r.layout ?? bu.layout;
+      renderMap();
       setStatus(
         r.message ?? (action === 'stop' ? 'Emulator stopped.' : `Built SD card: ${r.sdRoot}`),
       );
@@ -101,10 +104,12 @@ export async function perform(action) {
   }
 }
 /** Makes `folder` the project folder builds go to. */
-export function useFolder(folder) {
+export function useFolder(folder, basic = null) {
   bu.root = folder;
+  bu.basic = basic;
   bu.selection = null;
   bu.plan = null;
+  bu.layout = null;
   bu.catalog = [];
   bu.lastInput = '';
   bu.request++;
@@ -122,7 +127,7 @@ export function buildButtons() {
         if (dirty && !confirm('Discard unsaved changes?')) return;
         restoreStudioProject(result.project, result.name);
         await window.studio.opened(result.root + '/clementina.yaml', 'portable');
-        useFolder(result.root);
+        useFolder(result.root, result.basic);
         setStatus('Opened ' + result.name);
       } else {
         await window.studio.builderFolderSelected(result.root);

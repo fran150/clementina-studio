@@ -12,6 +12,7 @@ import {
   inspectBuilder,
   readBuilderFolder,
   writeBuilderProject,
+  type BuilderProgram,
 } from './builder.js';
 import { confirmRemoval, type ProjectLocation } from './project-files.js';
 
@@ -48,8 +49,9 @@ export function installBuilder(win: BrowserWindow, location: ProjectLocation): (
     p: StudioProject,
     settings: ProjectAssetsBuild,
     name: string,
+    program: BuilderProgram,
   ) {
-    const result = await buildStudioProject(root, p, settings, name, confirm);
+    const result = await buildStudioProject(root, p, settings, name, confirm, program);
     if (!result) return DECLINED;
     if (!result.ok) return result;
     const sdRoot = path.resolve(root, result.value.sdRoot);
@@ -70,6 +72,7 @@ export function installBuilder(win: BrowserWindow, location: ProjectLocation): (
       sdRoot,
       report: result.value.assets?.report,
       moduleSizes: result.value.assets?.report.runtimeCode,
+      layout: result.value.memoryLayout,
       running: !!emulator,
     };
   }
@@ -114,6 +117,7 @@ export function installBuilder(win: BrowserWindow, location: ProjectLocation): (
       p: StudioProject,
       settings: ProjectAssetsBuild,
       name: string,
+      program: BuilderProgram = {},
     ) => {
       if (!ACTIONS.includes(action)) throw Error('Unknown Builder action');
       if (busy) throw Error('A Builder operation is already running.');
@@ -126,10 +130,10 @@ export function installBuilder(win: BrowserWindow, location: ProjectLocation): (
         const root = location.builderRoot;
         if (!root) throw Error('Choose a portable project folder first.');
         if (action === 'save')
-          return (await writeBuilderProject(root, p, settings, name, confirm))
+          return (await writeBuilderProject(root, p, settings, name, confirm, program))
             ? { ok: true, diagnostics: [], message: 'Saved clementina.yaml and portable assets.' }
             : DECLINED;
-        return await build(root, action, p, settings, name);
+        return await build(root, action, p, settings, name, program);
       } finally {
         busy = false;
       }

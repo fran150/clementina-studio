@@ -1,0 +1,105 @@
+name: Release
+
+# Packages Studio with electron-builder on each platform's own runner. Studio
+# depends on the SDK through file: paths for development; here the SDK is
+# built and packed, and Studio is installed from those tarballs so the app
+# carries real copies of the packages. A v* tag attaches the packages to that
+# GitHub release; a tag with a prerelease suffix (v0.1.0-alpha.1) makes a
+# prerelease. The apps are not code-signed.
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths: [package.json, package-lock.json, .github/workflows/release.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # The SDK commit Studio is packaged with. Pin it to an SDK release tag.
+  SDK_REF: main
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, args: --mac --arm64 }
+          - { os: macos-15-intel, args: --mac --x64 }
+          - { os: ubuntu-latest, args: --linux --x64 }
+          - { os: windows-latest, args: --win --x64 }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: clementina-studio
+      - uses: actions/checkout@v5
+        with:
+          repository: fran150/clementina-sdk
+          ref: ${{ env.SDK_REF }}
+          path: clementina-sdk
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Build and pack the SDK
+        working-directory: clementina-sdk
+        run: |
+          npm ci
+          npm run build
+          mkdir -p ../sdk-pack
+          npm pack --workspaces --ignore-scripts --pack-destination ../sdk-pack
+      - name: Install Studio with the packed SDK
+        working-directory: clementina-studio
+        run: |
+          npm ci
+          npm install --no-audit --no-fund \
+            ../sdk-pack/clementina-{core,assets,project,basic,assembler,runtime,build,emulator-client}-*.tgz
+      - name: Package
+        working-directory: clementina-studio
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          case "$GITHUB_REF" in refs/tags/v*) version="${GITHUB_REF_NAME#v}" ;; *) version="$(node -p 'require("./package.json").version')-dev.${GITHUB_SHA::7}" ;; esac
+          npm run build
+          npx electron-builder ${{ matrix.args }} --publish never -c.extraMetadata.version="$version"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: studio-${{ matrix.os }}
+          path: |
+            clementina-studio/release/*.dmg
+            clementina-studio/release/*.zip
+            clementina-studio/release/*.AppImage
+            clementina-studio/release/*.tar.gz
+            clementina-studio/release/*.exe
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: studio-*
+          path: dist
+          merge-multiple: true
+      - name: Attach packages to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS
+          prerelease=()
+          case "$GITHUB_REF_NAME" in *-*) prerelease=(--prerelease) ;; esac
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes "${prerelease[@]}"
+          gh release upload "$GITHUB_REF_NAME" ./* --repo "$GITHUB_REPOSITORY" --clobber

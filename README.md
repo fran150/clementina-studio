@@ -32,6 +32,18 @@ background cell's attribute byte or an OAM entry. So tiles and sprites record
 palette bank *numbers*, and loading a different config recolors everything
 drawn against them.
 
+## Install
+
+The [releases](https://github.com/fran150/clementina-studio/releases) attach
+Studio for macOS (`.dmg` and `.zip`, Apple silicon and Intel), Linux
+(`.AppImage` and `.tar.gz`) and Windows (installer `.exe` and `.zip`), with a
+`SHA256SUMS` file. The apps are not code-signed: macOS asks you to confirm the
+first launch (or run `xattr -d com.apple.quarantine` on the app), and Windows
+SmartScreen asks once. The Builder still needs cc65 and, to run a game, the
+emulator's `clementina-automation` and the video client's `clementina-render`.
+
+`npm run dist` packages Studio for the current platform into `release/`.
+
 ## Normal workflow
 
 Define palettes and the bank configs that place them in palette RAM, draw
