@@ -41,6 +41,17 @@ test('Builder plans through the SDK, writes a portable folder and preserves prog
   await writeBuilderProject(root, p, settings, 'Test');
   assert.equal(await readFile(join(root, 'src/main.s'), 'utf8'), source);
 });
+test('The library checks toggle is saved as build.assembly.checks, not in build.assets', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'studio-builder-')),
+    settings = { ...defaultAssets(), checks: false };
+  await writeBuilderProject(root, emptyProject(), settings, 'Test');
+  const loaded = await loadProject(root);
+  assert.equal(loaded.ok, true);
+  assert.equal(loaded.value.manifest.build.assembly.checks, false);
+  assert.equal('checks' in loaded.value.manifest.build.assets, false);
+  assert.equal((await readBuilderFolder(root)).settings.checks, false);
+});
+
 test('Builder builds the written folder with the real toolchain', { skip: !hasTools }, async () => {
   const root = await mkdtemp(join(tmpdir(), 'studio-builder-build-')),
     p = emptyProject(),
@@ -147,4 +158,26 @@ test('Builder retains custom portable asset paths after opening a folder', async
   const after = (await loadProject(root)).value;
   assert.equal(after.manifest.assets.paletteConfigs[0], 'custom/config.json');
   assert.equal(after.manifest.description, 'Keep this metadata');
+});
+
+test('Builder sets and clears memoryTop for a project with a BASIC program, and keeps it otherwise', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'studio-builder-basic-')),
+    p = emptyProject();
+  await writeBuilderProject(root, p, defaultAssets(), 'Test');
+  assert.equal((await readBuilderFolder(root)).basic, null);
+  // Give the starter project a BASIC program that calls the assembly.
+  const loaded = await loadProject(root);
+  loaded.value.manifest.program = { entry: 'src/main.bas' };
+  loaded.value.manifest.build.basic = { outputName: 'game' };
+  await writeFile(join(root, 'src/main.bas'), '10 SYS 6144\n');
+  await saveProject(root, loaded.value);
+  assert.deepEqual((await readBuilderFolder(root)).basic, { memoryTop: null });
+  const top = async () => (await loadProject(root)).value.manifest.build.basic.memoryTop;
+  await writeBuilderProject(root, p, defaultAssets(), 'Test', undefined, { memoryTop: 0xa000 });
+  assert.equal(await top(), 0xa000);
+  assert.deepEqual((await readBuilderFolder(root)).basic, { memoryTop: 0xa000 });
+  await writeBuilderProject(root, p, defaultAssets(), 'Test');
+  assert.equal(await top(), 0xa000);
+  await writeBuilderProject(root, p, defaultAssets(), 'Test', undefined, { memoryTop: null });
+  assert.equal(await top(), undefined);
 });

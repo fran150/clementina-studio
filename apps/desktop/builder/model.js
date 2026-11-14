@@ -19,6 +19,13 @@ export const bu = {
   /** The project as last sent for planning, and the pending plan timer. */
   lastInput: '',
   timer: null,
+  /**
+   * The folder's BASIC program settings: { memoryTop } (a number, or null for
+   * the default $C000), or null when the project has no BASIC program.
+   */
+  basic: null,
+  /** Where the last build put every part in CPU memory and MIA RAM, or null before a build. */
+  layout: null,
   /** Each runtime library module's code size, from the last build. */
   moduleSizes: {},
   /** Whether the emulator is running, and whether a screen frame is on its way. */

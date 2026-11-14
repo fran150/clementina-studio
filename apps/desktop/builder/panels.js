@@ -17,6 +17,7 @@ import {
   slots,
 } from './model.js';
 import { renderProps } from './props.js';
+import { setStatus } from '../status.js';
 
 /** Selects an asset or slot and redraws the panels. */
 export function select(value) {
@@ -130,6 +131,7 @@ export function renderMap() {
     };
     return b;
   };
+  renderCpu(section('CPU memory · bank 0'));
   const mia = section('MIA RAM · 256 KiB');
   mia.append(
     el('div', '$00000–$0003F video control · gaps are not offered as slots', 'buReserved'),
@@ -157,4 +159,92 @@ export function renderMap() {
     else bs.append(el('div', `Bank ${bank} · 16 KiB`, 'buBankEmpty'));
   }
   banks.append(bs);
+}
+
+/** What owns each kind of CPU region in the build's memory layout. */
+const owners = {
+  system: 'System',
+  kernel: 'Kernel',
+  basic: 'BASIC',
+  program: 'Program',
+  asset: 'Asset slot',
+};
+/**
+ * Draws base RAM and bank 0 from the last build's memory layout: the system
+ * areas, BASIC's workspace up to MEMSIZ and each PRG, in address order. The
+ * SDK decides nothing here: overlaps are its warnings, in the build report.
+ */
+function renderCpu(section) {
+  section.append(memoryTopField());
+  const regions = bu.layout?.cpu.filter((r) => !r.bank) ?? [];
+  if (!regions.length) {
+    section.append(el('p', 'Build to see where the program and BASIC sit in CPU memory.'));
+    return;
+  }
+  const overlaps = new Set(
+    (bu.layout.diagnostics ?? []).flatMap((d) =>
+      regions.filter((r) => d.message.includes(r.name + ' (')),
+    ),
+  );
+  const list = el('div', undefined, 'buCpu');
+  for (const r of [...regions].sort((a, b) => a.start - b.start || b.size - a.size)) {
+    const row = el(
+      'div',
+      undefined,
+      'buCpuRegion ' + r.owner + (overlaps.has(r) ? ' overlap' : ''),
+    );
+    row.append(
+      el('strong', `${owners[r.owner] ?? r.owner} · ${r.name}`),
+      el('small', `${hex(r.start)}–${hex(r.start + r.size - 1)} · ${r.size.toLocaleString()} B`),
+    );
+    if (r.note) row.title = r.note;
+    list.append(row);
+  }
+  section.append(list);
+}
+
+/** Where BASIC's memory ends when there is no memoryTop: MEMSIZ at cold start. */
+const BASIC_TOP = 0xc000;
+/**
+ * build.basic.memoryTop: lowers MEMSIZ so bank-0 RAM from there to $BFFF is
+ * free for assembly the BASIC program calls. Only a project with a BASIC
+ * program has one; the PRG's own address stays in link.cfg.
+ */
+function memoryTopField() {
+  const row = el('div', undefined, 'buMemoryTop');
+  if (!bu.basic) {
+    row.append(
+      el(
+        'small',
+        'The program loads where link.cfg puts it. A project with a BASIC program (program.entry) can also set memoryTop.',
+      ),
+    );
+    return row;
+  }
+  const label = el('label', 'BASIC memory top (memoryTop) ');
+  const input = el('input');
+  input.value = bu.basic.memoryTop === null ? '' : hex(bu.basic.memoryTop);
+  input.placeholder = hex(BASIC_TOP);
+  input.setAttribute('aria-label', 'BASIC memory top');
+  const note = el('small');
+  const describe = () =>
+    (note.textContent =
+      bu.basic.memoryTop === null
+        ? ' BASIC uses bank 0 up to $BFFF.'
+        : ` ${hex(bu.basic.memoryTop)}–$BFFF is free for assembly; BASIC stays below it.`);
+  describe();
+  input.onchange = () => {
+    const text = input.value.trim();
+    const value = text === '' ? null : Number.parseInt(text.replace(/^\$/, ''), 16);
+    if (value !== null && !(value >= 0x1600 && value <= BASIC_TOP)) {
+      note.textContent = ' Enter a hex address from $1600 to $C000, or leave it empty.';
+      return;
+    }
+    bu.basic.memoryTop = value;
+    describe();
+    setStatus('memoryTop is written to clementina.yaml by the next Save, Build or Run.');
+  };
+  label.append(input);
+  row.append(label, note);
+  return row;
 }

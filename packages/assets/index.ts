@@ -54,7 +54,8 @@ export type StudioProject = StudioProjectV2 & {
   instruments?: Instrument[];
   sounds?: Sound[];
   songs?: Song[];
-  builder?: ProjectAssetsBuild;
+  /** The Builder settings: build.assets plus the library checks flag (build.assembly.checks). */
+  builder?: ProjectAssetsBuild & { checks?: boolean };
 };
 
 // The SDK owns Studio v2 compatibility validation. Keep these names for callers

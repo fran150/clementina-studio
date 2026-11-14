@@ -29,7 +29,7 @@ const STARTER_MAIN = `.setcpu "65C02"
 .export game_start
 .segment "CODE"
 game_start:
- ; Add Load, DrawScreen and the other runtime calls here.
+ ; Add Load, DrawScreen and the other library calls here.
  jmp game_start
 `;
 /** A new folder's link.cfg: zero page below the system's $E0-$FF, then the program and its data in RAM. */
@@ -44,7 +44,6 @@ function starterManifest(name: string): ClementinaProjectManifest {
     version: 1,
     name: name || 'Game',
     target: { machine: 'clementina-6502' },
-    program: { kind: 'assembly', entry: 'src/main.s' },
     assets: {
       palettes: [],
       paletteConfigs: [],
@@ -57,6 +56,7 @@ function starterManifest(name: string): ClementinaProjectManifest {
     build: {
       outputDirectory: 'build',
       assembly: {
+        sources: ['src/main.s'],
         linkerConfig: 'link.cfg',
         outputName: 'game',
         loadAddress: LOAD_ADDRESS,
@@ -78,13 +78,30 @@ function diagnosticsError(
   );
 }
 
+/**
+ * The Builder's settings: the manifest's build.assets, plus whether the
+ * Clementina library is assembled with its argument checks (build.assembly.checks).
+ */
+export type BuilderSettings = ProjectAssetsBuild & { checks?: boolean };
 /** The Builder's settings for a project that has none yet. */
-export const defaultAssets = (): ProjectAssetsBuild => ({
+export const defaultAssets = (): BuilderSettings => ({
   folder: 'ASSETS',
   checks: true,
   slots: [],
   include: [],
 });
+/** Splits Builder settings into build.assets and the library's checks flag. */
+function splitSettings(settings: BuilderSettings) {
+  const { checks, ...assets } = settings;
+  return { assets: assets as ProjectAssetsBuild, checks };
+}
+/** The Builder's settings for a manifest's build section. */
+function builderSettings(build: ClementinaProjectManifest['build']): BuilderSettings {
+  const assets = build?.assets
+    ? structuredClone(build.assets)
+    : splitSettings(defaultAssets()).assets;
+  return { ...assets, checks: build?.assembly?.checks ?? true };
+}
 /**
  * Why a folder is written: 'builder' is the Builder's Save, Build or Run, which
  * may start a new folder and always records the Builder's settings; 'save' is
@@ -92,6 +109,12 @@ export const defaultAssets = (): ProjectAssetsBuild => ({
  * already has some or they differ from the defaults.
  */
 type WriteMode = 'builder' | 'save';
+/**
+ * The program settings the Builder edits besides the asset build. `memoryTop`
+ * is build.basic.memoryTop: a number sets it, null removes it, and leaving it
+ * out keeps what the folder has. It applies only to a project with a BASIC program.
+ */
+export type BuilderProgram = { memoryTop?: number | null };
 
 /**
  * The portable project for `studio`: `existing`'s manifest with its asset
@@ -99,10 +122,11 @@ type WriteMode = 'builder' | 'save';
  */
 function portableBuilderProject(
   studio: StudioProject,
-  settings: ProjectAssetsBuild,
+  settings: BuilderSettings,
   name: string,
   existing?: PortableProject,
   mode: WriteMode = 'builder',
+  program: BuilderProgram = {},
 ) {
   const assets = fromStudioProjectV2(studio);
   const manifest = existing ? structuredClone(existing.manifest) : starterManifest(name);
@@ -126,20 +150,28 @@ function portableBuilderProject(
       (a) => paths.get(a.id) ?? `assets/${kind}/${encodeURIComponent(a.id)}.json`,
     );
   }
+  const { assets: assetSettings, checks } = splitSettings(settings);
   if (
     manifest.build &&
     (mode === 'builder' ||
       manifest.build.assets ||
-      JSON.stringify(settings) !== JSON.stringify(defaultAssets()))
+      JSON.stringify(assetSettings) !== JSON.stringify(splitSettings(defaultAssets()).assets))
   )
-    manifest.build.assets = structuredClone(settings);
+    manifest.build.assets = structuredClone(assetSettings);
+  const assembly = manifest.build?.assembly;
+  if (assembly && typeof checks === 'boolean' && (assembly.checks ?? true) !== checks)
+    assembly.checks = checks;
+  const basic = manifest.build?.basic,
+    top = program.memoryTop;
+  if (basic && top === null) delete basic.memoryTop;
+  else if (basic && typeof top === 'number') basic.memoryTop = top;
   return { manifest, assets };
 }
 /**
  * What the Builder would build, without writing anything: the SDK's plan (or
  * its diagnostics) and a catalog of the assets a slot can name.
  */
-export function inspectBuilder(studio: StudioProject, settings: ProjectAssetsBuild, name: string) {
+export function inspectBuilder(studio: StudioProject, settings: BuilderSettings, name: string) {
   const project = portableBuilderProject(studio, settings, name);
   const checked = checkProject(project);
   // Slot kind to asset list; 'sprites' are the tilesets some shape draws from.
@@ -166,11 +198,14 @@ export async function readBuilderFolder(root: string) {
   const opened = await readPortableStudioProject(root);
   if (!opened.portable.manifest.build?.assembly)
     throw Error('Choose an assembly project, or an empty folder for a new one.');
+  const basic = opened.portable.manifest.build?.basic;
   return {
     settings: opened.project.builder ?? defaultAssets(),
     fresh: false,
     project: opened.project,
     name: opened.portable.manifest.name,
+    // Whether the folder has a BASIC program, and the MEMSIZ it sets before running it.
+    basic: basic ? { memoryTop: basic.memoryTop ?? null } : null,
   };
 }
 /** Opens a portable project folder as a Studio project, with its Builder settings. */
@@ -180,7 +215,7 @@ export async function readPortableStudioProject(root: string) {
   const portable = loaded.value;
   const project: StudioProject = {
     ...toStudioProjectV2(portable.assets),
-    builder: structuredClone(portable.manifest.build?.assets ?? defaultAssets()),
+    builder: builderSettings(portable.manifest.build),
   };
   validateProject(project);
   return { portable, project };
@@ -204,7 +239,7 @@ function assetsRemovedBySave(existing: PortableProject, project: PortableProject
 export async function writePortableStudioProject(
   root: string,
   studio: StudioProject,
-  settings: ProjectAssetsBuild,
+  settings: BuilderSettings,
   name: string,
   confirmRemoval: ConfirmRemoval = () => false,
 ) {
@@ -214,11 +249,12 @@ export async function writePortableStudioProject(
 export async function writeBuilderProject(
   root: string,
   studio: StudioProject,
-  settings: ProjectAssetsBuild,
+  settings: BuilderSettings,
   name: string,
   confirmRemoval: ConfirmRemoval = () => false,
+  program: BuilderProgram = {},
 ) {
-  return writeStudioProject(root, studio, settings, name, confirmRemoval, 'builder');
+  return writeStudioProject(root, studio, settings, name, confirmRemoval, 'builder', program);
 }
 /**
  * Writes `studio` into the folder at `root`. Only the Builder may start a new
@@ -228,10 +264,11 @@ export async function writeBuilderProject(
 async function writeStudioProject(
   root: string,
   studio: StudioProject,
-  settings: ProjectAssetsBuild,
+  settings: BuilderSettings,
   name: string,
   confirmRemoval: ConfirmRemoval,
   mode: WriteMode,
+  program: BuilderProgram = {},
 ) {
   let existing: PortableProject | undefined;
   try {
@@ -245,7 +282,7 @@ async function writeStudioProject(
   if (!existing && mode === 'save') throw Error('Open a portable project before saving it.');
   if (existing && mode === 'builder' && !existing.manifest.build?.assembly)
     throw Error('Builder needs a portable assembly project with build.assembly settings.');
-  const project = portableBuilderProject(studio, settings, name, existing, mode);
+  const project = portableBuilderProject(studio, settings, name, existing, mode, program);
   // Check before asking, so a save that can't happen never asks.
   const checked = checkProject(project);
   if (!checked.ok) throw diagnosticsError(checked.diagnostics);
@@ -265,10 +302,12 @@ async function writeStudioProject(
 export async function buildStudioProject(
   root: string,
   studio: StudioProject,
-  settings: ProjectAssetsBuild,
+  settings: BuilderSettings,
   name: string,
   confirmRemoval?: ConfirmRemoval,
+  program: BuilderProgram = {},
 ) {
-  if (!(await writeBuilderProject(root, studio, settings, name, confirmRemoval))) return undefined;
+  if (!(await writeBuilderProject(root, studio, settings, name, confirmRemoval, program)))
+    return undefined;
   return buildProject(root);
 }

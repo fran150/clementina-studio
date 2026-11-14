@@ -9,12 +9,15 @@ import type { StudioProject } from '../../packages/assets/index.js';
 import { installAppMenu } from './app-menu.js';
 import { installBuilder } from './builder-ipc.js';
 import { installCloseGuard } from './close-guard.js';
+import { adoptLoginShellPath } from './login-path.js';
 import { pageBridge } from './page-bridge.js';
 import { installProjectFiles, ProjectLocation, saveProject } from './project-files.js';
 import { RecoveryStore } from './recovery.js';
 import { RecoverySession } from './recovery-session.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+
+adoptLoginShellPath();
 
 /** Opens Studio's window, sandboxed: the page reaches the system only through preload.cts. */
 function createWindow() {

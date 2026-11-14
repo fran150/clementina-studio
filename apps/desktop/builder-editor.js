@@ -46,7 +46,7 @@ bu.render = render;
 $('buAssetFolder').onchange = () =>
   edit('Change asset folder', () => (builderSettings.folder = $('buAssetFolder').value));
 $('buChecks').onchange = () =>
-  edit('Change runtime checks', () => (builderSettings.checks = $('buChecks').checked));
+  edit('Change library checks', () => (builderSettings.checks = $('buChecks').checked));
 buildButtons();
 StudioShell.viewKeys('builder', (e) => {
   if ((e.key === 'Delete' || e.key === 'Backspace') && remove()) e.preventDefault();
