@@ -41,6 +41,17 @@ test('Builder plans through the SDK, writes a portable folder and preserves prog
   await writeBuilderProject(root, p, settings, 'Test');
   assert.equal(await readFile(join(root, 'src/main.s'), 'utf8'), source);
 });
+test('The library checks toggle is saved as build.assembly.checks, not in build.assets', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'studio-builder-')),
+    settings = { ...defaultAssets(), checks: false };
+  await writeBuilderProject(root, emptyProject(), settings, 'Test');
+  const loaded = await loadProject(root);
+  assert.equal(loaded.ok, true);
+  assert.equal(loaded.value.manifest.build.assembly.checks, false);
+  assert.equal('checks' in loaded.value.manifest.build.assets, false);
+  assert.equal((await readBuilderFolder(root)).settings.checks, false);
+});
+
 test('Builder builds the written folder with the real toolchain', { skip: !hasTools }, async () => {
   const root = await mkdtemp(join(tmpdir(), 'studio-builder-build-')),
     p = emptyProject(),

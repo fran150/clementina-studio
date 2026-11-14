@@ -5,7 +5,6 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { dialog, ipcMain, type BrowserWindow } from 'electron';
 import { startEmulatorProcess, type EmulatorProcess } from '@clementina/emulator-client/node';
-import type { ProjectAssetsBuild } from '@clementina/project';
 import type { StudioProject } from '../../packages/assets/index.js';
 import {
   buildStudioProject,
@@ -13,6 +12,7 @@ import {
   readBuilderFolder,
   writeBuilderProject,
   type BuilderProgram,
+  type BuilderSettings,
 } from './builder.js';
 import { confirmRemoval, type ProjectLocation } from './project-files.js';
 
@@ -47,7 +47,7 @@ export function installBuilder(win: BrowserWindow, location: ProjectLocation): (
     root: string,
     action: BuilderAction,
     p: StudioProject,
-    settings: ProjectAssetsBuild,
+    settings: BuilderSettings,
     name: string,
     program: BuilderProgram,
   ) {
@@ -71,7 +71,7 @@ export function installBuilder(win: BrowserWindow, location: ProjectLocation): (
       diagnostics: result.diagnostics,
       sdRoot,
       report: result.value.assets?.report,
-      moduleSizes: result.value.assets?.report.runtimeCode,
+      moduleSizes: result.value.assets?.report.libraryCode,
       layout: result.value.memoryLayout,
       running: !!emulator,
     };
@@ -79,7 +79,7 @@ export function installBuilder(win: BrowserWindow, location: ProjectLocation): (
 
   ipcMain.handle(
     'builder:plan',
-    (_event, p: StudioProject, settings: ProjectAssetsBuild, name: string) =>
+    (_event, p: StudioProject, settings: BuilderSettings, name: string) =>
       inspectBuilder(p, settings, name),
   );
   // The folder picked here is used only once the page confirms it (builder:folder-selected).
@@ -115,7 +115,7 @@ export function installBuilder(win: BrowserWindow, location: ProjectLocation): (
       _event,
       action: BuilderAction,
       p: StudioProject,
-      settings: ProjectAssetsBuild,
+      settings: BuilderSettings,
       name: string,
       program: BuilderProgram = {},
     ) => {
