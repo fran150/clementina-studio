@@ -19,7 +19,7 @@ permissions:
 
 env:
   # The SDK commit Studio is packaged with. Pin it to an SDK release tag.
-  SDK_REF: main
+  SDK_REF: v0.3.0-alpha.1
 
 jobs:
   package:
