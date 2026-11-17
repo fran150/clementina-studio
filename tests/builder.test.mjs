@@ -167,9 +167,9 @@ test('Builder sets and clears memoryTop for a project with a BASIC program, and 
   assert.equal((await readBuilderFolder(root)).basic, null);
   // Give the starter project a BASIC program that calls the assembly.
   const loaded = await loadProject(root);
-  loaded.value.manifest.program = { entry: 'src/main.bas' };
+  loaded.value.manifest.program = { entry: 'src/main.cbas' };
   loaded.value.manifest.build.basic = { outputName: 'game' };
-  await writeFile(join(root, 'src/main.bas'), '10 SYS 6144\n');
+  await writeFile(join(root, 'src/main.cbas'), '10 SYS 6144\n');
   await saveProject(root, loaded.value);
   assert.deepEqual((await readBuilderFolder(root)).basic, { memoryTop: null });
   const top = async () => (await loadProject(root)).value.manifest.build.basic.memoryTop;
